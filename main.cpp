@@ -41,6 +41,16 @@ float h_alpha_dev(float a)
 	return -sin(a) - cos(a);
 }
 
+float kalpha(float a)
+{
+	return sin(a) + cos(b);
+}
+
+float k_alpha_dev(float)
+{
+	return cos(a) - sin(a);
+}
+
 int main()
 {
 
