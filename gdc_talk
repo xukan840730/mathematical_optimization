@@ -1,2 +1,17 @@
 chapter:
 motion capture -> animation data.
+
+animation data compression: ice compression.
+
+it's very highly compressed, which is good for data wise but we have to build anim cmd to animate skeleton at some time.
+it uses to be done on spu, and it's done on gpu compute context.(is that correct?)
+
+however, to get custom information from anim, such as align, ankle loc by animate the character will be very expensive. so we simply supports export any number of locators any time.
+It will be used to export align location, apRef locator, ankle locators, hand touch, etc.
+
+ApRef Locator, how that work? (Need ask Kurt how design and animator align apLoc in Maya?)
+
+Gesture: (Need talk to Vish, multiple directions of partial and additives which supports character looks/faces/aims to a direction)
+
+IK: simple introduction of full body Ik. It's basically a mathematical optimization. Solve Jacobian matrix is very popular, 
+ 
