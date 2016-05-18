@@ -43,10 +43,10 @@ float h_alpha_dev(float a)
 
 float kalpha(float a)
 {
-	return sin(a) + cos(b);
+	return sin(a) + cos(a);
 }
 
-float k_alpha_dev(float)
+float k_alpha_dev(float a)
 {
 	return cos(a) - sin(a);
 }
@@ -114,6 +114,35 @@ int main()
 		}
 	}
 
+	{
+		FParams params;
+		params.fMin = -2.f;
+		params.rho = 0.01f;
+		params.sigma = 0.1f;
+		params.tau1 = 9.f;
+		params.tau2 = 0.1f;
+		params.tau3 = 0.5f;
+
+		float finalA = 0.f;
+
+		BracketRes bracketRes = bracketing(kalpha, k_alpha_dev, 0.f, 3.f, params);
+
+		if (bracketRes.t)
+		{
+			finalA = bracketRes.alpha;
+			printf("done!\n");
+		}
+		else if (bracketRes.tB)
+		{
+			finalA = sectioning(kalpha, k_alpha_dev, bracketRes.interval, params);
+			printf("done!\n");
+		}
+		else
+		{
+			// unknown.
+			//assert(false);
+		}
+	}
 
 	return 0;
 }

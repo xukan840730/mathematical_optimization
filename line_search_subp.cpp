@@ -161,7 +161,7 @@ BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float
 		float FADevI = fadev(Ai);
 
 		{
-			if (abs(FADevI) <= -params.sigma * FAD0)
+			if (fabs(FADevI) <= -params.sigma * FAD0)
 			{
 				res.t = true;
 				res.alpha = Ai;
@@ -256,7 +256,7 @@ float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _pre
 		else
 		{
 			float FADj = fadev(alphaJ);
-			if (abs(FADj) <= -params.sigma * FAD0)
+			if (fabs(FADj) <= -params.sigma * FAD0)
 			{
 				// finally we get a good point.
 				return alphaJ;
