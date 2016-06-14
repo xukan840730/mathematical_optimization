@@ -35,12 +35,12 @@ float f_alpha_dev(float a)
 
 float halpha(float a)
 {
-	return cos(a) - sin(a);
+	return cosf(a) - sinf(a);
 }
 
 float h_alpha_dev(float a)
 {
-	return -sin(a) - cos(a);
+	return -sinf(a) - cosf(a);
 }
 
 int main()

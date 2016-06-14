@@ -30,5 +30,8 @@ public:
 
 void MatrixMult(ScalarMatrix* result, const ScalarMatrix& m1, const ScalarMatrix& m2);
 
-// use LU matrix to get the inverse matrix.
+// use LU matrix to calculate the inverse matrix.
 void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& U);
+
+// LU decomposition
+void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U);

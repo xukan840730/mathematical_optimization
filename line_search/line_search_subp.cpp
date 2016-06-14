@@ -85,8 +85,8 @@ float choose(const Interval& currI, float currFa, float currFb, float currDevA, 
 	}
 	else
 	{
-		float cZ0 = sqrt(co) - hermiteRes.c2 / (3 * hermiteRes.c3);
-		float cZ1 = -sqrt(co) - hermiteRes.c2 / (3 * hermiteRes.c3);
+		float cZ0 = sqrtf(co) - hermiteRes.c2 / (3 * hermiteRes.c3);
+		float cZ1 = -sqrtf(co) - hermiteRes.c2 / (3 * hermiteRes.c3);
 
 		// second order derivative.
 		float cZ0_dev2 = 2 * hermiteRes.c2 + 6 * hermiteRes.c3 * cZ0;

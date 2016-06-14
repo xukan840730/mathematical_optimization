@@ -118,7 +118,7 @@ void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& 
 			}
 
 			float co = L.Get(row, row);
-			xassert(abs(co) > NDI_FLT_EPSILON);
+			xassert(fabsf(co) > NDI_FLT_EPSILON);
 			float zz = (c - sum) / co;
 
 			Z.Set(row, col, zz);
@@ -137,10 +137,33 @@ void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& 
 			}
 
 			float co = U.Get(row, row);
-			xassert(abs(co) > NDI_FLT_EPSILON);
+			xassert(fabsf(co) > NDI_FLT_EPSILON);
 			float bb = (c - sum) / co;
 
 			result->Set(row, col, bb);
 		}
+	}
+}
+
+//----------------------------------------------------------------------------------------------------//
+// LU Decomposition
+//----------------------------------------------------------------------------------------------------//
+void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U)
+{
+	xassert(A.GetNumRows() == L->GetNumRows());
+	xassert(A.GetNumRows() == L->GetNumCols());
+	xassert(A.GetNumRows() == A.GetNumCols());	// it is not necessary, LU decomposition doesn't need a square matrix.
+
+	// copy A to L and U.
+	*L = A;
+	*U = A;
+
+	int col = 0;
+
+	
+
+	for (int row = 1; row < A.GetNumRows(); row++)
+	{
+		
 	}
 }
