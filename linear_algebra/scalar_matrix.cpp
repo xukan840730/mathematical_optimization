@@ -25,6 +25,27 @@ ScalarMatrix::~ScalarMatrix()
 	delete [] m_matrix;
 }
 
+void ScalarMatrix::Identity()
+{
+	xassert(m_rows > 0 && m_cols > 0);
+
+	for (int row = 0; row < m_rows; row++)
+	{
+		for (int col = 0; col < m_cols; col++)
+		{
+			m_matrix[Index(row, col)] = (row == col) ? 1.f : 0.f;
+		}
+	}
+}
+
+void ScalarMatrix::CopyFrom(const ScalarMatrix& m)
+{
+	xassert(m_rows == m.m_rows);
+	xassert(m_cols == m.m_cols);
+
+	memcpy(m_matrix, m.m_matrix, GetSize() * sizeof(float));
+}
+
 //----------------------------------------------------------------------------------------------------//
 
 float ScalarMatrix::Get(int r, int c) const
@@ -54,23 +75,18 @@ void MatrixMult(ScalarMatrix* result, const ScalarMatrix& m1, const ScalarMatrix
 	int sumCount = m1.GetNumCols();
 	xassert(sumCount > 0);
 
-	float sum;
-	int m1IndexStart;
-	int m1Index;
-	int m2Index;
-
 	int resIndex = 0;
 
 	for (int i=0; i<result->GetNumRows(); i++)
 	{
-		m1IndexStart = i*m1.GetNumCols();
+		int m1IndexStart = i*m1.GetNumCols();
 
 		for (int j=0; j<result->GetNumCols(); j++)
 		{
-			m1Index = m1IndexStart;
-			m2Index = j;
+			int m1Index = m1IndexStart;
+			int m2Index = j;
 
-			sum = 0.0f;
+			float sum = 0.0f;
 			for (int k=0; k<sumCount; k++)
 			{
 				sum += m1.m_matrix[m1Index]*m2.m_matrix[m2Index];
@@ -155,24 +171,42 @@ void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U)
 	xassert(A.GetNumRows() == A.GetNumCols());	// it is not necessary, LU decomposition doesn't need a square matrix.
 
 	// copy A to L and U.
-	*L = A;
-	//*U = A;
+	L->Identity();
+	U->CopyFrom(A);
 
 	for (int col = 0; col < A.GetNumCols(); col++)
 	{
 		for (int row = col + 1; row < A.GetNumRows(); row++)
 		{
-			float aa = L->Get(col, col);
-			xassert(fabsf(aa) > NDI_EPLISON);
-			float bb = L->Get(row, col);
-			float scale = bb / aa; 
+			float aa = U->Get(col, col);
+			xassert(fabsf(aa) > NDI_FLT_EPSILON);
+			float bb = U->Get(row, col);
+			float scale = bb / aa;
+
+			L->Set(row, col, scale);
 		
-			for (kk = col; kk < A.GetNumCols(); kk++)
+			for (int kk = col; kk < A.GetNumCols(); kk++)
 			{
 				//a10 - a00 * (a10 / a00), a11 - a01 * (a10/ a00)
-				float ee = L->Get(row, kk) - L->Get(col, kk) * scale;	
-				L->Set(row, kk, ee);
+				float ee = U->Get(row, kk) - U->Get(col, kk) * scale;	
+				U->Set(row, kk, ee);
 			}
 		}
 	}
+}
+
+//----------------------------------------------------------------------------------------------------//
+// matrix inversion.
+//----------------------------------------------------------------------------------------------------//
+void MatrixInverse(ScalarMatrix* result, const ScalarMatrix& A)
+{
+	int numRows = A.GetNumRows();
+	int numCols = A.GetNumCols();
+
+	ScalarMatrix L(numRows, numCols);
+	ScalarMatrix U(numRows, numCols);
+	
+	LUDecomposition(A, &L, &U);
+
+	LUInverse(result, L, U);
 }

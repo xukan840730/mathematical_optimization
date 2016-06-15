@@ -108,11 +108,10 @@ int main()
 
 	{
 		ScalarMatrix A(3, 3);
-		ScalarMatrix L(3, 3);
-		ScalarMatrix U(3, 3);
-
-		ScalarMatrix tA(3, 3);
 		ScalarMatrix iA(3, 3);
+
+		ScalarMatrix ttA(3, 3);
+
 		{
 			A.Set(0, 0, 25.f);
 			A.Set(0, 1, 5.f);
@@ -127,40 +126,23 @@ int main()
 			A.Set(2, 2, 1.f);
 		}
 
+		// LU decomposition
 		{
-			L.Set(0, 0, 1.f);
-			L.Set(0, 1, 0.f);
-			L.Set(0, 2, 0.f);
+			ScalarMatrix L(3, 3);
+			ScalarMatrix U(3, 3);
 
-			L.Set(1, 0, 2.56f);
-			L.Set(1, 1, 1.f);
-			L.Set(1, 2, 0.f);
-
-			L.Set(2, 0, 5.76f);
-			L.Set(2, 1, 3.5f);
-			L.Set(2, 2, 1.f);
+			LUDecomposition(A, &L, &U);
 		}
 
+		// matrix inversion
 		{
-			U.Set(0, 0, 25.f);
-			U.Set(0, 1, 5.f);
-			U.Set(0, 2, 1.f);
-
-			U.Set(1, 0, 0.f);
-			U.Set(1, 1, -4.8f);
-			U.Set(1, 2, -1.56f);
-
-			U.Set(2, 0, 0.f);
-			U.Set(2, 1, 0.f);
-			U.Set(2, 2, 0.7f);
+			MatrixInverse(&iA, A);
 		}
 
-		MatrixMult(&tA, L, U);
-
-		LUInverse(&iA, L, U);
-
-		ScalarMatrix ttA(3, 3);
-		MatrixMult(&ttA, A, iA);
+		// validation
+		{
+			MatrixMult(&ttA, A, iA);
+		}
 
 		printf("done!\n");
 	}

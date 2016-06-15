@@ -15,6 +15,9 @@ public:
 	ScalarMatrix(const ScalarMatrix& m);
 	~ScalarMatrix();
 
+	void Identity();
+	void CopyFrom(const ScalarMatrix& m);
+
 	int GetNumRows() const { return m_rows; }
 	int GetNumCols() const { return m_cols; }
 	int GetSize() const { return m_rows * m_cols; }
@@ -35,3 +38,6 @@ void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& 
 
 // LU decomposition
 void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U);
+
+// matrix inversion. make sure the result matrix is allocated before calling inversion.
+void MatrixInverse(ScalarMatrix* result, const ScalarMatrix& A);

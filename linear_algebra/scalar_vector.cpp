@@ -1,3 +1,4 @@
+#include "../common/common_shared.h"
 #include "scalar_vector.h"
 
 //---------------------------------------------------------------------//
