@@ -156,14 +156,23 @@ void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U)
 
 	// copy A to L and U.
 	*L = A;
-	*U = A;
+	//*U = A;
 
-	int col = 0;
-
-	
-
-	for (int row = 1; row < A.GetNumRows(); row++)
+	for (int col = 0; col < A.GetNumCols(); col++)
 	{
+		for (int row = col + 1; row < A.GetNumRows(); row++)
+		{
+			float aa = L->Get(col, col);
+			xassert(fabsf(aa) > NDI_EPLISON);
+			float bb = L->Get(row, col);
+			float scale = bb / aa; 
 		
+			for (kk = col; kk < A.GetNumCols(); kk++)
+			{
+				//a10 - a00 * (a10 / a00), a11 - a01 * (a10/ a00)
+				float ee = L->Get(row, kk) - L->Get(col, kk) * scale;	
+				L->Set(row, kk, ee);
+			}
+		}
 	}
 }
