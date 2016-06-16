@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "linear_algebra", "linear_al
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_case", "test_case\test_case.vcxproj", "{34BBC2AA-F33B-4C5B-ACDE-B8F8425ABD07}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "newtons_method", "newtons_method\newtons_method.vcxproj", "{A1538FB3-3AAC-4DD1-A60E-DF6A769CD11A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -31,6 +33,10 @@ Global
 		{34BBC2AA-F33B-4C5B-ACDE-B8F8425ABD07}.Debug|Win32.Build.0 = Debug|Win32
 		{34BBC2AA-F33B-4C5B-ACDE-B8F8425ABD07}.Release|Win32.ActiveCfg = Release|Win32
 		{34BBC2AA-F33B-4C5B-ACDE-B8F8425ABD07}.Release|Win32.Build.0 = Release|Win32
+		{A1538FB3-3AAC-4DD1-A60E-DF6A769CD11A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A1538FB3-3AAC-4DD1-A60E-DF6A769CD11A}.Debug|Win32.Build.0 = Debug|Win32
+		{A1538FB3-3AAC-4DD1-A60E-DF6A769CD11A}.Release|Win32.ActiveCfg = Release|Win32
+		{A1538FB3-3AAC-4DD1-A60E-DF6A769CD11A}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

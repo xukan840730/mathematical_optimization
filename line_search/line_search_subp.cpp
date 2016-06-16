@@ -112,7 +112,7 @@ float choose(const Interval& currI, float currFa, float currFb, float currDevA, 
 }
 
 
-BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float a1, const FParams& params)
+BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float a1, const LineSearchParams& params)
 {
 	// a0 == 0.
 	xassert(a0 == 0);
@@ -217,7 +217,7 @@ BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float
 	return res;
 }
 
-float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _prevI, const FParams& params)
+float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _prevI, const LineSearchParams& params)
 {
 	xassert(_prevI.a == _prevI.a);
 	xassert(_prevI.b == _prevI.b);

@@ -21,3 +21,41 @@ ScalarVector::~ScalarVector()
 {
 	delete[] m_vector;
 }
+
+void ScalarVector::CopyFrom(const ScalarVector& v)
+{
+	xassert(m_length == v.m_length);
+	memcpy(m_vector, v.m_vector, sizeof(float) * m_length);
+}
+
+//---------------------------------------------------------------------//
+void ScalarVector::Set(int n, float val)
+{
+	xassert(n >= 0 && n < m_length);
+	m_vector[n] = val;
+}
+
+float ScalarVector::Get(int n) const
+{
+	xassert(n >= 0 && n < m_length);
+	return m_vector[n];
+}
+
+//---------------------------------------------------------------------//
+void ScalarVector::Add(const ScalarVector& v)
+{
+	xassert(m_length == v.GetLength());
+	for (int ii = 0; ii < m_length; ii++)
+	{
+		m_vector[ii] += v.Get(ii);
+	}
+}
+
+void VectorMult(ScalarVector* result, const ScalarVector& v, const float m)
+{
+	xassert(result->GetLength() == v.GetLength());
+	for (int ii = 0; ii < v.GetLength(); ii++)
+	{
+		result->Set(ii, v.Get(ii) * m);
+	}
+}

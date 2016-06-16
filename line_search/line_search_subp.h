@@ -10,7 +10,7 @@ struct Interval
 	bool IsIn(float c) const;
 };
 
-struct FParams
+struct LineSearchParams
 {
 	float fMin;
 	float rho;
@@ -34,6 +34,5 @@ struct BracketRes
 	Interval interval;
 };
 
-
-BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float a1, const FParams& params);
-float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _prevI, const FParams& params);
+BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float a1, const LineSearchParams& params);
+float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _prevI, const LineSearchParams& params);

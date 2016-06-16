@@ -100,6 +100,24 @@ void MatrixMult(ScalarMatrix* result, const ScalarMatrix& m1, const ScalarMatrix
 	}
 }
 
+void MatrixMult(ScalarVector* result, const ScalarMatrix& m, const ScalarVector& v)
+{
+	xassert(result->GetLength() == v.GetLength());
+	xassert(v.GetLength() == m.GetNumCols());
+
+	for (int ii = 0; ii < v.GetLength(); ii++)
+	{
+		float sum = 0.f;
+
+		for (int col = 0; col < v.GetLength(); col++)
+		{
+			sum += v.Get(col) * m.Get(ii, col);
+		}
+
+		result->Set(ii, sum);
+	}
+}
+
 //----------------------------------------------------------------------------------------------------//
 // matrix inversion
 //----------------------------------------------------------------------------------------------------//

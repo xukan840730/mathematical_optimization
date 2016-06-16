@@ -2,8 +2,10 @@
 #include "stdlib.h"
 #include "math.h"
 
+#include "../common/common_shared.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "../line_search/line_search_subp.h"
+#include "../newtons_method/newtons_method.h"
 
 
 //float func(float x1, float x2)
@@ -22,6 +24,62 @@
 //{
 //	return 200 * (x2 - x1 * x1);
 //}
+
+float f_test_newton(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	return x1 * x1 * x1 * x1 + x1 * x2 + (1 + x2) * (1 + x2);
+}
+
+float f_test_newton_g1(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	return 4 * x1 * x1 * x1 + x2;
+}
+
+float f_test_newton_g2(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	return x1 + 2 * (1 + x2);
+}
+
+float f_test_newton_H00(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	return 12 * x1 * x1;
+}
+
+float f_test_newton_H01(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	return 1;
+}
+
+float f_test_newton_H10(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	return 1;
+}
+
+float f_test_newton_H11(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	return 2;
+}
 
 float falpha(float a)
 {
@@ -47,7 +105,7 @@ int main()
 {
 
 	{
-		FParams params;
+		LineSearchParams params;
 		params.fMin = -1.f;
 		params.rho = 0.01f;
 		params.sigma = 0.1f;
@@ -77,7 +135,7 @@ int main()
 	}
 
 	{
-		FParams params;
+		LineSearchParams params;
 		params.fMin = -2.f;
 		params.rho = 0.01f;
 		params.sigma = 0.1f;
@@ -147,6 +205,29 @@ int main()
 		printf("done!\n");
 	}
 
+	{
+		// test newton's method
+		ScalarF F = f_test_newton;
+
+		Gradient g(2);
+		Hessian H(2);
+
+		g.Set(0, f_test_newton_g1);
+		g.Set(1, f_test_newton_g2);
+
+		H.Set(0, 0, f_test_newton_H00);
+		H.Set(0, 1, f_test_newton_H01);
+		H.Set(1, 0, f_test_newton_H10);
+		H.Set(1, 1, f_test_newton_H11);
+
+		ScalarVector initGuess(2);
+		ScalarVector result(2);
+		initGuess.Set(0, 0.75f);
+		initGuess.Set(1, -1.25f);
+
+		NewtonsMethod(F, &g, &H, initGuess, &result);
+		printf("done!\n");
+	}
 
 	return 0;
 }
