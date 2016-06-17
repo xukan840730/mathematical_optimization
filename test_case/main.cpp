@@ -170,6 +170,11 @@ int main()
 
 		ScalarMatrix ttA(3, 3);
 
+		ScalarMatrix C(3, 3);
+		ScalarMatrix LC(3, 3);
+		ScalarMatrix tLC(3, 3);
+		ScalarMatrix ttC(3, 3);
+
 		{
 			A.Set(0, 0, 25.f);
 			A.Set(0, 1, 5.f);
@@ -190,6 +195,26 @@ int main()
 			ScalarMatrix U(3, 3);
 
 			LUDecomposition(A, &L, &U);
+		}
+
+		// Cholesky decomposition
+		{
+			C.Set(0, 0, 6.f);
+			C.Set(0, 1, 15.f);
+			C.Set(0, 2, 55.f);
+
+			C.Set(1, 0, 15.f);
+			C.Set(1, 1, 55.f);
+			C.Set(1, 2, 225.f);
+
+			C.Set(2, 0, 55.f);
+			C.Set(2, 1, 225.f);
+			C.Set(2, 2, 979.f);
+
+			CholeskyDecomposition(C, &LC);
+			LC.Transpose(&tLC);
+
+			MatrixMult(&ttC, LC, tLC);
 		}
 
 		// matrix inversion

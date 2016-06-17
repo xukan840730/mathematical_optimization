@@ -18,7 +18,10 @@ public:
 	~ScalarMatrix();
 
 	void Identity();
+	void ZeroOut();
+
 	void CopyFrom(const ScalarMatrix& m);
+	void Transpose(ScalarMatrix* T) const;
 
 	int GetNumRows() const { return m_rows; }
 	int GetNumCols() const { return m_cols; }
@@ -41,6 +44,9 @@ void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& 
 
 // LU decomposition
 void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U);
+
+// Cholesky decomposition, decompose a symmetric positive definite matrix into L and Lt. return false if input matrix is not positive definite or symmetric.
+bool CholeskyDecomposition(const ScalarMatrix& A, ScalarMatrix* L);
 
 // matrix inversion. make sure the result matrix is allocated before calling inversion.
 void MatrixInverse(ScalarMatrix* result, const ScalarMatrix& A);

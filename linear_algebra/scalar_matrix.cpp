@@ -38,12 +38,31 @@ void ScalarMatrix::Identity()
 	}
 }
 
+void ScalarMatrix::ZeroOut()
+{
+	xassert(m_rows > 0 && m_cols > 0);
+	memset(m_matrix, 0, GetSize() * sizeof(float));
+}
+
 void ScalarMatrix::CopyFrom(const ScalarMatrix& m)
 {
 	xassert(m_rows == m.m_rows);
 	xassert(m_cols == m.m_cols);
 
 	memcpy(m_matrix, m.m_matrix, GetSize() * sizeof(float));
+}
+
+void ScalarMatrix::Transpose(ScalarMatrix* T) const
+{
+	xassert(m_rows == T->m_cols && m_cols == T->m_rows);
+
+	for (int row = 0; row < m_rows; row++)
+	{
+		for (int col = 0; col < m_cols; col++)
+		{
+			T->Set(row, col, Get(col, row));
+		}
+	}
 }
 
 //----------------------------------------------------------------------------------------------------//
@@ -211,6 +230,55 @@ void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U)
 			}
 		}
 	}
+}
+
+//----------------------------------------------------------------------------------------------------//
+// Cholesky Decomposition
+//----------------------------------------------------------------------------------------------------//
+bool CholeskyDecomposition(const ScalarMatrix& A, ScalarMatrix* L)
+{
+	xassert(A.GetNumRows() == A.GetNumCols());
+	xassert(L->GetNumRows() == L->GetNumCols());
+	xassert(A.GetNumRows() == L->GetNumRows());
+
+	L->ZeroOut();
+
+	for (int row = 0; row < L->GetNumRows(); row++)
+	{
+		// row != col.
+		for (int col = 0; col < row; col++)
+		{
+			float sum = 0.f;
+			for (int jj = 0; jj < col; jj++)
+				sum += L->Get(col, jj) * L->Get(row, jj);
+			
+			float val = (A.Get(row, col) - sum) / L->Get(col, col);
+			L->Set(row, col, val);
+		}
+
+		// row == col.
+		{
+			float Arr = A.Get(row, row);
+			if (Arr <= 0.f)
+				return false;
+
+			float sum = 0.f;
+			for (int jj = 0; jj < row; jj++)
+			{
+				float l = L->Get(row, jj);
+				sum += l * l;
+			}
+
+			float val = Arr - sum;
+			if (val <= 0.f)
+				return false;
+
+			float sval = sqrtf(val);
+			L->Set(row, row, sval);
+		}
+	}
+
+	return true;
 }
 
 //----------------------------------------------------------------------------------------------------//
