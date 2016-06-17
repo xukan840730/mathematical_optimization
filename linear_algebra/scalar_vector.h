@@ -20,6 +20,8 @@ public:
 	void Set(int n, float val);
 	float Get(int n) const;
 
+	float Norm() const;
+
 	void Add(const ScalarVector& v);
 };
 

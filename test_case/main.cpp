@@ -225,7 +225,9 @@ int main()
 		initGuess.Set(0, 0.75f);
 		initGuess.Set(1, -1.25f);
 
-		NewtonsMethod(F, &g, &H, initGuess, &result);
+		NewtonsMethodParams params;
+
+		NewtonsMethod(F, &g, &H, params, initGuess, &result);
 		printf("done!\n");
 	}
 

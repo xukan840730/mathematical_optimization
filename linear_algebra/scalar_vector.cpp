@@ -41,6 +41,16 @@ float ScalarVector::Get(int n) const
 	return m_vector[n];
 }
 
+float ScalarVector::Norm() const
+{
+	float sum = 0;
+	for (int i = 0; i < m_length; i++)
+	{
+		sum += m_vector[i] * m_vector[i];
+	}
+	return sqrtf(sum);
+}
+
 //---------------------------------------------------------------------//
 void ScalarVector::Add(const ScalarVector& v)
 {
