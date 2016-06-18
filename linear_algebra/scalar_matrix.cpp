@@ -142,8 +142,8 @@ void MatrixMult(ScalarVector* result, const ScalarMatrix& m, const ScalarVector&
 //----------------------------------------------------------------------------------------------------//
 void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& U)
 {
-	xassert(L.GetNumRows() == U.GetNumCols());
-	xassert(L.GetNumRows() == U.GetNumCols());
+	xassert(L.GetNumRows() == L.GetNumCols());
+	xassert(U.GetNumRows() == U.GetNumCols());
 	xassert(result->GetNumRows() == result->GetNumCols());
 	xassert(L.GetNumRows() == U.GetNumRows());
 	xassert(result->GetNumRows() == U.GetNumRows());
@@ -198,6 +198,64 @@ void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& 
 	}
 }
 
+//----------------------------------------------------------------------------------------------------//
+// use L and L transpose to calculate inverse matrix.
+//----------------------------------------------------------------------------------------------------//
+void LLtInverse(ScalarMatrix* result, const ScalarMatrix& L)
+{
+	xassert(L.GetNumRows() == L.GetNumCols());
+	xassert(result->GetNumRows() == result->GetNumCols());
+	xassert(result->GetNumRows() == L.GetNumRows());
+
+	//  L * Lt * B = I, B is the result matrix.
+	// let Z = U * B
+
+	int numRows = L.GetNumRows();
+	int numCols = L.GetNumCols();
+
+	ScalarMatrix Z(numRows, numCols);
+
+	for (int col = 0; col < numCols; col++)
+	{
+		// L * Z = I, L is known, solve Z by forward substitution
+
+		for (int row = 0; row < numRows; row++)
+		{
+			float c = (row == col) ? 1.f : 0.f;
+
+			float sum = 0.f;
+			for (int kk = 0; kk < row; kk++)
+			{
+				sum += L.Get(row, kk) * Z.Get(kk, col);
+			}
+
+			float co = L.Get(row, row);
+			xassert(fabsf(co) > NDI_FLT_EPSILON);
+			float zz = (c - sum) / co;
+
+			Z.Set(row, col, zz);
+		}
+
+		// U * B = Z, U is known, solve B by back substitution
+
+		for (int row = numRows - 1; row >= 0; row--)
+		{
+			float c = Z.Get(row, col);
+
+			float sum = 0.f;
+			for (int kk = row + 1; kk < numRows; kk++)
+			{
+				sum += L.Get(kk, row) * result->Get(kk, col);
+			}
+
+			float co = L.Get(row, row);
+			xassert(fabsf(co) > NDI_FLT_EPSILON);
+			float bb = (c - sum) / co;
+
+			result->Set(row, col, bb);
+		}
+	}
+}
 //----------------------------------------------------------------------------------------------------//
 // LU Decomposition
 //----------------------------------------------------------------------------------------------------//

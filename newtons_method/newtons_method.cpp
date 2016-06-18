@@ -14,6 +14,7 @@ void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const N
 	ScalarVector gkNeg(numParams);
 	ScalarMatrix Gk(numParams, numParams);
 	ScalarMatrix GkInv(numParams, numParams);
+	ScalarMatrix L(numParams, numParams);
 
 	ScalarVector deltaK(numParams);
 	
@@ -35,7 +36,17 @@ void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const N
 		// solve G(k) * deltaK = -g(k)
 		H->Evaluate(xk, &Gk);
 
-		MatrixInverse(&GkInv, Gk);
+		{
+			bool valid = CholeskyDecomposition(Gk, &L);
+			if (valid)
+			{ 
+				LLtInverse(&GkInv, L);
+			}
+			else
+			{
+				MatrixInverse(&GkInv, Gk);
+			}
+		}
 
 		MatrixMult(&deltaK, GkInv, gkNeg);
 

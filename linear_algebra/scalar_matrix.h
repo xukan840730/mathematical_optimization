@@ -42,6 +42,9 @@ void MatrixMult(ScalarVector* result, const ScalarMatrix& m, const ScalarVector&
 // use LU matrix to calculate the inverse matrix.
 void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& U);
 
+// use LLt matrix to calculate the inverse matrix. 
+void LLtInverse(ScalarMatrix* result, const ScalarMatrix& L);
+
 // LU decomposition
 void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U);
 
