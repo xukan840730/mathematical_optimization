@@ -13,6 +13,8 @@ public:
 
 	void Set(int i, ScalarF f);
 	void Evaluate(const ScalarVector& input, ScalarVector* output) const;
+
+	int GetLength() const { return m_length; }
 	
 private:
 	ScalarF*	m_funcs;

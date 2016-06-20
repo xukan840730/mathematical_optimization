@@ -14,4 +14,4 @@ struct NewtonsMethodParams
 };
 
 void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const NewtonsMethodParams& params,
-	const ScalarVector& initGuess, ScalarVector* result);
+	const ScalarVector& x1, ScalarVector* result);

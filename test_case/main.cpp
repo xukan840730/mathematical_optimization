@@ -25,6 +25,7 @@
 //	return 200 * (x2 - x1 * x1);
 //}
 
+//------------------------------------------------------------------------------------//
 float f_test_newton(const ScalarVector& input)
 {
 	xassert(input.GetLength() == 2);
@@ -81,6 +82,34 @@ float f_test_newton_H11(const ScalarVector& input)
 	return 2;
 }
 
+//------------------------------------------------------------------------------------//
+float func1(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return 100 * (x2 - x1 * x1) * (x2 - x1 * x1) + (1 - x1) * (1 - x1);
+}
+
+float func1d1(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return -400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1);
+}
+
+float func1d2(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return 200 * (x2 - x1 * x1);
+}
+
 float falpha(float a)
 {
 	return 100 * a * a * a * a + (1 - a) * (1 - a);
@@ -91,6 +120,8 @@ float f_alpha_dev(float a)
 	return 400 * a * a * a - 2 * (1 - a);
 }
 
+
+//------------------------------------------------------------------------------------//
 float halpha(float a)
 {
 	return cosf(a) - sinf(a);
@@ -113,25 +144,35 @@ int main()
 		params.tau2 = 0.1f;
 		params.tau3 = 0.5f;
 
-		float finalA = 0.f;
+		ScalarF F = func1;
+		Gradient g(2);
+		{
+			g.Set(0, func1d1);
+			g.Set(1, func1d2);
+		}
 
-		BracketRes bracketRes = bracketing(falpha, f_alpha_dev, 0.f, 0.1f, params);
+		ScalarVector s(2); s.Set(0, 1.f); s.Set(1, 0.f);
+		ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
 
-		if (bracketRes.t)
-		{
-			finalA = bracketRes.alpha;
-			printf("done!\n");
-		}
-		else if (bracketRes.tB)
-		{
-			finalA = sectioning(falpha, f_alpha_dev, bracketRes.interval, params);
-			printf("done!\n");
-		}
-		else
-		{
-			// unknown.
-			//assert(false);
-		}
+		//BracketRes bracketRes = Bracketing(F, g, s, x0, 0.1f, params);
+
+		//if (bracketRes.t)
+		//{
+		//	finalA = bracketRes.alpha;
+		//	printf("done!\n");
+		//}
+		//else if (bracketRes.tB)
+		//{
+		//	finalA = Sectioning(F, g, s, x0, bracketRes.interval, params);
+		//	printf("done!\n");
+		//}
+		//else
+		//{
+		//	// unknown.
+		//	xassert(false);
+		//}
+		float finalA = InexactLineSearch(F, g, s, x0, params);
+		printf("done!\n");
 	}
 
 	{
@@ -143,25 +184,23 @@ int main()
 		params.tau2 = 0.1f;
 		params.tau3 = 0.5f;
 
-		float finalA = 0.f;
+		//BracketRes bracketRes = bracketing(halpha, h_alpha_dev, 0.f, 3.f, params);
 
-		BracketRes bracketRes = bracketing(halpha, h_alpha_dev, 0.f, 3.f, params);
-
-		if (bracketRes.t)
-		{
-			finalA = bracketRes.alpha;
-			printf("done!\n");
-		}
-		else if (bracketRes.tB)
-		{
-			finalA = sectioning(halpha, h_alpha_dev, bracketRes.interval, params);
-			printf("done!\n");
-		}
-		else
-		{
-			// unknown.
-			//assert(false);
-		}
+		//if (bracketRes.t)
+		//{
+		//	finalA = bracketRes.alpha;
+		//	printf("done!\n");
+		//}
+		//else if (bracketRes.tB)
+		//{
+		//	finalA = sectioning(halpha, h_alpha_dev, bracketRes.interval, params);
+		//	printf("done!\n");
+		//}
+		//else
+		//{
+		//	// unknown.
+		//	//assert(false);
+		//}
 	}
 
 	{

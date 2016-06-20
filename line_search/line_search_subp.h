@@ -1,4 +1,6 @@
 
+#include "../linear_algebra/gradient.h"
+
 struct Interval
 {
 	float a;
@@ -34,5 +36,11 @@ struct BracketRes
 	Interval interval;
 };
 
-BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float a1, const LineSearchParams& params);
-float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _prevI, const LineSearchParams& params);
+BracketRes Bracketing(const ScalarF F, const Gradient& g, const ScalarVector& s, 
+	const ScalarVector& x0, float a1, const LineSearchParams& params);
+
+float Sectioning(const ScalarF F, const Gradient& g, const ScalarVector& s,
+	const ScalarVector& x0, const Interval& _prevI, const LineSearchParams& params);
+
+// inexact line search method. returns alpha along search direction s.
+float InexactLineSearch(const ScalarF F, const Gradient& g, const ScalarVector& s, const ScalarVector& x0, const LineSearchParams& params);

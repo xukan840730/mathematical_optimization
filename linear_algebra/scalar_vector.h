@@ -26,6 +26,7 @@ public:
 };
 
 void VectorMult(ScalarVector* result, const ScalarVector& v, const float m);
+float DotProd(const ScalarVector& a, const ScalarVector& b);
 
 // symbolic mathematic?
 typedef float (*ScalarF)(const ScalarVector& input);

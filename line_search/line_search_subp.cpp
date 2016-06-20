@@ -112,17 +112,24 @@ float choose(const Interval& currI, float currFa, float currFb, float currDevA, 
 }
 
 
-BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float a1, const LineSearchParams& params)
+BracketRes Bracketing(const ScalarF F, const Gradient& g, const ScalarVector& s, 
+	const ScalarVector& x0, float a1, const LineSearchParams& params)
 {
-	// a0 == 0.
-	xassert(a0 == 0);
-
 	BracketRes res;
 
+	const int numParams = x0.GetLength();
+
+	const float a0 = 0.f;
 	float Ai = a1;
 
-	float FA0 = fa(a0);
-	float FAD0 = fadev(a0);
+	float FA0 = F(x0);
+
+	ScalarVector g0(numParams);
+	ScalarVector gi(numParams);
+	{
+		g.Evaluate(x0, &g0);
+	}
+	const float FAD0 = DotProd(g0, s);
 
 	float AiMinus1 = a0;
 	float FAiMinus1 = FA0;
@@ -135,8 +142,15 @@ BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float
 
 	while (true)
 	{
+		// SAi = x0 + s * Ai.
+		ScalarVector SAi(numParams);
+		{
+			VectorMult(&SAi, s, Ai);
+			SAi.Add(x0);
+		}
+
 		// evaluate f(Ai)
-		float FAi = fa(Ai);
+		float FAi = F(SAi);
 
 		if (FAi <= params.fMin)
 		{
@@ -156,8 +170,9 @@ BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float
 			}
 		}
 
-		// evalulate f'(Ai)
-		float FADevI = fadev(Ai);
+		// evalulate f'(Ai) = g()
+		g.Evaluate(SAi, &gi);
+		float FADevI = DotProd(gi, s);
 
 		{
 			if (fabs(FADevI) <= -params.sigma * FAD0)
@@ -217,15 +232,29 @@ BracketRes bracketing(float (*fa)(float), float (*fadev)(float), float a0, float
 	return res;
 }
 
-float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _prevI, const LineSearchParams& params)
+float Sectioning(const ScalarF F, const Gradient& g, const ScalarVector& s,
+	const ScalarVector& x0, const Interval& _prevI, const LineSearchParams& params)
 {
 	xassert(_prevI.a == _prevI.a);
 	xassert(_prevI.b == _prevI.b);
 
+	const int numParams = x0.GetLength();
+
 	Interval currJ = _prevI;
 
-	const float FA0 = fa(0.f);
-	const float FAD0 = fadev(0.f);
+	const float FA0 = F(x0);
+
+	ScalarVector g0(numParams);
+	ScalarVector gJa(numParams);
+	ScalarVector gJb(numParams);
+	ScalarVector gAlphaJ(numParams);
+	g.Evaluate(x0, &g0);
+
+	ScalarVector SJa(numParams);
+	ScalarVector SJb(numParams);
+	ScalarVector SAlphaJ(numParams);
+
+	const float FAD0 = DotProd(g0, s);
 
 	while (true)
 	{
@@ -239,14 +268,40 @@ float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _pre
 			range.b = currJ.b - params.tau3 * dJ;
 		}
 
-		float alphaJ = choose(currJ, fa(currJ.a), fa(currJ.b), fadev(currJ.a), fadev(currJ.b), range);
+		float fJa, fdJa;	// f(currJ.a), f'(currJ.a)
+		float fJb, fdJb;	// f(currJ.b), f'(currJ.b)
+		{
+			{
+				VectorMult(&SJa, s, currJ.a);
+				SJa.Add(x0);
+
+				fJa = F(SJa);
+				g.Evaluate(SJa, &gJa);
+				fdJa = DotProd(gJa, s);
+			}
+
+			{
+				VectorMult(&SJb, s, currJ.b);
+				SJb.Add(x0);
+
+				fJb = F(SJb);
+				g.Evaluate(SJb, &gJb);
+				fdJb = DotProd(gJb, s);
+			}
+		}
+
+		float alphaJ = choose(currJ, fJa, fJb, fdJa, fdJb, range);
 		xassert(alphaJ == alphaJ);
 
 		// evaluate f(alphaJ)
-		float FAj = fa(alphaJ);
+		{
+			VectorMult(&SAlphaJ, s, alphaJ);
+			SAlphaJ.Add(x0);
+		}
+		float FAj = F(SAlphaJ);
 
 		bool t0 = FAj > FA0 + params.rho * alphaJ * FAD0;
-		bool t1 = FAj >= fa(currJ.a);
+		bool t1 = FAj >= fJa;
 		if (t0 || t1)
 		{
 			currJ.a = currJ.a;
@@ -254,7 +309,8 @@ float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _pre
 		}
 		else
 		{
-			float FADj = fadev(alphaJ);
+			g.Evaluate(SAlphaJ, &gAlphaJ);
+			float FADj = DotProd(gAlphaJ, s);
 			if (fabs(FADj) <= -params.sigma * FAD0)
 			{
 				// finally we get a good point.
@@ -278,4 +334,33 @@ float sectioning(float (*fa)(float), float (*fadev)(float), const Interval& _pre
 	}
 
 	return 0.f;
+}
+
+//-----------------------------------------------------------------------------//
+// inexact line search method.
+//-----------------------------------------------------------------------------//
+float InexactLineSearch(const ScalarF F, const Gradient& g, const ScalarVector& s, 
+	const ScalarVector& x0,	const LineSearchParams& params)
+{
+	xassert(g.GetLength() == x0.GetLength());
+	xassert(x0.GetLength() == s.GetLength());
+
+	BracketRes bracketRes = Bracketing(F, g, s, x0, 0.1f, params);
+
+	if (bracketRes.t)
+	{
+		float finalA = bracketRes.alpha;
+		return finalA;
+	}
+	else if (bracketRes.tB)
+	{
+		float finalA = Sectioning(F, g, s, x0, bracketRes.interval, params);
+		return finalA;
+	}
+	else
+	{
+		// unknown.
+		xassert(false);
+		return 0.f;
+	}
 }

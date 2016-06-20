@@ -69,3 +69,16 @@ void VectorMult(ScalarVector* result, const ScalarVector& v, const float m)
 		result->Set(ii, v.Get(ii) * m);
 	}
 }
+
+float DotProd(const ScalarVector& a, const ScalarVector& b)
+{
+	xassert(a.GetLength() == b.GetLength());
+	float sum = 0.f;
+
+	for (int ii = 0; ii < a.GetLength(); ii++)
+	{
+		sum += a.Get(ii) * b.Get(ii);
+	}
+
+	return sum;
+}
