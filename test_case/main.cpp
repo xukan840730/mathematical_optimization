@@ -120,6 +120,33 @@ float f_alpha_dev(float a)
 	return 400 * a * a * a - 2 * (1 - a);
 }
 
+//------------------------------------------------------------------------------------//
+float func2(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+	
+	return cosf(x1) - sinf(x2);
+}
+
+float func2d1(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return -sinf(x1);
+}
+
+float func2d2(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return -cosf(x2);
+}
 
 //------------------------------------------------------------------------------------//
 float halpha(float a)
@@ -132,6 +159,7 @@ float h_alpha_dev(float a)
 	return -sinf(a) - cosf(a);
 }
 
+//------------------------------------------------------------------------------------//
 int main()
 {
 
@@ -179,7 +207,7 @@ int main()
 		LineSearchParams params;
 		params.fMin = -2.f;
 		params.rho = 0.01f;
-		params.sigma = 0.1f;
+		params.sigma = 0.001f;
 		params.tau1 = 9.f;
 		params.tau2 = 0.1f;
 		params.tau3 = 0.5f;
@@ -201,6 +229,19 @@ int main()
 		//	// unknown.
 		//	//assert(false);
 		//}
+
+		ScalarF F = func2;
+		Gradient g(2);
+		{
+			g.Set(0, func2d1);
+			g.Set(1, func2d2);
+		}
+
+		ScalarVector s(2); s.Set(0, 0.707f); s.Set(1, 0.707f);
+		ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
+
+		float finalA = InexactLineSearch(F, g, s, x0, params);
+		printf("done!\n");
 	}
 
 	{
