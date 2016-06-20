@@ -110,16 +110,6 @@ float func1d2(const ScalarVector& input)
 	return 200 * (x2 - x1 * x1);
 }
 
-float falpha(float a)
-{
-	return 100 * a * a * a * a + (1 - a) * (1 - a);
-}
-
-float f_alpha_dev(float a)
-{
-	return 400 * a * a * a - 2 * (1 - a);
-}
-
 //------------------------------------------------------------------------------------//
 float func2(const ScalarVector& input)
 {
@@ -148,16 +138,105 @@ float func2d2(const ScalarVector& input)
 	return -cosf(x2);
 }
 
-//------------------------------------------------------------------------------------//
-float halpha(float a)
+float func2h00(const ScalarVector& input)
 {
-	return cosf(a) - sinf(a);
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return -cosf(x1);
 }
 
-float h_alpha_dev(float a)
+float func2h01(const ScalarVector& input)
 {
-	return -sinf(a) - cosf(a);
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return 0.f;
 }
+
+float func2h10(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return 0.f;
+}
+
+float func2h11(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return sinf(x2);
+}
+
+//------------------------------------------------------------------------------------//
+//float func3(const ScalarVector& input)
+//{
+//	xassert(input.GetLength() == 2);
+//	float x1 = input.Get(0);
+//	float x2 = input.Get(1);
+//
+//	return x1 * x1 * x1 + x1 * x1 * x2 - x2 * x2 - 4 * x2;
+//}
+//
+//float func3d1(const ScalarVector& input)
+//{
+//	xassert(input.GetLength() == 2);
+//	float x1 = input.Get(0);
+//	float x2 = input.Get(1);
+//
+//	return 3 * x1 * x1 + 2 * x1 * x2;
+//}
+//
+//float func3d2(const ScalarVector& input)
+//{
+//	xassert(input.GetLength() == 2);
+//	float x1 = input.Get(0);
+//	float x2 = input.Get(1);
+//
+//	return x1 * x1 - 2 * x2 - 4;
+//}
+//
+//float func3h00(const ScalarVector& input)
+//{
+//	xassert(input.GetLength() == 2);
+//	float x1 = input.Get(0);
+//	float x2 = input.Get(1);
+//
+//	return 6 * x1 + 2 * x2;
+//}
+//
+//float func3h01(const ScalarVector& input)
+//{
+//	xassert(input.GetLength() == 2);
+//	float x1 = input.Get(0);
+//	float x2 = input.Get(1);
+//
+//	return 2 * x1;
+//}
+//
+//float func3h10(const ScalarVector& input)
+//{
+//	xassert(input.GetLength() == 2);
+//	float x1 = input.Get(0);
+//	float x2 = input.Get(1);
+//
+//	return 2 * x1;
+//}
+//
+//float func3h11(const ScalarVector& input)
+//{
+//	xassert(input.GetLength() == 2);
+//	float x1 = input.Get(0);
+//	float x2 = input.Get(1);
+//
+//	return -2;
+//}
 
 //------------------------------------------------------------------------------------//
 int main()
@@ -182,23 +261,6 @@ int main()
 		ScalarVector s(2); s.Set(0, 1.f); s.Set(1, 0.f);
 		ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
 
-		//BracketRes bracketRes = Bracketing(F, g, s, x0, 0.1f, params);
-
-		//if (bracketRes.t)
-		//{
-		//	finalA = bracketRes.alpha;
-		//	printf("done!\n");
-		//}
-		//else if (bracketRes.tB)
-		//{
-		//	finalA = Sectioning(F, g, s, x0, bracketRes.interval, params);
-		//	printf("done!\n");
-		//}
-		//else
-		//{
-		//	// unknown.
-		//	xassert(false);
-		//}
 		float finalA = InexactLineSearch(F, g, s, x0, params);
 		printf("done!\n");
 	}
@@ -211,24 +273,6 @@ int main()
 		params.tau1 = 9.f;
 		params.tau2 = 0.1f;
 		params.tau3 = 0.5f;
-
-		//BracketRes bracketRes = bracketing(halpha, h_alpha_dev, 0.f, 3.f, params);
-
-		//if (bracketRes.t)
-		//{
-		//	finalA = bracketRes.alpha;
-		//	printf("done!\n");
-		//}
-		//else if (bracketRes.tB)
-		//{
-		//	finalA = sectioning(halpha, h_alpha_dev, bracketRes.interval, params);
-		//	printf("done!\n");
-		//}
-		//else
-		//{
-		//	// unknown.
-		//	//assert(false);
-		//}
 
 		ScalarF F = func2;
 		Gradient g(2);
@@ -333,6 +377,33 @@ int main()
 		NewtonsMethodParams params;
 
 		NewtonsMethod(F, &g, &H, params, initGuess, &result);
+		printf("done!\n");
+	}
+
+	{
+		// test newton's method.
+		ScalarF F = func2;
+
+		Gradient g(2);
+		Hessian H(2);
+
+		g.Set(0, func2d1);
+		g.Set(1, func2d2);
+
+		H.Set(0, 0, func2h00);
+		H.Set(0, 1, func2h01);
+		H.Set(1, 0, func2h10);
+		H.Set(1, 1, func2h11);
+
+		ScalarVector x0(2);
+		ScalarVector xstar(2);
+		x0.Set(0, -30.f * 3.1415f / 180.f);
+		x0.Set(1, -30.f * 3.1415f / 180.f);
+
+		NewtonsMethodParams params;
+		params.m_maxIter = 20;
+
+		NewtonsMethod(F, &g, &H, params, x0, &xstar);
 		printf("done!\n");
 	}
 

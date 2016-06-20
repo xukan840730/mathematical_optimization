@@ -81,6 +81,15 @@ void ScalarMatrix::Set(int r, int c, float val)
 	m_matrix[Index(r, c)] = val;
 }
 
+//----------------------------------------------------------------------------------------------------//
+
+void ScalarMatrix::AddI(float v)
+{
+	for (int row = 0; row < m_rows; row++)
+	{
+		m_matrix[Index(row, row)] += v;
+	}
+}
 
 //----------------------------------------------------------------------------------------------------//
 // multiply

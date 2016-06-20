@@ -34,6 +34,8 @@ public:
 	ScalarVector GetRow(int r) const;
 	ScalarVector GetCol(int c) const;
 
+	void AddI(float v);	// Add v * I.
+
 };
 
 void MatrixMult(ScalarMatrix* result, const ScalarMatrix& m1, const ScalarMatrix& m2);

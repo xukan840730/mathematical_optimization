@@ -31,23 +31,28 @@ void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const N
 			return;
 		}
 
-		VectorMult(&gkNeg, gk, -1.f);
-
 		// solve G(k) * deltaK = -g(k)
 		H->Evaluate(xk, &Gk);
 
+		float v = params.m_v;
+
+		// if Gk is not positive definite, let Gk = (Gk + vI) until Gk becomes a positive definite
+		do 
 		{
 			bool valid = CholeskyDecomposition(Gk, &L);
 			if (valid)
 			{ 
 				LLtInverse(&GkInv, L);
+				break;
 			}
 			else
 			{
-				MatrixInverse(&GkInv, Gk);
+				Gk.AddI(v);
+				v *= 2.f;
 			}
-		}
+		} while (true);
 
+		VectorMult(&gkNeg, gk, -1.f);
 		MatrixMult(&deltaK, GkInv, gkNeg);
 
 		// update x(k) to x(k+1)
