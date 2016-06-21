@@ -175,68 +175,32 @@ float func2h11(const ScalarVector& input)
 }
 
 //------------------------------------------------------------------------------------//
-//float func3(const ScalarVector& input)
-//{
-//	xassert(input.GetLength() == 2);
-//	float x1 = input.Get(0);
-//	float x2 = input.Get(1);
-//
-//	return x1 * x1 * x1 + x1 * x1 * x2 - x2 * x2 - 4 * x2;
-//}
-//
-//float func3d1(const ScalarVector& input)
-//{
-//	xassert(input.GetLength() == 2);
-//	float x1 = input.Get(0);
-//	float x2 = input.Get(1);
-//
-//	return 3 * x1 * x1 + 2 * x1 * x2;
-//}
-//
-//float func3d2(const ScalarVector& input)
-//{
-//	xassert(input.GetLength() == 2);
-//	float x1 = input.Get(0);
-//	float x2 = input.Get(1);
-//
-//	return x1 * x1 - 2 * x2 - 4;
-//}
-//
-//float func3h00(const ScalarVector& input)
-//{
-//	xassert(input.GetLength() == 2);
-//	float x1 = input.Get(0);
-//	float x2 = input.Get(1);
-//
-//	return 6 * x1 + 2 * x2;
-//}
-//
-//float func3h01(const ScalarVector& input)
-//{
-//	xassert(input.GetLength() == 2);
-//	float x1 = input.Get(0);
-//	float x2 = input.Get(1);
-//
-//	return 2 * x1;
-//}
-//
-//float func3h10(const ScalarVector& input)
-//{
-//	xassert(input.GetLength() == 2);
-//	float x1 = input.Get(0);
-//	float x2 = input.Get(1);
-//
-//	return 2 * x1;
-//}
-//
-//float func3h11(const ScalarVector& input)
-//{
-//	xassert(input.GetLength() == 2);
-//	float x1 = input.Get(0);
-//	float x2 = input.Get(1);
-//
-//	return -2;
-//}
+float func3(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return 10 * x1 * x1 + x2 * x2;
+}
+
+float func3d1(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return 20 * x1;
+}
+
+float func3d2(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 2);
+	float x1 = input.Get(0);
+	float x2 = input.Get(1);
+
+	return 2 * x2;
+}
 
 //------------------------------------------------------------------------------------//
 int main()
@@ -404,6 +368,25 @@ int main()
 		params.m_maxIter = 20;
 
 		NewtonsMethod(F, &g, &H, params, x0, &xstar);
+		printf("done!\n");
+	}
+
+	{
+		// test Symmetric Rank One method.
+		ScalarF F = func3;
+		Gradient g(2);
+		g.Set(0, func3d1);
+		g.Set(1, func3d2);
+
+		ScalarVector x0(2);
+		ScalarVector xstar(2);
+		x0.Set(0, 0.1f);
+		x0.Set(1, 1.f);
+
+		NewtonsMethodParams params;
+		params.m_min = -1.f;
+
+		QuasiNewtonSR1(F, &g, params, x0, &xstar);
 		printf("done!\n");
 	}
 

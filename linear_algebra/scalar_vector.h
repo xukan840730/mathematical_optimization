@@ -21,11 +21,16 @@ public:
 	float Get(int n) const;
 
 	float Norm() const;
+	float Norm2() const;
 
 	void Add(const ScalarVector& v);
+	void Multiply(float val);
 };
 
 void VectorMult(ScalarVector* result, const ScalarVector& v, const float m);
+void VectorAdd(ScalarVector* result, const ScalarVector& a, const ScalarVector& b);
+void VectorSubtract(ScalarVector* result, const ScalarVector& a, const ScalarVector& b);
+
 float DotProd(const ScalarVector& a, const ScalarVector& b);
 
 // symbolic mathematic?

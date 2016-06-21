@@ -83,6 +83,17 @@ void ScalarMatrix::Set(int r, int c, float val)
 
 //----------------------------------------------------------------------------------------------------//
 
+void ScalarMatrix::Add(const ScalarMatrix& b)
+{
+	xassert(m_rows == b.m_rows);
+	xassert(m_cols == b.m_cols);
+
+	for (int ii = 0; ii < GetSize(); ii++)
+	{
+		m_matrix[ii] += b.m_matrix[ii];
+	}
+}
+
 void ScalarMatrix::AddI(float v)
 {
 	for (int row = 0; row < m_rows; row++)
@@ -91,9 +102,33 @@ void ScalarMatrix::AddI(float v)
 	}
 }
 
+void ScalarMatrix::DividedBy(float v)
+{
+	xassert(fabsf(v) > NDI_FLT_MIN);
+	for (int ii = 0; ii < GetSize(); ii++)
+	{
+		m_matrix[ii] /= v;
+	}
+}
+
 //----------------------------------------------------------------------------------------------------//
 // multiply
 //----------------------------------------------------------------------------------------------------//
+
+void VectorMult(ScalarMatrix* result, const ScalarVector& a, const ScalarVector& b)
+{
+	xassert(a.GetLength() == b.GetLength());
+	xassert(result->GetNumRows() == a.GetLength());
+	xassert(result->GetNumCols() == a.GetLength());
+
+	for (int row = 0; row < a.GetLength(); row++)
+	{
+		for (int col = 0; col < a.GetLength(); col++)
+		{
+			result->Set(row, col, a.Get(row) * b.Get(col));
+		}
+	}
+}
 
 void MatrixMult(ScalarMatrix* result, const ScalarMatrix& m1, const ScalarMatrix& m2)
 {

@@ -43,12 +43,17 @@ float ScalarVector::Get(int n) const
 
 float ScalarVector::Norm() const
 {
+	return sqrtf(Norm2());
+}
+
+float ScalarVector::Norm2() const
+{
 	float sum = 0;
 	for (int i = 0; i < m_length; i++)
 	{
 		sum += m_vector[i] * m_vector[i];
 	}
-	return sqrtf(sum);
+	return sum;
 }
 
 //---------------------------------------------------------------------//
@@ -61,12 +66,42 @@ void ScalarVector::Add(const ScalarVector& v)
 	}
 }
 
+void ScalarVector::Multiply(float val)
+{
+	for (int ii = 0; ii < m_length; ii++)
+	{
+		m_vector[ii] *= val;
+	}
+}
+
 void VectorMult(ScalarVector* result, const ScalarVector& v, const float m)
 {
 	xassert(result->GetLength() == v.GetLength());
 	for (int ii = 0; ii < v.GetLength(); ii++)
 	{
 		result->Set(ii, v.Get(ii) * m);
+	}
+}
+
+void VectorAdd(ScalarVector* result, const ScalarVector& a, const ScalarVector& b)
+{
+	xassert(result->GetLength() == a.GetLength());
+	xassert(result->GetLength() == b.GetLength());
+
+	for (int ii = 0; ii < a.GetLength(); ii++)
+	{
+		result->Set(ii, a.Get(ii) + b.Get(ii));
+	}
+}
+
+void VectorSubtract(ScalarVector* result, const ScalarVector& a, const ScalarVector& b)
+{
+	xassert(result->GetLength() == a.GetLength());
+	xassert(result->GetLength() == b.GetLength());
+
+	for (int ii = 0; ii < a.GetLength(); ii++)
+	{
+		result->Set(ii, a.Get(ii) - b.Get(ii));
 	}
 }
 

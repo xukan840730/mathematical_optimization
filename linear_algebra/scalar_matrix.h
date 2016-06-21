@@ -34,10 +34,12 @@ public:
 	ScalarVector GetRow(int r) const;
 	ScalarVector GetCol(int c) const;
 
+	void Add(const ScalarMatrix& b);
 	void AddI(float v);	// Add v * I.
-
+	void DividedBy(float v);
 };
 
+void VectorMult(ScalarMatrix* result, const ScalarVector& a, const ScalarVector& b);	// [n,1] * [1,n] => [n,n] matrix
 void MatrixMult(ScalarMatrix* result, const ScalarMatrix& m1, const ScalarMatrix& m2);
 void MatrixMult(ScalarVector* result, const ScalarMatrix& m, const ScalarVector& v);
 
