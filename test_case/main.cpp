@@ -203,6 +203,81 @@ float func3d2(const ScalarVector& input)
 }
 
 //------------------------------------------------------------------------------------//
+float func4x[4] = {-1.f, 1.f, 2.f, 4.f};
+float func4y[4] = {1.f, -1.f, 1.f, 6.f};
+
+float func4(const ScalarVector& input)
+{
+	// f(a, b, c) = a*x^2  + b*x + c
+	// cost func.
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	float sum = 0.f;
+	for (int i = 0; i < 4; i++)
+	{
+		float x = func4x[i];
+		float t = (a * x * x + b * x + c - func4y[i]);
+		sum += t * t;
+	}
+	return sum;
+}
+
+float func4da(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	float sum = 0.f;
+	for (int i = 0; i < 4; i++)
+	{
+		float x = func4x[i];
+		float t = (a * x * x + b * x + c - func4y[i]);
+		sum += 2 * t * x * x;
+	}
+	return sum;
+}
+
+float func4db(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	float sum = 0.f;
+	for (int i = 0; i < 4; i++)
+	{
+		float x = func4x[i];
+		float t = (a * x * x + b * x + c - func4y[i]);
+		sum += 2 * t * x;
+	}
+	return sum;
+}
+
+float func4dc(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	float sum = 0.f;
+	for (int i = 0; i < 4; i++)
+	{
+		float x = func4x[i];
+		float t = (a * x * x + b * x + c - func4y[i]);
+		sum += 2 * t;
+	}
+	return sum;
+}
+
+
+//------------------------------------------------------------------------------------//
 int main()
 {
 
@@ -387,6 +462,38 @@ int main()
 		params.m_min = -1.f;
 
 		QuasiNewtonSR1(F, &g, params, x0, &xstar);
+		printf("done!\n");
+	}
+
+	{
+		// use QuasiNewton method to test curve fitting
+		ScalarF F = func4;
+		Gradient g(3);
+		g.Set(0, func4da);
+		g.Set(1, func4db);
+		g.Set(2, func4dc);
+
+		ScalarVector x0(3);
+		ScalarVector xstar(3);
+
+		x0.Set(0, 1);
+		x0.Set(1, 1);
+		x0.Set(2, 0);
+
+		NewtonsMethodParams params;
+		params.m_min = NDI_FLT_EPSILON;
+
+		QuasiNewtonSR1(F, &g, params, x0, &xstar);
+
+		float fmin = F(xstar);
+
+		ScalarVector xstar0 = xstar;
+		ScalarVector xstar1 = xstar;
+		xstar0.Multiply(0.999f);
+		xstar1.Multiply(1.001f);
+
+		float fmin0 = F(xstar0);
+		float fmin1 = F(xstar1);
 		printf("done!\n");
 	}
 
