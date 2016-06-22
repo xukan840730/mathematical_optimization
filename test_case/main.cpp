@@ -376,6 +376,89 @@ float func4d6(const ScalarVector& input)
 	return sum;
 }
 
+//------------------------------------------------------------------------------------//
+float sample5x[6] = {-1.f, 0.f, 1.f, 2.f, 3.f, 4.f};
+float sample5y[6] = {1.f, 0.f, -1.f, 1.f, 2.5f, 6.f};
+
+float func5(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
+
+	float sum = 0.f;
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample5x[i];
+		float sample = sample5y[i];
+		float t = (a * sinf(x) + b * cosf(x) + c - sample);
+		sum += t * t;
+	}
+	return sum;
+}
+
+float func5d0(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
+
+	float sum = 0.f;
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample5x[i];
+		float sample = sample5y[i];
+		float t = (a * sinf(x) + b * cosf(x) + c - sample);
+		sum += 2 * t * sinf(x);
+	}
+	return sum;
+}
+
+float func5d1(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
+
+	float sum = 0.f;
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample5x[i];
+		float sample = sample5y[i];
+		float t = (a * sinf(x) + b * cosf(x) + c - sample);
+		sum += 2 * t * cosf(x);
+	}
+	return sum;
+}
+
+float func5d2(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 3);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+
+	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
+
+	float sum = 0.f;
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample5x[i];
+		float sample = sample5y[i];
+		float t = (a * sinf(x) + b * cosf(x) + c - sample);
+		sum += 2 * t;
+	}
+	return sum;
+}
 
 //------------------------------------------------------------------------------------//
 int main()
@@ -592,6 +675,33 @@ int main()
 		QuasiNewtonSR1(F, &g, params, x0, &xstar0);
 		QuasiNewtonDFP(F, &g, params, x0, &xstar1);
 		QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
+		printf("done!\n");
+	}
+
+	{
+		ScalarF F = func5;
+		Gradient g(3);
+		g.Set(0, func5d0);
+		g.Set(1, func5d1);
+		g.Set(2, func5d2);
+
+		ScalarVector x0(3);
+		ScalarVector xstar0(3);
+		ScalarVector xstar1(3);
+		ScalarVector xstar2(3);
+		x0.Set(0, 0.1f);
+		x0.Set(1, 1.f);
+		x0.Set(2, 0.f);
+
+		NewtonsMethodParams params;
+		params.m_min = -1.f;
+
+		//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
+		QuasiNewtonDFP(F, &g, params, x0, &xstar1);
+		QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
+
+		const float ftest = F(xstar2);
+
 		printf("done!\n");
 	}
 
