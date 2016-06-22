@@ -7,6 +7,9 @@
 #include "../line_search/line_search_subp.h"
 #include "../newtons_method/newtons_method.h"
 
+#include <Eigen/Dense>
+
+using Eigen::MatrixXd;
 
 //float func(float x1, float x2)
 //{
@@ -703,6 +706,10 @@ int main()
 		const float ftest = F(xstar2);
 
 		printf("done!\n");
+	}
+
+	{
+		 MatrixXd m(2,2);
 	}
 
 	return 0;
