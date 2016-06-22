@@ -102,16 +102,28 @@ void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParam
 		// evaluate g(k)
 		g->Evaluate(xk, &gk);
 
-		float norm2 = gk.Norm2();
-		if (norm2 < params.m_epsilon * params.m_epsilon)
 		{
-			result->CopyFrom(xk);
-			return;
+			float norm2 = gk.Norm2();
+			if (norm2 < params.m_epsilon * params.m_epsilon)
+			{
+				result->CopyFrom(xk);
+				return;
+			}
 		}
 
 		// find line search direction s(k) = -H(k) * g(k)
 		MatrixMult(&sk, Hk, gk);
 		sk.Multiply(-1.f);
+
+		{
+			// safe guard that search direction is very small, which means we should stop.
+			float norm2 = sk.Norm2();
+			if (norm2 < NDI_FLT_EPSILON * NDI_FLT_EPSILON)
+			{
+				result->CopyFrom(xk);
+				return;
+			}
+		}
 
 		LineSearchParams lparams;
 		lparams.fMin = params.m_min;

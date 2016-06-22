@@ -203,6 +203,181 @@ float func3d2(const ScalarVector& input)
 }
 
 //------------------------------------------------------------------------------------//
+float sample4x[4] = {-1.f, 1.f, 2.f, 4.f};
+float sample4y[4] = {1.f, -1.f, 1.f, 6.f};
+
+// f() = a*x^5 + b*x^4 + c*x^3 + d*x^2 + e*x + f
+float func4(const ScalarVector& input)
+{
+	// from f() to get cost func.
+	xassert(input.GetLength() == 6);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+	float d = input.Get(3);
+	float e = input.Get(4);
+	float f = input.Get(5);
+
+	float sum = 0.f;
+
+	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample4x[i];
+		float sample = sample4y[i];
+		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
+		sum += t * t;
+	}
+
+	return sum;
+}
+
+float func4d1(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 6);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+	float d = input.Get(3);
+	float e = input.Get(4);
+	float f = input.Get(5);
+
+	float sum = 0.f;
+
+	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample4x[i];
+		float sample = sample4y[i];
+		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
+		sum += 2 * t * (x * x * x * x * x);
+	}
+
+	return sum;
+}
+
+float func4d2(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 6);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+	float d = input.Get(3);
+	float e = input.Get(4);
+	float f = input.Get(5);
+
+	float sum = 0.f;
+
+	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample4x[i];
+		float sample = sample4y[i];
+		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
+		sum += 2 * t * (x * x * x * x);
+	}
+
+	return sum;
+}
+
+float func4d3(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 6);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+	float d = input.Get(3);
+	float e = input.Get(4);
+	float f = input.Get(5);
+
+	float sum = 0.f;
+
+	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample4x[i];
+		float sample = sample4y[i];
+		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
+		sum += 2 * t * (x * x * x);
+	}
+
+	return sum;
+}
+
+float func4d4(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 6);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+	float d = input.Get(3);
+	float e = input.Get(4);
+	float f = input.Get(5);
+
+	float sum = 0.f;
+
+	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample4x[i];
+		float sample = sample4y[i];
+		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
+		sum += 2 * t * (x * x);
+	}
+
+	return sum;
+}
+
+float func4d5(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 6);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+	float d = input.Get(3);
+	float e = input.Get(4);
+	float f = input.Get(5);
+
+	float sum = 0.f;
+
+	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample4x[i];
+		float sample = sample4y[i];
+		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
+		sum += 2 * t * (x);
+	}
+
+	return sum;
+}
+
+float func4d6(const ScalarVector& input)
+{
+	xassert(input.GetLength() == 6);
+	float a = input.Get(0);
+	float b = input.Get(1);
+	float c = input.Get(2);
+	float d = input.Get(3);
+	float e = input.Get(4);
+	float f = input.Get(5);
+
+	float sum = 0.f;
+
+	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
+	for (int i = 0; i < length; i++)
+	{
+		float x = sample4x[i];
+		float sample = sample4y[i];
+		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
+		sum += 2 * t;
+	}
+
+	return sum;
+}
+
+
+//------------------------------------------------------------------------------------//
 int main()
 {
 
@@ -382,6 +557,32 @@ int main()
 		ScalarVector xstar(2);
 		x0.Set(0, 0.1f);
 		x0.Set(1, 1.f);
+
+		NewtonsMethodParams params;
+		params.m_min = -1.f;
+
+		QuasiNewtonSR1(F, &g, params, x0, &xstar);
+		printf("done!\n");
+	}
+
+	{
+		ScalarF F = func4;
+		Gradient g(6);
+		g.Set(0, func4d1);
+		g.Set(1, func4d2);
+		g.Set(2, func4d3);
+		g.Set(3, func4d4);
+		g.Set(4, func4d5);
+		g.Set(5, func4d6);
+
+		ScalarVector x0(6);
+		ScalarVector xstar(6);
+		x0.Set(0, 1.f);
+		x0.Set(1, 1.f);
+		x0.Set(2, 1.f);
+		x0.Set(3, 1.f);
+		x0.Set(4, 1.f);
+		x0.Set(5, 1.f);
 
 		NewtonsMethodParams params;
 		params.m_min = -1.f;
