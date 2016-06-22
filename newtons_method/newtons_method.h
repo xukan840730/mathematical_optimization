@@ -20,5 +20,10 @@ struct NewtonsMethodParams
 void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const NewtonsMethodParams& params,
 	const ScalarVector& x1, ScalarVector* result);
 
+// rank one correction.
 void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
+	const ScalarVector& x1, ScalarVector* result);
+
+// Davidon Fletcher and Powell method, rank two correction
+void QuasiNewtonDFP(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
 	const ScalarVector& x1, ScalarVector* result);

@@ -576,7 +576,8 @@ int main()
 		g.Set(5, func4d6);
 
 		ScalarVector x0(6);
-		ScalarVector xstar(6);
+		ScalarVector xstar0(6);
+		ScalarVector xstar1(6);
 		x0.Set(0, 1.f);
 		x0.Set(1, 1.f);
 		x0.Set(2, 1.f);
@@ -587,7 +588,8 @@ int main()
 		NewtonsMethodParams params;
 		params.m_min = -1.f;
 
-		QuasiNewtonSR1(F, &g, params, x0, &xstar);
+		QuasiNewtonSR1(F, &g, params, x0, &xstar0);
+		QuasiNewtonDFP(F, &g, params, x0, &xstar1);
 		printf("done!\n");
 	}
 
