@@ -102,6 +102,14 @@ void ScalarMatrix::AddI(float v)
 	}
 }
 
+void ScalarMatrix::Multiply(float v)
+{
+	for (int ii = 0; ii < GetSize(); ii++)
+	{
+		m_matrix[ii] *= v;
+	}
+}
+
 void ScalarMatrix::DividedBy(float v)
 {
 	xassert(fabsf(v) > NDI_FLT_MIN);

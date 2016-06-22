@@ -27,3 +27,7 @@ void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParam
 // Davidon Fletcher and Powell method, rank two correction
 void QuasiNewtonDFP(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
 	const ScalarVector& x1, ScalarVector* result);
+
+// BFGS
+void QuasiNewtonBFGS(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
+	const ScalarVector& x1, ScalarVector* result);

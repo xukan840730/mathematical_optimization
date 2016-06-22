@@ -36,6 +36,7 @@ public:
 
 	void Add(const ScalarMatrix& b);
 	void AddI(float v);	// Add v * I.
+	void Multiply(float v);
 	void DividedBy(float v);
 };
 
