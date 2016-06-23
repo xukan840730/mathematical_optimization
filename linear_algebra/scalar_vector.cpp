@@ -117,3 +117,13 @@ float DotProd(const ScalarVector& a, const ScalarVector& b)
 
 	return sum;
 }
+
+float Norm2(const EVector& a)
+{
+	float sum = 0;
+	for (int i = 0; i < a.rows(); i++)
+	{
+		sum += a(i) * a(i);
+	}
+	return sum;
+}

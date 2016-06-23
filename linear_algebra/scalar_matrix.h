@@ -49,12 +49,14 @@ void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& 
 
 // use LLt matrix to calculate the inverse matrix. 
 void LLtInverse(ScalarMatrix* result, const ScalarMatrix& L);
+void LLtInverse(EMatrix* result, const EMatrix& L);
 
 // LU decomposition
 void LUDecomposition(const ScalarMatrix& A, ScalarMatrix* L, ScalarMatrix* U);
 
 // Cholesky decomposition, decompose a symmetric positive definite matrix into L and Lt. return false if input matrix is not positive definite or symmetric.
 bool CholeskyDecomposition(const ScalarMatrix& A, ScalarMatrix* L);
+bool CholeskyDecomposition(const EMatrix& A, EMatrix* L);
 
 // matrix inversion. make sure the result matrix is allocated before calling inversion.
 void MatrixInverse(ScalarMatrix* result, const ScalarMatrix& A);

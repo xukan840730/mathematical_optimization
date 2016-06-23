@@ -85,6 +85,62 @@ float f_test_newton_H11(const ScalarVector& input)
 	return 2;
 }
 
+float ef_test_newton(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+	return x1 * x1 * x1 * x1 + x1 * x2 + (1 + x2) * (1 + x2);
+}
+
+float ef_test_newton_g1(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+	return 4 * x1 * x1 * x1 + x2;
+}
+
+float ef_test_newton_g2(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+	return x1 + 2 * (1 + x2);
+}
+
+float ef_test_newton_H00(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+	return 12 * x1 * x1;
+}
+
+float ef_test_newton_H01(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+	return 1;
+}
+
+float ef_test_newton_H10(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+	return 1;
+}
+
+float ef_test_newton_H11(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+	return 2;
+}
+
 //------------------------------------------------------------------------------------//
 float func1(const ScalarVector& input)
 {
@@ -109,6 +165,33 @@ float func1d2(const ScalarVector& input)
 	xassert(input.GetLength() == 2);
 	float x1 = input.Get(0);
 	float x2 = input.Get(1);
+
+	return 200 * (x2 - x1 * x1);
+}
+
+float efunc1(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return 100 * (x2 - x1 * x1) * (x2 - x1 * x1) + (1 - x1) * (1 - x1);
+}
+
+float efunc1d1(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return -400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1);
+}
+
+float efunc1d2(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
 
 	return 200 * (x2 - x1 * x1);
 }
@@ -176,6 +259,70 @@ float func2h11(const ScalarVector& input)
 
 	return sinf(x2);
 }
+
+float efunc2(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return cosf(x1) - sinf(x2);
+}
+
+float efunc2d1(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return -sinf(x1);
+}
+
+float efunc2d2(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return -cosf(x2);
+}
+
+float efunc2h00(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return -cosf(x1);
+}
+
+float efunc2h01(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return 0.f;
+}
+
+float efunc2h10(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return 0.f;
+}
+
+float efunc2h11(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return sinf(x2);
+}
+
 
 //------------------------------------------------------------------------------------//
 float func3(const ScalarVector& input)
@@ -492,6 +639,29 @@ int main()
 
 	{
 		LineSearchParams params;
+		params.fMin = -1.f;
+		params.rho = 0.01f;
+		params.sigma = 0.1f;
+		params.tau1 = 9.f;
+		params.tau2 = 0.1f;
+		params.tau3 = 0.5f;
+
+		ScalarFunc F = efunc1;
+		EGradient g(2);
+		{
+			g.Set(0, efunc1d1);
+			g.Set(1, efunc1d2);
+		}
+
+		EVector s(2); s(0) = 1.f; s(1) = 0.f;
+		EVector x0(2); x0(0) = 0.f; x0(1) = 0.f;
+
+		float finalA = InexactLineSearch(F, g, s, x0, params);
+		printf("done!\n");
+	}
+
+	{
+		LineSearchParams params;
 		params.fMin = -2.f;
 		params.rho = 0.01f;
 		params.sigma = 0.001f;
@@ -508,6 +678,29 @@ int main()
 
 		ScalarVector s(2); s.Set(0, 0.707f); s.Set(1, 0.707f);
 		ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
+
+		float finalA = InexactLineSearch(F, g, s, x0, params);
+		printf("done!\n");
+	}
+
+	{
+		LineSearchParams params;
+		params.fMin = -2.f;
+		params.rho = 0.01f;
+		params.sigma = 0.001f;
+		params.tau1 = 9.f;
+		params.tau2 = 0.1f;
+		params.tau3 = 0.5f;
+
+		ScalarFunc F = efunc2;
+		EGradient g(2);
+		{
+			g.Set(0, efunc2d1);
+			g.Set(1, efunc2d2);
+		}
+
+		EVector s(2); s(0) = 0.707f; s(1) = 0.707f;
+		EVector x0(2); x0(0) = 0.f; x0(1) = 0.f;
 
 		float finalA = InexactLineSearch(F, g, s, x0, params);
 		printf("done!\n");
@@ -604,6 +797,33 @@ int main()
 		NewtonsMethod(F, &g, &H, params, initGuess, &result);
 		printf("done!\n");
 	}
+
+	{
+		// test newton's method
+		ScalarFunc F = ef_test_newton;
+
+		EGradient g(2);
+		EHessian H(2);
+
+		g.Set(0, ef_test_newton_g1);
+		g.Set(1, ef_test_newton_g2);
+
+		H.Set(0, 0, ef_test_newton_H00);
+		H.Set(0, 1, ef_test_newton_H01);
+		H.Set(1, 0, ef_test_newton_H10);
+		H.Set(1, 1, ef_test_newton_H11);
+
+		EVector initGuess(2);
+		EVector result(2);
+		initGuess(0) = 0.75f;
+		initGuess(1) = -1.25f;
+
+		NewtonsMethodParams params;
+
+		NewtonsMethod(F, &g, &H, params, initGuess, &result);
+		printf("done!\n");
+	}
+
 
 	{
 		// test newton's method.
@@ -706,10 +926,6 @@ int main()
 		const float ftest = F(xstar2);
 
 		printf("done!\n");
-	}
-
-	{
-		 MatrixXd m(2,2);
 	}
 
 	return 0;

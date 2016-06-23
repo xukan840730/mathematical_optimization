@@ -308,6 +308,65 @@ void LLtInverse(ScalarMatrix* result, const ScalarMatrix& L)
 		}
 	}
 }
+
+void LLtInverse(EMatrix* result, const EMatrix& L)
+{
+	EMatrix& Result = *result;
+
+	xassert(L.rows() == L.cols());
+	xassert(Result.rows() == Result.cols());
+	xassert(Result.rows() == L.rows());
+
+	//  L * Lt * B = I, B is the result matrix.
+	// let Z = U * B
+
+	int numRows = L.rows();
+	int numCols = L.cols();
+
+	EMatrix Z(numRows, numCols);
+
+	for (int col = 0; col < numCols; col++)
+	{
+		// L * Z = I, L is known, solve Z by forward substitution
+
+		for (int row = 0; row < numRows; row++)
+		{
+			float c = (row == col) ? 1.f : 0.f;
+
+			float sum = 0.f;
+			for (int kk = 0; kk < row; kk++)
+			{
+				sum += L(row, kk) * Z(kk, col);
+			}
+
+			float co = L(row, row);
+			xassert(fabsf(co) > NDI_FLT_EPSILON);
+			float zz = (c - sum) / co;
+
+			Z(row, col) = zz;
+		}
+
+		// U * B = Z, U is known, solve B by back substitution
+
+		for (int row = numRows - 1; row >= 0; row--)
+		{
+			float c = Z(row, col);
+
+			float sum = 0.f;
+			for (int kk = row + 1; kk < numRows; kk++)
+			{
+				sum += L(kk, row) * Result(kk, col);
+			}
+
+			float co = L(row, row);
+			xassert(fabsf(co) > NDI_FLT_EPSILON);
+			float bb = (c - sum) / co;
+
+			Result(row, col) = bb;
+		}
+	}
+}
+
 //----------------------------------------------------------------------------------------------------//
 // LU Decomposition
 //----------------------------------------------------------------------------------------------------//
@@ -385,6 +444,54 @@ bool CholeskyDecomposition(const ScalarMatrix& A, ScalarMatrix* L)
 
 			float sval = sqrtf(val);
 			L->Set(row, row, sval);
+		}
+	}
+
+	return true;
+}
+
+bool CholeskyDecomposition(const EMatrix& A, EMatrix* l)
+{
+	EMatrix& L = *l;
+
+	xassert(A.rows() == A.cols());
+	xassert(L.rows() == L.cols());
+	xassert(A.rows() == L.rows());
+
+	L.setZero(L.rows(), L.cols());
+
+	for (int row = 0; row < L.rows(); row++)
+	{
+		// row != col.
+		for (int col = 0; col < row; col++)
+		{
+			float sum = 0.f;
+			for (int jj = 0; jj < col; jj++)
+				sum += L(col, jj) * L(row, jj);
+
+			float val = (A(row, col) - sum) / L(col, col);
+			L(row, col) = val;
+		}
+
+		// row == col.
+		{
+			float Arr = A(row, row);
+			if (Arr <= 0.f)
+				return false;
+
+			float sum = 0.f;
+			for (int jj = 0; jj < row; jj++)
+			{
+				float l = L(row, jj);
+				sum += l * l;
+			}
+
+			float val = Arr - sum;
+			if (val <= 0.f)
+				return false;
+
+			float sval = sqrtf(val);
+			L(row, row) = sval;
 		}
 	}
 

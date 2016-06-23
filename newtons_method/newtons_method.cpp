@@ -70,6 +70,76 @@ void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const N
 	result->CopyFrom(xk);
 }
 
+//-------------------------------------------------------------------------------------------------------------//
+void NewtonsMethod(const ScalarFunc F, const EGradient* g, const EHessian* H, const NewtonsMethodParams& params,
+	const EVector& x1, EVector* result)
+{
+	xassert(x1.rows() == result->rows());
+
+	const int numParams = x1.rows();
+
+	// for newton's method, x1 needs to be sufficiently close to optima.
+	EVector xk = x1;
+	EVector gk(numParams);
+	EMatrix Gk(numParams, numParams);
+	EMatrix GkInv(numParams, numParams);
+
+	EVector deltaK(numParams);
+
+	for (int iter = 1; iter <= params.m_maxIter; iter++)
+	{
+		const float fk = F(xk);
+		if (fk < params.m_min)
+		{
+			*result = xk;
+			return;
+		}
+
+		g->Evaluate(xk, &gk);
+		float norm2 = Norm2(gk);
+		if (norm2 < params.m_epsilon * params.m_epsilon)
+		{
+			*result = xk;
+			return;
+		}
+
+		// solve G(k) * deltaK = -g(k)
+		H->Evaluate(xk, &Gk);
+
+		float v = params.m_v;
+
+		// if Gk is not positive definite, let Gk = (Gk + vI) until Gk becomes a positive definite
+		do 
+		{
+			//Eigen::LLT<EMatrix> LltOfGk(Gk);
+			EMatrix L(numParams, numParams);
+
+			// TODO: replaced by Eigen library LLT.
+			bool valid = CholeskyDecomposition(Gk, &L);
+			if (valid)
+			//if (LltOfGk.info() == Eigen::NumericalIssue)
+			{
+				LLtInverse(&GkInv, L);
+				break;
+			}
+			else
+			{
+				Gk += v * EMatrix::Identity(numParams, numParams);
+				v *= 2.f;
+			}
+		} while (true);
+
+		EVector gkNeg = gk * -1.f;
+		//MatrixMult(&deltaK, GkInv, gkNeg);
+		deltaK = GkInv * gkNeg;
+
+		// update x(k)
+		xk += deltaK;
+	}
+
+	*result = xk;
+}
+
 void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params, 
 	const ScalarVector& x1, ScalarVector* result)
 {
