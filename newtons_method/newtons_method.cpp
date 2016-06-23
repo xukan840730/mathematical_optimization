@@ -472,3 +472,113 @@ void QuasiNewtonBFGS(const ScalarF F, const Gradient* g, const NewtonsMethodPara
 
 	result->CopyFrom(xk);
 }
+
+void QuasiNewtonBFGS(const ScalarFunc F, const EGradient* g, const NewtonsMethodParams& params,
+	const EVector& x1, EVector* result)
+{
+	xassert(x1.rows() == result->rows());
+
+	const int numParams = x1.rows();
+
+	EMatrix Hk(numParams, numParams);
+	Hk.setIdentity();
+
+	EVector xk = x1;
+	EVector xk1(numParams);	// x(k+1)
+	EVector gk(numParams);	// g(k)
+	EVector gk1(numParams);	// g(k+1)
+	EVector sk(numParams);
+
+	EMatrix Uk(numParams, numParams);
+	EMatrix Vk(numParams, numParams);
+
+	for (int iter = 1; iter <= params.m_maxIter; iter++)
+	{
+		const float fk = F(xk);
+		if (fk < params.m_min)
+		{
+			*result = xk;
+			return;
+		}
+
+		// evaluate g(k)
+		g->Evaluate(xk, &gk);
+
+		{
+			float norm2 = Norm2(gk);
+			if (norm2 < params.m_epsilon * params.m_epsilon)
+			{
+				*result = xk;
+				return;
+			}
+		}
+
+		// find line search direction s(k) = -H(k) * g(k)
+		sk = (Hk * gk) * -1.f;
+
+		{
+			// safe guard that search direction is very small, which means we should stop.
+			float norm2 = Norm2(sk);
+			if (norm2 < SEARCH_DIRECTION_MIN_LENGTH * SEARCH_DIRECTION_MIN_LENGTH)
+			{
+				*result = xk;
+				return;
+			}
+		}
+
+		LineSearchParams lparams;
+		lparams.fMin = params.m_min;
+		lparams.rho = 0.01f;
+		lparams.sigma = 0.1f;
+		lparams.tau1 = 9.f;
+		lparams.tau2 = 0.1f;
+		lparams.tau3 = 0.5f;
+
+		// x(k+1) = x(k) + alphaK * s(k)
+		float alphaK = InexactLineSearch(F, *g, sk, xk, lparams);
+		EVector deltaK = sk * alphaK;
+		xk1 = xk + deltaK;
+
+		// update H(k) giving H(k+1)
+		{
+			// evaluate g(k+1)
+			g->Evaluate(xk1, &gk1);
+			EVector gammaK = gk1 - gk;
+
+			//// H(k+1) = H(k) + U + V = H(k) + (deltaK . (deltaK)T) / ((deltaK)T . gammaK) - (H(k) . gammaK . (gammaK)T . H(k)) / ((gammaK)T . H . gammaK)
+
+			// Uk
+			{
+				EVector u0 = Hk * gammaK;
+				float u1 = gammaK.dot(u0);
+				float den = deltaK.dot(gammaK);
+				float u3 = (1.f + u1 / den);
+
+				Uk = deltaK * deltaK.transpose();
+				Uk *= u3 / den;
+			}
+
+			// Vk
+			{
+				EMatrix v0 = deltaK * gammaK.transpose();
+				Vk = v0 * Hk;
+
+				EMatrix v1 = gammaK * deltaK.transpose();
+				EMatrix v2 = Hk * v1;
+
+				Vk += v2;
+
+				float den = -1.f * deltaK.dot(gammaK);
+				Vk /= (den);
+			}
+
+			Hk += Uk;
+			Hk += Vk;
+		}
+
+		// update x(k)
+		xk += deltaK;
+	}
+
+	*result = xk;
+}

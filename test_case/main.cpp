@@ -895,9 +895,12 @@ int main()
 		NewtonsMethodParams params;
 		params.m_min = -1.f;
 
-		QuasiNewtonSR1(F, &g, params, x0, &xstar0);
+		//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
 		QuasiNewtonDFP(F, &g, params, x0, &xstar1);
 		QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
+
+		float test1 = F(xstar1);
+		float test2 = F(xstar2);
 		printf("done!\n");
 	}
 
@@ -920,7 +923,7 @@ int main()
 		params.m_min = -1.f;
 
 		//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
-		QuasiNewtonDFP(F, &g, params, x0, &xstar1);
+		//QuasiNewtonDFP(F, &g, params, x0, &xstar1);
 		QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
 
 		const float ftest = F(xstar2);

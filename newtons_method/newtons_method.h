@@ -34,3 +34,6 @@ void QuasiNewtonDFP(const ScalarF F, const Gradient* g, const NewtonsMethodParam
 // BFGS
 void QuasiNewtonBFGS(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
 	const ScalarVector& x1, ScalarVector* result);
+
+void QuasiNewtonBFGS(const ScalarFunc F, const EGradient* g, const NewtonsMethodParams& params,
+	const EVector& x1, EVector* result);
