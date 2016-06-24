@@ -64,9 +64,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="lagrange_multiplier.h" />
     <ClInclude Include="newtons_method.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="lagrange_multiplier.cpp" />
     <ClCompile Include="newtons_method.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

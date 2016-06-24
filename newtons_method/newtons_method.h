@@ -20,8 +20,8 @@ struct NewtonsMethodParams
 void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const NewtonsMethodParams& params,
 	const ScalarVector& x1, ScalarVector* result);
 
-void NewtonsMethod(const ScalarFunc F, const EGradient* g, const EHessian* H, const NewtonsMethodParams& params,
-	const EVector& x1, EVector* result);
+//void NewtonsMethod(const ScalarFunc F, const GradientFunc g, const EHessian* H, const NewtonsMethodParams& params,
+//	const EVector& x1, EVector* result);
 
 // rank one correction.
 void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
@@ -35,5 +35,5 @@ void QuasiNewtonDFP(const ScalarF F, const Gradient* g, const NewtonsMethodParam
 void QuasiNewtonBFGS(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
 	const ScalarVector& x1, ScalarVector* result);
 
-void QuasiNewtonBFGS(const ScalarFunc F, const EGradient* g, const NewtonsMethodParams& params,
+void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result);

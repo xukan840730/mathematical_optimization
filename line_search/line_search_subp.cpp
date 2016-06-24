@@ -232,7 +232,7 @@ BracketRes Bracketing(const ScalarF F, const Gradient& g, const ScalarVector& s,
 	return res;
 }
 
-BracketRes Bracketing(const ScalarFunc F, const EGradient& g, const EVector& s, 
+BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s, 
 	const EVector& x0, float a1, const LineSearchParams& params)
 {
 	BracketRes res;
@@ -245,7 +245,7 @@ BracketRes Bracketing(const ScalarFunc F, const EGradient& g, const EVector& s,
 	float FA0 = F(x0);
 
 	EVector g0(numParams);
-	g.Evaluate(x0, &g0);
+	g(x0, &g0);
 	const float FAD0 = g0.dot(s);
 
 	float AiMinus1 = a0;
@@ -285,7 +285,7 @@ BracketRes Bracketing(const ScalarFunc F, const EGradient& g, const EVector& s,
 
 		// evaluate f'(Ai) = g()
 		EVector gi(numParams);
-		g.Evaluate(SAi, &gi);
+		g(SAi, &gi);
 		float FADevI = gi.dot(s);
 
 		{
@@ -451,7 +451,7 @@ float Sectioning(const ScalarF F, const Gradient& g, const ScalarVector& s,
 	return 0.f;
 }
 
-float Sectioning(const ScalarFunc F, const EGradient& g, const EVector& s,
+float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
 	const EVector& x0, const Interval& _prevI, const LineSearchParams& params)
 {
 	xassert(_prevI.a == _prevI.a);
@@ -464,7 +464,7 @@ float Sectioning(const ScalarFunc F, const EGradient& g, const EVector& s,
 	const float FA0 = F(x0);
 
 	EVector g0(numParams);
-	g.Evaluate(x0, &g0);
+	g(x0, &g0);
 
 	const float FAD0 = g0.dot(s);
 
@@ -488,7 +488,7 @@ float Sectioning(const ScalarFunc F, const EGradient& g, const EVector& s,
 				fJa = F(SJa);
 
 				EVector gJa(numParams);
-				g.Evaluate(SJa, &gJa);
+				g(SJa, &gJa);
 				fdJa = gJa.dot(s);
 			}
 
@@ -497,7 +497,7 @@ float Sectioning(const ScalarFunc F, const EGradient& g, const EVector& s,
 				fJb = F(SJb);
 
 				EVector gJb(numParams);
-				g.Evaluate(SJb, &gJb);
+				g(SJb, &gJb);
 				fdJb = gJb.dot(s);
 			}
 		}
@@ -519,7 +519,7 @@ float Sectioning(const ScalarFunc F, const EGradient& g, const EVector& s,
 		else
 		{
 			EVector gAlphaJ(numParams);
-			g.Evaluate(SAlphaJ, &gAlphaJ);
+			g(SAlphaJ, &gAlphaJ);
 			float FADj = gAlphaJ.dot(s);
 			if (fabs(FADj) <= -params.sigma * FAD0)
 			{
@@ -575,10 +575,10 @@ float InexactLineSearch(const ScalarF F, const Gradient& g, const ScalarVector& 
 	}
 }
 
-float InexactLineSearch(const ScalarFunc F, const EGradient& g, const EVector& s, 
+float InexactLineSearch(const ScalarFunc F, const GradientFunc g, const EVector& s, 
 	const EVector& x0,	const LineSearchParams& params)
 {
-	xassert(g.GetLength() == x0.rows());
+	//xassert(g.GetLength() == x0.rows());
 	xassert(x0.rows() == s.rows());
 
 	BracketRes bracketRes = Bracketing(F, g, s, x0, 0.1f, params);

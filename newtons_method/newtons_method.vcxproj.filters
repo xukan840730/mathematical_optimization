@@ -15,13 +15,19 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="newtons_method.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="newtons_method.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="lagrange_multiplier.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="newtons_method.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lagrange_multiplier.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

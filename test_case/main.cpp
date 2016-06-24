@@ -6,6 +6,7 @@
 #include "../linear_algebra/scalar_matrix.h"
 #include "../line_search/line_search_subp.h"
 #include "../newtons_method/newtons_method.h"
+#include "../newtons_method/lagrange_multiplier.h"
 
 #include <Eigen/Dense>
 
@@ -196,6 +197,17 @@ float efunc1d2(const EVector& input)
 	return 200 * (x2 - x1 * x1);
 }
 
+void efunc1d12(const EVector& input, EVector* output)
+{
+	xassert(input.rows() == output->rows());
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0) = -400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1);
+	(*output)(1) = 200 * (x2 - x1 * x1);
+}
+
 //------------------------------------------------------------------------------------//
 float func2(const ScalarVector& input)
 {
@@ -285,6 +297,17 @@ float efunc2d2(const EVector& input)
 	float x2 = input(1);
 
 	return -cosf(x2);
+}
+
+void efunc2d12(const EVector& input, EVector* output)
+{
+	xassert(input.rows() == output->rows());
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0) = -sinf(x1);
+	(*output)(1) = -cosf(x2);
 }
 
 float efunc2h00(const EVector& input)
@@ -611,6 +634,45 @@ float func5d2(const ScalarVector& input)
 }
 
 //------------------------------------------------------------------------------------//
+float func6(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(0);
+
+	return x1 * x1 * x1 * x1 + x2 * x2 * x2 * x2;
+}
+
+void func6d12(const EVector& input, EVector* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(0);
+
+	(*output)(0) = 4 * x1 * x1 * x1;
+	(*output)(1) = 4 * x2 * x2 * x2;
+}
+
+float cfunc6(const EVector& input)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(0);
+
+	return x1 * x1 * x1 + x2 * x2 * x2 - 1.f;
+}
+
+void cfunc6d12(const EVector& input, EVector* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(0);
+
+	(*output)(0) = 3 * x1 * x1;
+	(*output)(1) = 3 * x2 * x2;
+}
+
+//------------------------------------------------------------------------------------//
 int main()
 {
 
@@ -647,11 +709,7 @@ int main()
 		params.tau3 = 0.5f;
 
 		ScalarFunc F = efunc1;
-		EGradient g(2);
-		{
-			g.Set(0, efunc1d1);
-			g.Set(1, efunc1d2);
-		}
+		GradientFunc g = efunc1d12;
 
 		EVector s(2); s(0) = 1.f; s(1) = 0.f;
 		EVector x0(2); x0(0) = 0.f; x0(1) = 0.f;
@@ -693,11 +751,7 @@ int main()
 		params.tau3 = 0.5f;
 
 		ScalarFunc F = efunc2;
-		EGradient g(2);
-		{
-			g.Set(0, efunc2d1);
-			g.Set(1, efunc2d2);
-		}
+		GradientFunc g = efunc2d12;
 
 		EVector s(2); s(0) = 0.707f; s(1) = 0.707f;
 		EVector x0(2); x0(0) = 0.f; x0(1) = 0.f;
@@ -798,31 +852,31 @@ int main()
 		printf("done!\n");
 	}
 
-	{
-		// test newton's method
-		ScalarFunc F = ef_test_newton;
+	//{
+	//	// test newton's method
+	//	ScalarFunc F = ef_test_newton;
 
-		EGradient g(2);
-		EHessian H(2);
+	//	EGradient g(2);
+	//	EHessian H(2);
 
-		g.Set(0, ef_test_newton_g1);
-		g.Set(1, ef_test_newton_g2);
+	//	g.Set(0, ef_test_newton_g1);
+	//	g.Set(1, ef_test_newton_g2);
 
-		H.Set(0, 0, ef_test_newton_H00);
-		H.Set(0, 1, ef_test_newton_H01);
-		H.Set(1, 0, ef_test_newton_H10);
-		H.Set(1, 1, ef_test_newton_H11);
+	//	H.Set(0, 0, ef_test_newton_H00);
+	//	H.Set(0, 1, ef_test_newton_H01);
+	//	H.Set(1, 0, ef_test_newton_H10);
+	//	H.Set(1, 1, ef_test_newton_H11);
 
-		EVector initGuess(2);
-		EVector result(2);
-		initGuess(0) = 0.75f;
-		initGuess(1) = -1.25f;
+	//	EVector initGuess(2);
+	//	EVector result(2);
+	//	initGuess(0) = 0.75f;
+	//	initGuess(1) = -1.25f;
 
-		NewtonsMethodParams params;
+	//	NewtonsMethodParams params;
 
-		NewtonsMethod(F, &g, &H, params, initGuess, &result);
-		printf("done!\n");
-	}
+	//	NewtonsMethod(F, &g, &H, params, initGuess, &result);
+	//	printf("done!\n");
+	//}
 
 
 	{
@@ -929,6 +983,21 @@ int main()
 		const float ftest = F(xstar2);
 
 		printf("done!\n");
+	}
+
+	{
+		LagrangeMultMethodParams params;
+
+		ScalarFunc F = func6;
+		GradientFunc gF = func6d12;
+
+		ScalarFunc c = cfunc6;
+		GradientFunc gC = cfunc6d12;
+
+		EVector x1(2); x1(0) = 1.f; x1(1) = 1.f;
+		EVector xstar(2);
+		
+		LagrangeMultMethod(F, gF, c, gC, params, x1, &xstar);
 	}
 
 	return 0;
