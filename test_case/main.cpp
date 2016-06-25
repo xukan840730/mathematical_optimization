@@ -638,39 +638,127 @@ float func6(const EVector& input)
 {
 	xassert(input.rows() == 2);
 	float x1 = input(0);
-	float x2 = input(0);
+	float x2 = input(1);
 
-	return x1 * x1 * x1 * x1 + x2 * x2 * x2 * x2;
+	return x1*x1*x1*x1 + 3*x1*x1*x2 + 2*x1*x2*x2 + x2*x2*x2*x2;
 }
 
 void func6d12(const EVector& input, EVector* output)
 {
 	xassert(input.rows() == 3);
 	float x1 = input(0);
-	float x2 = input(0);
+	float x2 = input(1);
 
-	(*output)(0) = 4 * x1 * x1 * x1;
-	(*output)(1) = 4 * x2 * x2 * x2;
+	(*output)(0) = 4*x1*x1*x1 + 6*x1*x2 + 2*x2*x2;
+	(*output)(1) = 3*x1*x1 + 4*x1*x2 + 4*x2*x2*x2;
+}
+
+void func6h12(const EVector& input, EMatrix* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0, 0) = 12*x1*x1 + 6*x2;
+	(*output)(0, 1) = 6*x1 + 4*x2;
+	(*output)(1, 0) = 6*x1 + 4*x2;
+	(*output)(1, 1) = 4*x1 + 12*x2*x2;
 }
 
 float cfunc6(const EVector& input)
 {
-	xassert(input.rows() == 3);
+	xassert(input.rows() >= 2);
 	float x1 = input(0);
-	float x2 = input(0);
+	float x2 = input(1);
 
-	return x1 * x1 * x1 + x2 * x2 * x2 - 1.f;
+	return x1*x1 + x2*x2 - 1.f;
 }
 
 void cfunc6d12(const EVector& input, EVector* output)
 {
 	xassert(input.rows() == 3);
 	float x1 = input(0);
-	float x2 = input(0);
+	float x2 = input(1);
 
-	(*output)(0) = 3 * x1 * x1;
-	(*output)(1) = 3 * x2 * x2;
+	(*output)(0) = 2*x1;
+	(*output)(1) = 2*x2;
 }
+
+void cfunc6h12(const EVector& input, EMatrix* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0, 0) = 2;
+	(*output)(0, 1) = 0;
+	(*output)(1, 0) = 0;
+	(*output)(1, 1) = 2;
+}
+
+//------------------------------------------------------------------------------------//
+float func7(const EVector& input)
+{
+	xassert(input.rows() == 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return x1*x1 + x2*x2;
+}
+
+void func7d12(const EVector& input, EVector* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0) = 2*x1;
+	(*output)(1) = 2*x2;
+}
+
+void func7h12(const EVector& input, EMatrix* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0, 0) = 2;
+	(*output)(0, 1) = 0;
+	(*output)(1, 0) = 0;
+	(*output)(1, 1) = 2;
+}
+
+float cfunc7(const EVector& input)
+{
+	xassert(input.rows() >= 2);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	return 2*x1 + x2 - 2;
+}
+
+void cfunc7d12(const EVector& input, EVector* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0) = 2;
+	(*output)(1) = 1;
+}
+
+void cfunc7h12(const EVector& input, EMatrix* output)
+{
+	xassert(input.rows() == 3);
+	float x1 = input(0);
+	float x2 = input(1);
+
+	(*output)(0, 0) = 0;
+	(*output)(0, 1) = 0;
+	(*output)(1, 0) = 0;
+	(*output)(1, 1) = 0;
+}
+
 
 //------------------------------------------------------------------------------------//
 int main()
@@ -987,18 +1075,42 @@ int main()
 
 	{
 		LagrangeMultMethodParams params;
+		params.m_maxIter = 20;
 
 		ScalarFunc F = func6;
 		GradientFunc gF = func6d12;
+		HessianFunc hF = func6h12;
 
 		ScalarFunc c = cfunc6;
 		GradientFunc gC = cfunc6d12;
+		HessianFunc hC = cfunc6h12;
 
-		EVector x1(2); x1(0) = 1.f; x1(1) = 1.f;
+		EVector x1(2); x1(0) = 0.f; x1(1) = 1.f;
 		EVector xstar(2);
 		
-		LagrangeMultMethod(F, gF, c, gC, params, x1, &xstar);
+		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		printf("done!\n");
 	}
+
+	{
+		LagrangeMultMethodParams params;
+		params.m_maxIter = 20;
+
+		ScalarFunc F = func7;
+		GradientFunc gF = func7d12;
+		HessianFunc hF = func7h12;
+
+		ScalarFunc c = cfunc7;
+		GradientFunc gC = cfunc7d12;
+		HessianFunc hC = cfunc7h12;
+
+		EVector x1(2); x1(0) = 1.f; x1(1) = 0.f;
+		EVector xstar(2);
+
+		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		printf("done!\n");
+	}
+
 
 	return 0;
 }
