@@ -69,10 +69,8 @@ void gPhiFuncBody(const EVector& input, EVector* output)
 	float dlamba = 2 * (uu.dot(gc));
 
 	// fill results
-	xassert(output->rows() == result.rows() + 1);
-	for (int ii = 0; ii < numParams - 1; ii++)
-		(*output)(ii) = result(ii);
-
+	*output = result;
+	output->conservativeResize(numParams);
 	(*output)(numParams - 1) = dlamba;
 }
 
@@ -114,15 +112,16 @@ void LagrangeMultMethod(
 	nparams.m_maxIter = params.m_maxIter;
 	nparams.m_min = NDI_FLT_EPSILON;
 
-	EVector lx1(numParams + 1);
-	for (int ii = 0; ii < numParams; ii++)
-		lx1(ii) = x1(ii);
+	EVector lx1 = x1;
+	lx1.conservativeResize(numParams + 1);
 	lx1(numParams) = params.m_lamda1;
 
 	EVector lxstar(numParams + 1);
 	QuasiNewtonBFGS(L, gL, nparams, lx1, &lxstar);
 
 	// copy results.
-	for (int ii = 0; ii < numParams; ii++)
-		(*result)(ii) = lxstar(ii);
+	float lamda = lxstar(lxstar.rows() - 1);
+
+	*result = lxstar;
+	result->conservativeResize(numParams);
 }
