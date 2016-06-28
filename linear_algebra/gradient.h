@@ -4,7 +4,8 @@
 #ifndef _GRADIENT_H_
 #define _GRADIENT_H_
 
-typedef void (*GradientFunc)(const EVector& input, EVector* output, void* pUserData, void* pReserved);
+//typedef void (*GradientFunc)(const EVector& input, EVector* output, void* pUserData, void* pReserved);
+typedef std::function<void(const EVector& input, EVector* output)> GradientFunc;
 
 //class EGradient
 //{

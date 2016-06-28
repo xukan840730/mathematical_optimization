@@ -18,7 +18,7 @@ struct NewtonsMethodParams
 };
 
 void NewtonsMethod(const ScalarFunc F, const GradientFunc g, const HessianFunc H, const NewtonsMethodParams& params,
-	const EVector& x1, void* pUserData, void* pReserved, EVector* result);
+	const EVector& x1, EVector* result);
 
 // rank one correction.
 //void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
@@ -26,8 +26,8 @@ void NewtonsMethod(const ScalarFunc F, const GradientFunc g, const HessianFunc H
 
 // Davidon Fletcher and Powell method, rank two correction
 void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
-	const EVector& x1, void* pUserData, void* pReserved, EVector* result);
+	const EVector& x1, EVector* result);
 
 // BFGS
 void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
-	const EVector& x1, void* pUserData, void* pReserved, EVector* result);
+	const EVector& x1, EVector* result);

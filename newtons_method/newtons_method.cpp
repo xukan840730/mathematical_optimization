@@ -171,7 +171,7 @@
 
 //-------------------------------------------------------------------------------------------------------------//
 void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params, 
-	const EVector& x1, void* pUserData, void* pReserved, EVector* result)
+	const EVector& x1, EVector* result)
 {
 	xassert(x1.rows() == result->rows());
 
@@ -193,7 +193,7 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 
 	for (int iter = 1; iter <= params.m_maxIter; iter++)
 	{
-		const float fk = F(xk, pUserData, pReserved);
+		const float fk = F(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
@@ -201,7 +201,7 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 		}
 
 		// evaluate g(k)
-		g(xk, &gk, pUserData, pReserved);
+		g(xk, &gk);
 
 		{
 			float norm2 = gk.squaredNorm();
@@ -234,14 +234,14 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 		lparams.tau3 = 0.5f;
 
 		// x(k+1) = x(k) + alphaK * s(k)
-		float alphaK = InexactLineSearch(F, *g, sk, xk, pUserData, pReserved, lparams);
+		float alphaK = InexactLineSearch(F, g, sk, xk, lparams);
 		deltaK = sk * alphaK;
 		xk1 = xk + deltaK;
 
 		// update H(k) giving H(k+1)
 		{
 			// evaluate g(k+1)
-			g(xk1, &gk1, pUserData, pReserved);
+			g(xk1, &gk1);
 			gammaK = gk1 - gk;
 
 			// H(k+1) = H(k) + U + V = H(k) + (deltaK . (deltaK)T) / ((deltaK)T . gammaK) - (H(k) . gammaK . (gammaK)T . H(k)) / ((gammaK)T . H . gammaK)
@@ -277,7 +277,7 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 
 //-------------------------------------------------------------------------------------------------------------//
 void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
-	const EVector& x1, void* pUserData, void* pReserved, EVector* result)
+	const EVector& x1, EVector* result)
 {
 	xassert(x1.rows() == result->rows());
 
@@ -297,7 +297,7 @@ void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMeth
 
 	for (int iter = 1; iter <= params.m_maxIter; iter++)
 	{
-		const float fk = F(xk, pUserData, pReserved);
+		const float fk = F(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
@@ -305,7 +305,7 @@ void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMeth
 		}
 
 		// evaluate g(k)
-		g(xk, &gk, pUserData, pReserved);
+		g(xk, &gk);
 
 		{
 			float norm2 = Norm2(gk);
@@ -338,14 +338,14 @@ void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMeth
 		lparams.tau3 = 0.5f;
 
 		// x(k+1) = x(k) + alphaK * s(k)
-		float alphaK = InexactLineSearch(F, *g, sk, xk, pUserData, pReserved, lparams);
+		float alphaK = InexactLineSearch(F, g, sk, xk, lparams);
 		EVector deltaK = sk * alphaK;
 		xk1 = xk + deltaK;
 
 		// update H(k) giving H(k+1)
 		{
 			// evaluate g(k+1)
-			g(xk1, &gk1, pUserData, pReserved);
+			g(xk1, &gk1);
 			EVector gammaK = gk1 - gk;
 
 			//// H(k+1) = H(k) + U + V = H(k) + (deltaK . (deltaK)T) / ((deltaK)T . gammaK) - (H(k) . gammaK . (gammaK)T . H(k)) / ((gammaK)T . H . gammaK)

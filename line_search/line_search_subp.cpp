@@ -112,7 +112,7 @@ float choose(const Interval& currI, float currFa, float currFb, float currDevA, 
 }
 
 BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s, 
-	const EVector& x0, void* pUserData, void* pReserved, float a1, const LineSearchParams& params)
+	const EVector& x0, float a1, const LineSearchParams& params)
 {
 	BracketRes res;
 
@@ -121,10 +121,10 @@ BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s
 	const float a0 = 0.f;
 	float Ai = a1;
 
-	float FA0 = F(x0, pUserData, pReserved);
+	float FA0 = F(x0);
 
 	EVector g0(numParams);
-	g(x0, &g0, pUserData, pReserved);
+	g(x0, &g0);
 	const float FAD0 = g0.dot(s);
 
 	float AiMinus1 = a0;
@@ -142,7 +142,7 @@ BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s
 		EVector SAi = x0 + s * Ai;
 
 		// evaluate f(Ai)
-		float FAi = F(SAi, pUserData, pReserved);
+		float FAi = F(SAi);
 
 		if (FAi <= params.fMin)
 		{
@@ -164,7 +164,7 @@ BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s
 
 		// evaluate f'(Ai) = g()
 		EVector gi(numParams);
-		g(SAi, &gi, pUserData, pReserved);
+		g(SAi, &gi);
 		float FADevI = gi.dot(s);
 
 		{
@@ -226,7 +226,7 @@ BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s
 }
 
 float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
-	const EVector& x0, void* pUserData, void* pReserved, const Interval& _prevI, const LineSearchParams& params)
+	const EVector& x0, const Interval& _prevI, const LineSearchParams& params)
 {
 	xassert(_prevI.a == _prevI.a);
 	xassert(_prevI.b == _prevI.b);
@@ -235,10 +235,10 @@ float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
 
 	Interval currJ = _prevI;
 
-	const float FA0 = F(x0, pUserData, pReserved);
+	const float FA0 = F(x0);
 
 	EVector g0(numParams);
-	g(x0, &g0, pUserData, pReserved);
+	g(x0, &g0);
 
 	const float FAD0 = g0.dot(s);
 
@@ -259,19 +259,19 @@ float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
 		{
 			{
 				EVector SJa = x0 + s * currJ.a;
-				fJa = F(SJa, pUserData, pReserved);
+				fJa = F(SJa);
 
 				EVector gJa(numParams);
-				g(SJa, &gJa, pUserData, pReserved);
+				g(SJa, &gJa);
 				fdJa = gJa.dot(s);
 			}
 
 			{
 				EVector SJb = x0 + s * currJ.b;
-				fJb = F(SJb, pUserData, pReserved);
+				fJb = F(SJb);
 
 				EVector gJb(numParams);
-				g(SJb, &gJb, pUserData, pReserved);
+				g(SJb, &gJb);
 				fdJb = gJb.dot(s);
 			}
 		}
@@ -281,7 +281,7 @@ float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
 
 		// evaluate f(alphaJ)
 		EVector SAlphaJ = x0 + s * alphaJ;
-		float FAj = F(SAlphaJ, pUserData, pReserved);
+		float FAj = F(SAlphaJ);
 
 		bool t0 = FAj > FA0 + params.rho * alphaJ * FAD0;
 		bool t1 = FAj >= fJa;
@@ -293,7 +293,7 @@ float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
 		else
 		{
 			EVector gAlphaJ(numParams);
-			g(SAlphaJ, &gAlphaJ, pUserData, pReserved);
+			g(SAlphaJ, &gAlphaJ);
 			float FADj = gAlphaJ.dot(s);
 			if (fabs(FADj) <= -params.sigma * FAD0)
 			{
@@ -325,12 +325,12 @@ float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
 //-----------------------------------------------------------------------------//
 
 float InexactLineSearch(const ScalarFunc F, const GradientFunc g, const EVector& s, 
-	const EVector& x0, void* pUserData, void* pReserved, const LineSearchParams& params)
+	const EVector& x0, const LineSearchParams& params)
 {
 	//xassert(g.GetLength() == x0.rows());
 	xassert(x0.rows() == s.rows());
 
-	BracketRes bracketRes = Bracketing(F, g, s, x0, pUserData, pReserved, 0.1f, params);
+	BracketRes bracketRes = Bracketing(F, g, s, x0, 0.1f, params);
 
 	if (bracketRes.t)
 	{
@@ -339,7 +339,7 @@ float InexactLineSearch(const ScalarFunc F, const GradientFunc g, const EVector&
 	}
 	else if (bracketRes.tB)
 	{
-		float finalA = Sectioning(F, g, s, x0, pUserData, pReserved, bracketRes.interval, params);
+		float finalA = Sectioning(F, g, s, x0, bracketRes.interval, params);
 		return finalA;
 	}
 	else
