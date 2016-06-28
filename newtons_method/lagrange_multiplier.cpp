@@ -16,63 +16,6 @@ struct FuncBodyHelper
 static FuncBodyHelper* g_params0 = nullptr;
 static FuncBodyHelper* g_params1 = nullptr;
 
-float PhiFuncBody(const EVector& input)
-{
-	const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(g_params0);
-
-	int numParams = input.rows();
-	const float lamda = input(numParams - 1);
-
-	EVector gf(numParams - 1);
-	EVector gc(numParams - 1);
-	pHelper->m_gf(input, &gf);
-	pHelper->m_gc(input, &gc);
-
-	EVector ux = gf + gc * lamda;
-
-	float cx = pHelper->m_c(input);
-
-	return ux.squaredNorm() + cx * cx;
-}
-
-void gPhiFuncBody(const EVector& input, EVector* output)
-{
-	xassert(input.rows() == output->rows());
-
-	const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(g_params1);
-
-	const int numParams = input.rows();
-	const float lamda = input(numParams - 1);
-
-	EVector gf(numParams - 1);
-	EVector gc(numParams - 1);
-
-	pHelper->m_gf(input, &gf);
-	pHelper->m_gc(input, &gc);
-
-	EVector uu = gf + gc * lamda;
-	
-	EMatrix hf(numParams - 1, numParams - 1);
-	EMatrix hc(numParams - 1, numParams - 1);
-
-	pHelper->m_hf(input, &hf);
-	pHelper->m_hc(input, &hc);
-
-	EMatrix tt = hf + hc * lamda;
-
-	float cx = pHelper->m_c(input);
-
-	EVector result1 = 2 * tt * uu;
-	EVector result2 = 2 * cx * gc;
-	EVector result = result1 + result2;
-
-	float dlamba = 2 * (uu.dot(gc));
-
-	// fill results
-	*output = result;
-	output->conservativeResize(numParams);
-	(*output)(numParams - 1) = dlamba;
-}
 
 void LagrangeMultMethod(
 	const ScalarFunc F, const GradientFunc gF, const HessianFunc hF,
@@ -94,8 +37,67 @@ void LagrangeMultMethod(
 
 	int numParams = x1.rows();
 
-	ScalarFunc L = PhiFuncBody;
-	GradientFunc gL = gPhiFuncBody;
+	// lagrange function
+	auto LFunc = [](const EVector& input) -> float {
+		const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(g_params0);
+
+		int numParams = input.rows();
+		const float lamda = input(numParams - 1);
+
+		EVector gf(numParams - 1);
+		EVector gc(numParams - 1);
+		pHelper->m_gf(input, &gf);
+		pHelper->m_gc(input, &gc);
+
+		EVector ux = gf + gc * lamda;
+
+		float cx = pHelper->m_c(input);
+
+		return ux.squaredNorm() + cx * cx;
+	};
+
+	// gradiant of lagrange function
+	auto gLFunc = [](const EVector& input, EVector* output) {
+		xassert(input.rows() == output->rows());
+
+		const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(g_params1);
+
+		const int numParams = input.rows();
+		const float lamda = input(numParams - 1);
+
+		EVector gf(numParams - 1);
+		EVector gc(numParams - 1);
+
+		pHelper->m_gf(input, &gf);
+		pHelper->m_gc(input, &gc);
+
+		EVector uu = gf + gc * lamda;
+
+		EMatrix hf(numParams - 1, numParams - 1);
+		EMatrix hc(numParams - 1, numParams - 1);
+
+		pHelper->m_hf(input, &hf);
+		pHelper->m_hc(input, &hc);
+
+		EMatrix tt = hf + hc * lamda;
+
+		float cx = pHelper->m_c(input);
+
+		EVector result1 = 2 * tt * uu;
+		EVector result2 = 2 * cx * gc;
+		EVector result = result1 + result2;
+
+		float dlamba = 2 * (uu.dot(gc));
+
+		// fill results
+		*output = result;
+		output->conservativeResize(numParams);
+		(*output)(numParams - 1) = dlamba;
+	};
+
+
+	ScalarFunc L = LFunc;
+	GradientFunc gL = gLFunc;
 
 	FuncBodyHelper helper;
 	helper.m_f = F;

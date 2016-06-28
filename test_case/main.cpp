@@ -553,54 +553,6 @@ float func4d6(const ScalarVector& input)
 float sample5x[6] = {-1.f, 0.f, 1.f, 2.f, 3.f, 4.f};
 float sample5y[6] = {1.f, 0.f, -1.f, 1.f, 2.5f, 6.f};
 
-float func5(const EVector& input)
-{
-	xassert(input.rows() == 3);
-	float a = input(0);
-	float b = input(1);
-	float c = input(2);
-
-	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
-
-	float sum = 0.f;
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample5x[i];
-		float sample = sample5y[i];
-		float t = (a * sinf(x) + b * cosf(x) + c - sample);
-		sum += t * t;
-	}
-	return sum;
-}
-
-void func5d123(const EVector& input, EVector* output)
-{
-	xassert(input.rows() == 3);
-	float a = input(0);
-	float b = input(1);
-	float c = input(2);
-
-	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
-
-	float sum0 = 0.f;
-	float sum1 = 0.f;
-	float sum2 = 0.f;
-
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample5x[i];
-		float sample = sample5y[i];
-		float t = (a * sinf(x) + b * cosf(x) + c - sample);
-		sum0 += 2 * t * sinf(x);
-		sum1 += 2 * t * cosf(x);
-		sum2 += 2 * t;
-	}
-	
-	(*output)(0) = sum0;
-	(*output)(1) = sum1;
-	(*output)(2) = sum2;
-}
-
 //------------------------------------------------------------------------------------//
 float func6(const EVector& input)
 {
@@ -1020,6 +972,52 @@ int main()
 	//}
 
 	{
+		auto func5 = [](const EVector& input)->float {
+			xassert(input.rows() == 3);
+			float a = input(0);
+			float b = input(1);
+			float c = input(2);
+
+			const int length = sizeof(sample5x) / sizeof(sample5x[0]);
+
+			float sum = 0.f;
+			for (int i = 0; i < length; i++)
+			{
+				float x = sample5x[i];
+				float sample = sample5y[i];
+				float t = (a * sinf(x) + b * cosf(x) + c - sample);
+				sum += t * t;
+			}
+			return sum;
+		};
+
+		auto func5d123 = [](const EVector& input, EVector* output) {
+			xassert(input.rows() == 3);
+			float a = input(0);
+			float b = input(1);
+			float c = input(2);
+
+			const int length = sizeof(sample5x) / sizeof(sample5x[0]);
+
+			float sum0 = 0.f;
+			float sum1 = 0.f;
+			float sum2 = 0.f;
+
+			for (int i = 0; i < length; i++)
+			{
+				float x = sample5x[i];
+				float sample = sample5y[i];
+				float t = (a * sinf(x) + b * cosf(x) + c - sample);
+				sum0 += 2 * t * sinf(x);
+				sum1 += 2 * t * cosf(x);
+				sum2 += 2 * t;
+			}
+
+			(*output)(0) = sum0;
+			(*output)(1) = sum1;
+			(*output)(2) = sum2;
+		};
+
 		ScalarFunc F = func5;
 		GradientFunc g = func5d123;
 
