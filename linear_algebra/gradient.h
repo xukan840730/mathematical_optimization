@@ -4,7 +4,7 @@
 #ifndef _GRADIENT_H_
 #define _GRADIENT_H_
 
-typedef void (*GradientFunc)(const EVector& input, EVector* output);
+typedef void (*GradientFunc)(const EVector& input, EVector* output, void* pUserData, void* pReserved);
 
 //class EGradient
 //{

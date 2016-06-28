@@ -170,7 +170,7 @@ float func1d2(const ScalarVector& input)
 	return 200 * (x2 - x1 * x1);
 }
 
-float efunc1(const EVector& input)
+float efunc1(const EVector& input, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 2);
 	float x1 = input(0);
@@ -197,7 +197,7 @@ float efunc1d2(const EVector& input)
 	return 200 * (x2 - x1 * x1);
 }
 
-void efunc1d12(const EVector& input, EVector* output)
+void efunc1d12(const EVector& input, EVector* output, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == output->rows());
 	xassert(input.rows() == 2);
@@ -272,7 +272,7 @@ float func2h11(const ScalarVector& input)
 	return sinf(x2);
 }
 
-float efunc2(const EVector& input)
+float efunc2(const EVector& input, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 2);
 	float x1 = input(0);
@@ -299,7 +299,7 @@ float efunc2d2(const EVector& input)
 	return -cosf(x2);
 }
 
-void efunc2d12(const EVector& input, EVector* output)
+void efunc2d12(const EVector& input, EVector* output, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == output->rows());
 	xassert(input.rows() == 2);
@@ -554,7 +554,7 @@ float sample5x[6] = {-1.f, 0.f, 1.f, 2.f, 3.f, 4.f};
 float sample5y[6] = {1.f, 0.f, -1.f, 1.f, 2.5f, 6.f};
 
 //------------------------------------------------------------------------------------//
-float func6(const EVector& input)
+float func6(const EVector& input, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 2);
 	float x1 = input(0);
@@ -563,7 +563,7 @@ float func6(const EVector& input)
 	return x1*x1*x1*x1 + 3*x1*x1*x2 + 2*x1*x2*x2 + x2*x2*x2*x2;
 }
 
-void func6d12(const EVector& input, EVector* output)
+void func6d12(const EVector& input, EVector* output, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 3);
 	float x1 = input(0);
@@ -585,7 +585,7 @@ void func6h12(const EVector& input, EMatrix* output)
 	(*output)(1, 1) = 4*x1 + 12*x2*x2;
 }
 
-float cfunc6(const EVector& input)
+float cfunc6(const EVector& input, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() >= 2);
 	float x1 = input(0);
@@ -594,7 +594,7 @@ float cfunc6(const EVector& input)
 	return x1*x1 + x2*x2 - 1.f;
 }
 
-void cfunc6d12(const EVector& input, EVector* output)
+void cfunc6d12(const EVector& input, EVector* output, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 3);
 	float x1 = input(0);
@@ -617,7 +617,7 @@ void cfunc6h12(const EVector& input, EMatrix* output)
 }
 
 //------------------------------------------------------------------------------------//
-float func7(const EVector& input)
+float func7(const EVector& input, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 2);
 	float x1 = input(0);
@@ -626,7 +626,7 @@ float func7(const EVector& input)
 	return x1*x1 + x2*x2;
 }
 
-void func7d12(const EVector& input, EVector* output)
+void func7d12(const EVector& input, EVector* output, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 3);
 	float x1 = input(0);
@@ -648,7 +648,7 @@ void func7h12(const EVector& input, EMatrix* output)
 	(*output)(1, 1) = 2;
 }
 
-float cfunc7(const EVector& input)
+float cfunc7(const EVector& input, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() >= 2);
 	float x1 = input(0);
@@ -657,7 +657,7 @@ float cfunc7(const EVector& input)
 	return 2*x1 + x2 - 2;
 }
 
-void cfunc7d12(const EVector& input, EVector* output)
+void cfunc7d12(const EVector& input, EVector* output, void* pUserData, void* pReserved)
 {
 	xassert(input.rows() == 3);
 	float x1 = input(0);
@@ -727,7 +727,7 @@ int main()
 		EVector s(2); s(0) = 1.f; s(1) = 0.f;
 		EVector x0(2); x0(0) = 0.f; x0(1) = 0.f;
 
-		float finalA = InexactLineSearch(F, g, s, x0, params);
+		float finalA = InexactLineSearch(F, g, s, x0, nullptr, nullptr, params);
 		printf("done!\n");
 	}
 
@@ -769,7 +769,7 @@ int main()
 		EVector s(2); s(0) = 0.707f; s(1) = 0.707f;
 		EVector x0(2); x0(0) = 0.f; x0(1) = 0.f;
 
-		float finalA = InexactLineSearch(F, g, s, x0, params);
+		float finalA = InexactLineSearch(F, g, s, x0, nullptr, nullptr, params);
 		printf("done!\n");
 	}
 
@@ -972,7 +972,7 @@ int main()
 	//}
 
 	{
-		auto func5 = [](const EVector& input)->float {
+		auto func5 = [](const EVector& input, void* pUserData, void* pReserved)->float {
 			xassert(input.rows() == 3);
 			float a = input(0);
 			float b = input(1);
@@ -991,7 +991,7 @@ int main()
 			return sum;
 		};
 
-		auto func5d123 = [](const EVector& input, EVector* output) {
+		auto func5d123 = [](const EVector& input, EVector* output, void* pUserData, void* pReserved) {
 			xassert(input.rows() == 3);
 			float a = input(0);
 			float b = input(1);
@@ -1035,10 +1035,10 @@ int main()
 
 		//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
 
-		QuasiNewtonDFP(F, g, params, x0, &xstar1);
-		QuasiNewtonBFGS(F, g, params, x0, &xstar2);
+		QuasiNewtonDFP(F, g, params, x0, nullptr, nullptr, &xstar1);
+		QuasiNewtonBFGS(F, g, params, x0, nullptr, nullptr, &xstar2);
 
-		const float ftest = F(xstar2);
+		const float ftest = F(xstar2, nullptr, nullptr);
 
 		printf("done!\n");
 	}
@@ -1058,7 +1058,7 @@ int main()
 		EVector x1(2); x1(0) = 0.f; x1(1) = 1.f;
 		EVector xstar(2);
 		
-		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, nullptr, nullptr, &xstar);
 		printf("done!\n");
 	}
 
@@ -1077,7 +1077,7 @@ int main()
 		EVector x1(2); x1(0) = 1.f; x1(1) = 0.f;
 		EVector xstar(2);
 
-		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, nullptr, nullptr, &xstar);
 		printf("done!\n");
 	}
 

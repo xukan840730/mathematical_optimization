@@ -13,19 +13,15 @@ struct FuncBodyHelper
 	HessianFunc			m_hc;
 };
 
-static FuncBodyHelper* g_params0 = nullptr;
-static FuncBodyHelper* g_params1 = nullptr;
-
-
 void LagrangeMultMethod(
 	const ScalarFunc F, const GradientFunc gF, const HessianFunc hF,
 	const ScalarFunc C, const GradientFunc gC, const HessianFunc hC,
 	const LagrangeMultMethodParams& params,
-	const EVector& x1, EVector* result)
+	const EVector& x1, void* pUserData, void* pReserved, EVector* result)
 {
 	// valid the constrain function is correct.
 	{
-		float fC = C(x1);
+		float fC = C(x1, pUserData, pReserved);
 		xassert(fabsf(fC) < NDI_FLT_EPSILON);
 	}
 
@@ -38,29 +34,31 @@ void LagrangeMultMethod(
 	int numParams = x1.rows();
 
 	// lagrange function
-	auto LFunc = [](const EVector& input) -> float {
-		const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(g_params0);
+	auto LFunc = [](const EVector& input, void* pUserData, void* pReserved) -> float {
+		xassert(pReserved != nullptr);
+		const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(pReserved);
 
 		int numParams = input.rows();
 		const float lamda = input(numParams - 1);
 
 		EVector gf(numParams - 1);
 		EVector gc(numParams - 1);
-		pHelper->m_gf(input, &gf);
-		pHelper->m_gc(input, &gc);
+		pHelper->m_gf(input, &gf, pUserData, nullptr);
+		pHelper->m_gc(input, &gc, pUserData, nullptr);
 
 		EVector ux = gf + gc * lamda;
 
-		float cx = pHelper->m_c(input);
+		float cx = pHelper->m_c(input, pUserData, nullptr);
 
 		return ux.squaredNorm() + cx * cx;
 	};
 
 	// gradiant of lagrange function
-	auto gLFunc = [](const EVector& input, EVector* output) {
+	auto gLFunc = [](const EVector& input, EVector* output, void* pUserData, void* pReserved) {
+		xassert(pReserved != nullptr);
 		xassert(input.rows() == output->rows());
 
-		const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(g_params1);
+		const FuncBodyHelper* pHelper = static_cast<const FuncBodyHelper*>(pReserved);
 
 		const int numParams = input.rows();
 		const float lamda = input(numParams - 1);
@@ -68,8 +66,8 @@ void LagrangeMultMethod(
 		EVector gf(numParams - 1);
 		EVector gc(numParams - 1);
 
-		pHelper->m_gf(input, &gf);
-		pHelper->m_gc(input, &gc);
+		pHelper->m_gf(input, &gf, pUserData, nullptr);
+		pHelper->m_gc(input, &gc, pUserData, nullptr);
 
 		EVector uu = gf + gc * lamda;
 
@@ -81,7 +79,7 @@ void LagrangeMultMethod(
 
 		EMatrix tt = hf + hc * lamda;
 
-		float cx = pHelper->m_c(input);
+		float cx = pHelper->m_c(input, pUserData, nullptr);
 
 		EVector result1 = 2 * tt * uu;
 		EVector result2 = 2 * cx * gc;
@@ -107,9 +105,6 @@ void LagrangeMultMethod(
 	helper.m_gc = gC;
 	helper.m_hc = hC;
 
-	g_params0 = &helper;
-	g_params1 = &helper;
-
 	NewtonsMethodParams nparams;
 	nparams.m_maxIter = params.m_maxIter;
 	nparams.m_min = NDI_FLT_EPSILON;
@@ -119,7 +114,7 @@ void LagrangeMultMethod(
 	lx1(numParams) = params.m_lamda1;
 
 	EVector lxstar(numParams + 1);
-	QuasiNewtonBFGS(L, gL, nparams, lx1, &lxstar);
+	QuasiNewtonBFGS(L, gL, nparams, lx1, pUserData, &helper, &lxstar);
 
 	// copy results.
 	float lamda = lxstar(lxstar.rows() - 1);

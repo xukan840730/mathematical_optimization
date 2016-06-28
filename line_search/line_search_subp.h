@@ -37,10 +37,11 @@ struct BracketRes
 };
 
 BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s, 
-	const EVector& x0, float a1, const LineSearchParams& params);
+	const EVector& x0, void* pUserData, void* pReserved, float a1, const LineSearchParams& params);
 
 float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
-	const EVector& x0, const Interval& _prevI, const LineSearchParams& params);
+	const EVector& x0, void* pUserData, void* pReserved, const Interval& _prevI, const LineSearchParams& params);
 
 // inexact line search method. returns alpha along search direction s.
-float InexactLineSearch(const ScalarFunc F, const GradientFunc g, const EVector& s, const EVector& x0, const LineSearchParams& params);
+float InexactLineSearch(const ScalarFunc F, const GradientFunc g, const EVector& s, 
+	const EVector& x0, void* pUserData, void* pReserved, const LineSearchParams& params);

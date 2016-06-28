@@ -41,6 +41,6 @@ float DotProd(const ScalarVector& a, const ScalarVector& b);
 float Norm2(const EVector& a);
 
 // symbolic mathematic?
-typedef std::function<float(const EVector& input)> ScalarFunc;
+typedef std::function<float(const EVector& input, void* pUserData, void* pReserved)> ScalarFunc;
 
 #endif
