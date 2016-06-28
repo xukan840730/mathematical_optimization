@@ -553,12 +553,12 @@ float func4d6(const ScalarVector& input)
 float sample5x[6] = {-1.f, 0.f, 1.f, 2.f, 3.f, 4.f};
 float sample5y[6] = {1.f, 0.f, -1.f, 1.f, 2.5f, 6.f};
 
-float func5(const ScalarVector& input)
+float func5(const EVector& input)
 {
-	xassert(input.GetLength() == 3);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
+	xassert(input.rows() == 3);
+	float a = input(0);
+	float b = input(1);
+	float c = input(2);
 
 	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
 
@@ -573,64 +573,32 @@ float func5(const ScalarVector& input)
 	return sum;
 }
 
-float func5d0(const ScalarVector& input)
+void func5d123(const EVector& input, EVector* output)
 {
-	xassert(input.GetLength() == 3);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
+	xassert(input.rows() == 3);
+	float a = input(0);
+	float b = input(1);
+	float c = input(2);
 
 	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
 
-	float sum = 0.f;
+	float sum0 = 0.f;
+	float sum1 = 0.f;
+	float sum2 = 0.f;
+
 	for (int i = 0; i < length; i++)
 	{
 		float x = sample5x[i];
 		float sample = sample5y[i];
 		float t = (a * sinf(x) + b * cosf(x) + c - sample);
-		sum += 2 * t * sinf(x);
+		sum0 += 2 * t * sinf(x);
+		sum1 += 2 * t * cosf(x);
+		sum2 += 2 * t;
 	}
-	return sum;
-}
-
-float func5d1(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 3);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-
-	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
-
-	float sum = 0.f;
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample5x[i];
-		float sample = sample5y[i];
-		float t = (a * sinf(x) + b * cosf(x) + c - sample);
-		sum += 2 * t * cosf(x);
-	}
-	return sum;
-}
-
-float func5d2(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 3);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-
-	const int length = sizeof(sample5x) / sizeof(sample5x[0]);
-
-	float sum = 0.f;
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample5x[i];
-		float sample = sample5y[i];
-		float t = (a * sinf(x) + b * cosf(x) + c - sample);
-		sum += 2 * t;
-	}
-	return sum;
+	
+	(*output)(0) = sum0;
+	(*output)(1) = sum1;
+	(*output)(2) = sum2;
 }
 
 //------------------------------------------------------------------------------------//
@@ -759,33 +727,38 @@ void cfunc7h12(const EVector& input, EMatrix* output)
 	(*output)(1, 1) = 0;
 }
 
+//------------------------------------------------------------------------------------//
+void print_num(int i)
+{
+	printf("%d\n", i);
+}
 
 //------------------------------------------------------------------------------------//
 int main()
 {
 
-	{
-		LineSearchParams params;
-		params.fMin = -1.f;
-		params.rho = 0.01f;
-		params.sigma = 0.1f;
-		params.tau1 = 9.f;
-		params.tau2 = 0.1f;
-		params.tau3 = 0.5f;
+	//{
+	//	LineSearchParams params;
+	//	params.fMin = -1.f;
+	//	params.rho = 0.01f;
+	//	params.sigma = 0.1f;
+	//	params.tau1 = 9.f;
+	//	params.tau2 = 0.1f;
+	//	params.tau3 = 0.5f;
 
-		ScalarF F = func1;
-		Gradient g(2);
-		{
-			g.Set(0, func1d1);
-			g.Set(1, func1d2);
-		}
+	//	ScalarF F = func1;
+	//	Gradient g(2);
+	//	{
+	//		g.Set(0, func1d1);
+	//		g.Set(1, func1d2);
+	//	}
 
-		ScalarVector s(2); s.Set(0, 1.f); s.Set(1, 0.f);
-		ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
+	//	ScalarVector s(2); s.Set(0, 1.f); s.Set(1, 0.f);
+	//	ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
 
-		float finalA = InexactLineSearch(F, g, s, x0, params);
-		printf("done!\n");
-	}
+	//	float finalA = InexactLineSearch(F, g, s, x0, params);
+	//	printf("done!\n");
+	//}
 
 	{
 		LineSearchParams params;
@@ -806,28 +779,28 @@ int main()
 		printf("done!\n");
 	}
 
-	{
-		LineSearchParams params;
-		params.fMin = -2.f;
-		params.rho = 0.01f;
-		params.sigma = 0.001f;
-		params.tau1 = 9.f;
-		params.tau2 = 0.1f;
-		params.tau3 = 0.5f;
+	//{
+	//	LineSearchParams params;
+	//	params.fMin = -2.f;
+	//	params.rho = 0.01f;
+	//	params.sigma = 0.001f;
+	//	params.tau1 = 9.f;
+	//	params.tau2 = 0.1f;
+	//	params.tau3 = 0.5f;
 
-		ScalarF F = func2;
-		Gradient g(2);
-		{
-			g.Set(0, func2d1);
-			g.Set(1, func2d2);
-		}
+	//	ScalarF F = func2;
+	//	Gradient g(2);
+	//	{
+	//		g.Set(0, func2d1);
+	//		g.Set(1, func2d2);
+	//	}
 
-		ScalarVector s(2); s.Set(0, 0.707f); s.Set(1, 0.707f);
-		ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
+	//	ScalarVector s(2); s.Set(0, 0.707f); s.Set(1, 0.707f);
+	//	ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
 
-		float finalA = InexactLineSearch(F, g, s, x0, params);
-		printf("done!\n");
-	}
+	//	float finalA = InexactLineSearch(F, g, s, x0, params);
+	//	printf("done!\n");
+	//}
 
 	{
 		LineSearchParams params;
@@ -914,31 +887,31 @@ int main()
 		printf("done!\n");
 	}
 
-	{
-		// test newton's method
-		ScalarF F = f_test_newton;
+	//{
+	//	// test newton's method
+	//	ScalarF F = f_test_newton;
 
-		Gradient g(2);
-		Hessian H(2);
+	//	Gradient g(2);
+	//	Hessian H(2);
 
-		g.Set(0, f_test_newton_g1);
-		g.Set(1, f_test_newton_g2);
+	//	g.Set(0, f_test_newton_g1);
+	//	g.Set(1, f_test_newton_g2);
 
-		H.Set(0, 0, f_test_newton_H00);
-		H.Set(0, 1, f_test_newton_H01);
-		H.Set(1, 0, f_test_newton_H10);
-		H.Set(1, 1, f_test_newton_H11);
+	//	H.Set(0, 0, f_test_newton_H00);
+	//	H.Set(0, 1, f_test_newton_H01);
+	//	H.Set(1, 0, f_test_newton_H10);
+	//	H.Set(1, 1, f_test_newton_H11);
 
-		ScalarVector initGuess(2);
-		ScalarVector result(2);
-		initGuess.Set(0, 0.75f);
-		initGuess.Set(1, -1.25f);
+	//	ScalarVector initGuess(2);
+	//	ScalarVector result(2);
+	//	initGuess.Set(0, 0.75f);
+	//	initGuess.Set(1, -1.25f);
 
-		NewtonsMethodParams params;
+	//	NewtonsMethodParams params;
 
-		NewtonsMethod(F, &g, &H, params, initGuess, &result);
-		printf("done!\n");
-	}
+	//	NewtonsMethod(F, &g, &H, params, initGuess, &result);
+	//	printf("done!\n");
+	//}
 
 	//{
 	//	// test newton's method
@@ -967,106 +940,105 @@ int main()
 	//}
 
 
+	//{
+	//	// test newton's method.
+	//	ScalarF F = func2;
+
+	//	Gradient g(2);
+	//	Hessian H(2);
+
+	//	g.Set(0, func2d1);
+	//	g.Set(1, func2d2);
+
+	//	H.Set(0, 0, func2h00);
+	//	H.Set(0, 1, func2h01);
+	//	H.Set(1, 0, func2h10);
+	//	H.Set(1, 1, func2h11);
+
+	//	ScalarVector x0(2);
+	//	ScalarVector xstar(2);
+	//	x0.Set(0, -30.f * 3.1415f / 180.f);
+	//	x0.Set(1, -30.f * 3.1415f / 180.f);
+
+	//	NewtonsMethodParams params;
+	//	params.m_maxIter = 20;
+
+	//	NewtonsMethod(F, &g, &H, params, x0, &xstar);
+	//	printf("done!\n");
+	//}
+
+	//{
+	//	// test Symmetric Rank One method.
+	//	ScalarF F = func3;
+	//	Gradient g(2);
+	//	g.Set(0, func3d1);
+	//	g.Set(1, func3d2);
+
+	//	ScalarVector x0(2);
+	//	ScalarVector xstar(2);
+	//	x0.Set(0, 0.1f);
+	//	x0.Set(1, 1.f);
+
+	//	NewtonsMethodParams params;
+	//	params.m_min = -1.f;
+
+	//	QuasiNewtonSR1(F, &g, params, x0, &xstar);
+	//	printf("done!\n");
+	//}
+
+	//{
+	//	ScalarF F = func4;
+	//	Gradient g(6);
+	//	g.Set(0, func4d1);
+	//	g.Set(1, func4d2);
+	//	g.Set(2, func4d3);
+	//	g.Set(3, func4d4);
+	//	g.Set(4, func4d5);
+	//	g.Set(5, func4d6);
+
+	//	ScalarVector x0(6);
+	//	ScalarVector xstar0(6);
+	//	ScalarVector xstar1(6);
+	//	ScalarVector xstar2(6);
+	//	x0.Set(0, 1.f);
+	//	x0.Set(1, 1.f);
+	//	x0.Set(2, 1.f);
+	//	x0.Set(3, 1.f);
+	//	x0.Set(4, 1.f);
+	//	x0.Set(5, 1.f);
+
+	//	NewtonsMethodParams params;
+	//	params.m_min = -1.f;
+
+	//	//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
+	//	QuasiNewtonDFP(F, &g, params, x0, &xstar1);
+	//	QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
+
+	//	float test1 = F(xstar1);
+	//	float test2 = F(xstar2);
+	//	printf("done!\n");
+	//}
+
 	{
-		// test newton's method.
-		ScalarF F = func2;
+		ScalarFunc F = func5;
+		GradientFunc g = func5d123;
 
-		Gradient g(2);
-		Hessian H(2);
-
-		g.Set(0, func2d1);
-		g.Set(1, func2d2);
-
-		H.Set(0, 0, func2h00);
-		H.Set(0, 1, func2h01);
-		H.Set(1, 0, func2h10);
-		H.Set(1, 1, func2h11);
-
-		ScalarVector x0(2);
-		ScalarVector xstar(2);
-		x0.Set(0, -30.f * 3.1415f / 180.f);
-		x0.Set(1, -30.f * 3.1415f / 180.f);
-
-		NewtonsMethodParams params;
-		params.m_maxIter = 20;
-
-		NewtonsMethod(F, &g, &H, params, x0, &xstar);
-		printf("done!\n");
-	}
-
-	{
-		// test Symmetric Rank One method.
-		ScalarF F = func3;
-		Gradient g(2);
-		g.Set(0, func3d1);
-		g.Set(1, func3d2);
-
-		ScalarVector x0(2);
-		ScalarVector xstar(2);
-		x0.Set(0, 0.1f);
-		x0.Set(1, 1.f);
+		EVector x0(3);
+		EVector xstar0(3);
+		EVector xstar1(3);
+		EVector xstar2(3);
+		x0(0) = 0.1f;
+		x0(1) = 1.f;
+		x0(2) = 0.f;
 
 		NewtonsMethodParams params;
 		params.m_min = -1.f;
-
-		QuasiNewtonSR1(F, &g, params, x0, &xstar);
-		printf("done!\n");
-	}
-
-	{
-		ScalarF F = func4;
-		Gradient g(6);
-		g.Set(0, func4d1);
-		g.Set(1, func4d2);
-		g.Set(2, func4d3);
-		g.Set(3, func4d4);
-		g.Set(4, func4d5);
-		g.Set(5, func4d6);
-
-		ScalarVector x0(6);
-		ScalarVector xstar0(6);
-		ScalarVector xstar1(6);
-		ScalarVector xstar2(6);
-		x0.Set(0, 1.f);
-		x0.Set(1, 1.f);
-		x0.Set(2, 1.f);
-		x0.Set(3, 1.f);
-		x0.Set(4, 1.f);
-		x0.Set(5, 1.f);
-
-		NewtonsMethodParams params;
-		params.m_min = -1.f;
+		params.m_epsilon = 0.01f;
 
 		//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
-		QuasiNewtonDFP(F, &g, params, x0, &xstar1);
-		QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
 
-		float test1 = F(xstar1);
-		float test2 = F(xstar2);
-		printf("done!\n");
-	}
-
-	{
-		ScalarF F = func5;
-		Gradient g(3);
-		g.Set(0, func5d0);
-		g.Set(1, func5d1);
-		g.Set(2, func5d2);
-
-		ScalarVector x0(3);
-		ScalarVector xstar0(3);
-		ScalarVector xstar1(3);
-		ScalarVector xstar2(3);
-		x0.Set(0, 0.1f);
-		x0.Set(1, 1.f);
-		x0.Set(2, 0.f);
-
-		NewtonsMethodParams params;
-		params.m_min = -1.f;
-
-		//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
-		//QuasiNewtonDFP(F, &g, params, x0, &xstar1);
-		QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
+		QuasiNewtonDFP(F, g, params, x0, &xstar1);
+		QuasiNewtonBFGS(F, g, params, x0, &xstar2);
 
 		const float ftest = F(xstar2);
 
@@ -1110,7 +1082,6 @@ int main()
 		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
 		printf("done!\n");
 	}
-
 
 	return 0;
 }

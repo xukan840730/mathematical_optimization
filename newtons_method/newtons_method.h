@@ -17,23 +17,17 @@ struct NewtonsMethodParams
 	float m_v;			// if H matrix is not a positive definite at k iteration, start adding v * I to hessian matrix to become a hessian.
 };
 
-void NewtonsMethod(const ScalarF F, const Gradient* g, const Hessian* H, const NewtonsMethodParams& params,
-	const ScalarVector& x1, ScalarVector* result);
-
-//void NewtonsMethod(const ScalarFunc F, const GradientFunc g, const EHessian* H, const NewtonsMethodParams& params,
-//	const EVector& x1, EVector* result);
+void NewtonsMethod(const ScalarFunc F, const GradientFunc g, const HessianFunc H, const NewtonsMethodParams& params,
+	const EVector& x1, EVector* result);
 
 // rank one correction.
-void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
-	const ScalarVector& x1, ScalarVector* result);
+//void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
+//	const ScalarVector& x1, ScalarVector* result);
 
 // Davidon Fletcher and Powell method, rank two correction
-void QuasiNewtonDFP(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
-	const ScalarVector& x1, ScalarVector* result);
+void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
+	const EVector& x1, EVector* result);
 
 // BFGS
-void QuasiNewtonBFGS(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
-	const ScalarVector& x1, ScalarVector* result);
-
 void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result);
