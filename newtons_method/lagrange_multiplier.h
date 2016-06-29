@@ -13,8 +13,21 @@ public:
 	int m_maxIter;		// max number of iterations
 };
 
+struct LagrangeMultMethodResult
+{
+	LagrangeMultMethodResult()
+		: m_iter(0)
+	{}
+
+	LagrangeMultMethodResult(int iter)
+		: m_iter(iter)
+	{}
+
+	int m_iter;
+};
+
 // Lagrange Multipliers Method, solve Lagrange function numerically
-void LagrangeMultMethod(
+LagrangeMultMethodResult LagrangeMultMethod(
 	const ScalarFunc F, const GradientFunc gF, const HessianFunc hF,
 	const ScalarFunc C, const GradientFunc gC, const HessianFunc hC,
 	const LagrangeMultMethodParams& params,

@@ -948,7 +948,7 @@ int main()
 			float x1 = input(0);
 			float x2 = input(1);
 
-			return x1*x1 + x2*x2 - 1.f;
+			return (x1*x1 + x2*x2 - 1.f) * 1.f;
 		};
 
 		auto cfunc6d12 = [](const EVector& input, EVector* output) {
@@ -956,8 +956,8 @@ int main()
 			float x1 = input(0);
 			float x2 = input(1);
 
-			(*output)(0) = 2 * x1;
-			(*output)(1) = 2 * x2;
+			(*output)(0) = 2 * x1 * 1.f;
+			(*output)(1) = 2 * x2 * 1.f;
 		};
 
 		auto cfunc6h12 = [](const EVector& input, EMatrix* output) {
@@ -965,10 +965,10 @@ int main()
 			float x1 = input(0);
 			float x2 = input(1);
 
-			(*output)(0, 0) = 2;
-			(*output)(0, 1) = 0;
-			(*output)(1, 0) = 0;
-			(*output)(1, 1) = 2;
+			(*output)(0, 0) = 2 * 1.f;
+			(*output)(0, 1) = 0 * 1.f;
+			(*output)(1, 0) = 0 * 1.f;
+			(*output)(1, 1) = 2 * 1.f;
 		};
 
 		ScalarFunc F = func6;
@@ -982,7 +982,10 @@ int main()
 		EVector x1(2); x1(0) = 0.f; x1(1) = 1.f;
 		EVector xstar(2);
 		
-		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		LagrangeMultMethodResult res = LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+
+		const float fstar = c(xstar);
+
 		printf("done!\n");
 	}
 

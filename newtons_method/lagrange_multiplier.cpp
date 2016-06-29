@@ -2,7 +2,7 @@
 #include "lagrange_multiplier.h"
 #include "newtons_method.h"
 
-void LagrangeMultMethod(
+LagrangeMultMethodResult LagrangeMultMethod(
 	const ScalarFunc F, const GradientFunc gF, const HessianFunc hF,
 	const ScalarFunc C, const GradientFunc gC, const HessianFunc hC,
 	const LagrangeMultMethodParams& params,
@@ -89,11 +89,15 @@ void LagrangeMultMethod(
 	lx1(numParams) = params.m_lamda1;
 
 	EVector lxstar(numParams + 1);
-	QuasiNewtonBFGS(L, gL, nparams, lx1, &lxstar);
+	NewtonsMethodResult nres = QuasiNewtonBFGS(L, gL, nparams, lx1, &lxstar);
 
 	// copy results.
 	float lamda = lxstar(lxstar.rows() - 1);
 
 	*result = lxstar;
 	result->conservativeResize(numParams);
+	
+	LagrangeMultMethodResult res;
+	res.m_iter = nres.m_iter;
+	return res;
 }

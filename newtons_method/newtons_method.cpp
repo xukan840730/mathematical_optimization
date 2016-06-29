@@ -5,74 +5,76 @@
 #define SEARCH_DIRECTION_MIN_LENGTH 0.00001f
 
 //-------------------------------------------------------------------------------------------------------------//
-//void NewtonsMethod(const ScalarFunc F, const GradientFunc g, const HessianFunc H, const NewtonsMethodParams& params,
-//	const EVector& x1, EVector* result)
-//{
-//	xassert(x1.rows() == result->rows());
-//
-//	const int numParams = x1.rows();
-//
-//	// for newton's method, x1 needs to be sufficiently close to optima.
-//	EVector xk = x1;
-//	EVector gk(numParams);
-//	EMatrix Gk(numParams, numParams);
-//	EMatrix GkInv(numParams, numParams);
-//
-//	EVector deltaK(numParams);
-//
-//	for (int iter = 1; iter <= params.m_maxIter; iter++)
-//	{
-//		const float fk = F(xk);
-//		if (fk < params.m_min)
-//		{
-//			*result = xk;
-//			return;
-//		}
-//
-//		g(xk, &gk);
-//		float norm2 = Norm2(gk);
-//		if (norm2 < params.m_epsilon * params.m_epsilon)
-//		{
-//			*result = xk;
-//			return;
-//		}
-//
-//		// solve G(k) * deltaK = -g(k)
-//		H(xk, &Gk);
-//
-//		float v = params.m_v;
-//
-//		// if Gk is not positive definite, let Gk = (Gk + vI) until Gk becomes a positive definite
-//		do 
-//		{
-//			//Eigen::LLT<EMatrix> LltOfGk(Gk);
-//			EMatrix L(numParams, numParams);
-//
-//			// TODO: replaced by Eigen library LLT.
-//			bool valid = CholeskyDecomposition(Gk, &L);
-//			if (valid)
-//			//if (LltOfGk.info() == Eigen::NumericalIssue)
-//			{
-//				LLtInverse(&GkInv, L);
-//				break;
-//			}
-//			else
-//			{
-//				Gk += v * EMatrix::Identity(numParams, numParams);
-//				v *= 2.f;
-//			}
-//		} while (true);
-//
-//		EVector gkNeg = gk * -1.f;
-//		//MatrixMult(&deltaK, GkInv, gkNeg);
-//		deltaK = GkInv * gkNeg;
-//
-//		// update x(k)
-//		xk += deltaK;
-//	}
-//
-//	*result = xk;
-//}
+NewtonsMethodResult NewtonsMethod(const ScalarFunc F, const GradientFunc g, const HessianFunc H, const NewtonsMethodParams& params,
+	const EVector& x1, EVector* result)
+{
+	xassert(x1.rows() == result->rows());
+
+	const int numParams = x1.rows();
+
+	// for newton's method, x1 needs to be sufficiently close to optima.
+	EVector xk = x1;
+	EVector gk(numParams);
+	EMatrix Gk(numParams, numParams);
+	EMatrix GkInv(numParams, numParams);
+
+	EVector deltaK(numParams);
+
+	int iter = 1;
+	for (; iter <= params.m_maxIter; iter++)
+	{
+		const float fk = F(xk);
+		if (fk < params.m_min)
+		{
+			*result = xk;
+			return NewtonsMethodResult(iter);
+		}
+
+		g(xk, &gk);
+		float norm2 = Norm2(gk);
+		if (norm2 < params.m_epsilon * params.m_epsilon)
+		{
+			*result = xk;
+			return NewtonsMethodResult(iter);
+		}
+
+		// solve G(k) * deltaK = -g(k)
+		H(xk, &Gk);
+
+		float v = params.m_v;
+
+		// if Gk is not positive definite, let Gk = (Gk + vI) until Gk becomes a positive definite
+		do 
+		{
+			//Eigen::LLT<EMatrix> LltOfGk(Gk);
+			EMatrix L(numParams, numParams);
+
+			// TODO: replaced by Eigen library LLT.
+			bool valid = CholeskyDecomposition(Gk, &L);
+			if (valid)
+			//if (LltOfGk.info() == Eigen::NumericalIssue)
+			{
+				LLtInverse(&GkInv, L);
+				break;
+			}
+			else
+			{
+				Gk += v * EMatrix::Identity(numParams, numParams);
+				v *= 2.f;
+			}
+		} while (true);
+
+		EVector gkNeg = gk * -1.f;
+		//MatrixMult(&deltaK, GkInv, gkNeg);
+		deltaK = GkInv * gkNeg;
+
+		// update x(k)
+		xk += deltaK;
+	}
+
+	*result = xk;
+	return NewtonsMethodResult(iter);
+}
 
 //void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params, 
 //	const ScalarVector& x1, ScalarVector* result)
@@ -170,7 +172,7 @@
 //}
 
 //-------------------------------------------------------------------------------------------------------------//
-void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params, 
+NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result)
 {
 	xassert(x1.rows() == result->rows());
@@ -191,13 +193,14 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 	EMatrix Uk(numParams, numParams);
 	EMatrix Vk(numParams, numParams);
 
-	for (int iter = 1; iter <= params.m_maxIter; iter++)
+	int iter = 1;
+	for (; iter <= params.m_maxIter; iter++)
 	{
 		const float fk = F(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
-			return;
+			return NewtonsMethodResult(iter);
 		}
 
 		// evaluate g(k)
@@ -208,7 +211,7 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 			if (norm2 < params.m_epsilon * params.m_epsilon)
 			{
 				*result = xk;
-				return;
+				return NewtonsMethodResult(iter);
 			}
 		}
 
@@ -221,7 +224,7 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 			if (norm2 < SEARCH_DIRECTION_MIN_LENGTH * SEARCH_DIRECTION_MIN_LENGTH)
 			{
 				*result = xk;
-				return;
+				return NewtonsMethodResult(iter);
 			}
 		}
 
@@ -273,10 +276,11 @@ void QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMetho
 	}
 
 	*result = xk;
+	return NewtonsMethodResult(iter);
 }
 
 //-------------------------------------------------------------------------------------------------------------//
-void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
+NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result)
 {
 	xassert(x1.rows() == result->rows());
@@ -295,13 +299,14 @@ void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMeth
 	EMatrix Uk(numParams, numParams);
 	EMatrix Vk(numParams, numParams);
 
-	for (int iter = 1; iter <= params.m_maxIter; iter++)
+	int iter = 1;
+	for (; iter <= params.m_maxIter; iter++)
 	{
 		const float fk = F(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
-			return;
+			return NewtonsMethodResult(iter);
 		}
 
 		// evaluate g(k)
@@ -312,7 +317,7 @@ void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMeth
 			if (norm2 < params.m_epsilon * params.m_epsilon)
 			{
 				*result = xk;
-				return;
+				return NewtonsMethodResult(iter);
 			}
 		}
 
@@ -325,7 +330,7 @@ void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMeth
 			if (norm2 < SEARCH_DIRECTION_MIN_LENGTH * SEARCH_DIRECTION_MIN_LENGTH)
 			{
 				*result = xk;
-				return;
+				return NewtonsMethodResult(iter);
 			}
 		}
 
@@ -384,4 +389,5 @@ void QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMeth
 	}
 
 	*result = xk;
+	return NewtonsMethodResult(iter);
 }
