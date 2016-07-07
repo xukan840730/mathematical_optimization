@@ -46,21 +46,24 @@ NewtonsMethodResult NewtonsMethod(const ScalarFunc F, const GradientFunc g, cons
 		// if Gk is not positive definite, let Gk = (Gk + vI) until Gk becomes a positive definite
 		do 
 		{
-			//Eigen::LLT<EMatrix> LltOfGk(Gk);
-			EMatrix L(numParams, numParams);
+			Eigen::LLT<EMatrix> LltOfGk; 
+			LltOfGk.compute(Gk);
 
-			// TODO: replaced by Eigen library LLT.
-			bool valid = CholeskyDecomposition(Gk, &L);
-			if (valid)
-			//if (LltOfGk.info() == Eigen::NumericalIssue)
+			if (LltOfGk.info() == Eigen::Success)
 			{
+				EMatrix L = LltOfGk.matrixL();
+				// TODO: replaced by Eigen library LLT.
 				LLtInverse(&GkInv, L);
 				break;
 			}
-			else
+			else if (LltOfGk.info() == Eigen::NumericalIssue)
 			{
 				Gk += v * EMatrix::Identity(numParams, numParams);
 				v *= 2.f;
+			}
+			else
+			{
+				xassert(false);
 			}
 		} while (true);
 

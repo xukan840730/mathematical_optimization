@@ -207,69 +207,6 @@ void efunc1d12(const EVector& input, EVector* output)
 }
 
 //------------------------------------------------------------------------------------//
-float func2(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	
-	return cosf(x1) - sinf(x2);
-}
-
-float func2d1(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return -sinf(x1);
-}
-
-float func2d2(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return -cosf(x2);
-}
-
-float func2h00(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return -cosf(x1);
-}
-
-float func2h01(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return 0.f;
-}
-
-float func2h10(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return 0.f;
-}
-
-float func2h11(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return sinf(x2);
-}
-
 float efunc2(const EVector& input)
 {
 	xassert(input.rows() == 2);
@@ -760,32 +697,53 @@ int main()
 	//}
 
 
-	//{
-	//	// test newton's method.
-	//	ScalarF F = func2;
+	{
+		auto func2 = [](const EVector& input)->float {
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
 
-	//	Gradient g(2);
-	//	Hessian H(2);
+			return cosf(x1) - sinf(x2);
+		};
 
-	//	g.Set(0, func2d1);
-	//	g.Set(1, func2d2);
+		auto func2d12 = [](const EVector& input, EVector* output)
+		{
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
 
-	//	H.Set(0, 0, func2h00);
-	//	H.Set(0, 1, func2h01);
-	//	H.Set(1, 0, func2h10);
-	//	H.Set(1, 1, func2h11);
+			(*output)(0) = -sinf(x1);
+			(*output)(1) = -cosf(x2);
+		};
 
-	//	ScalarVector x0(2);
-	//	ScalarVector xstar(2);
-	//	x0.Set(0, -30.f * 3.1415f / 180.f);
-	//	x0.Set(1, -30.f * 3.1415f / 180.f);
+		auto func2h12 = [](const EVector& input, EMatrix* output)
+		{
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
 
-	//	NewtonsMethodParams params;
-	//	params.m_maxIter = 20;
+			(*output)(0, 0) = -cosf(x1);
+			(*output)(0, 1) = 0.f;
+			(*output)(1, 0) = 0.f;
+			(*output)(1, 1) = sinf(x2);
+		};
 
-	//	NewtonsMethod(F, &g, &H, params, x0, &xstar);
-	//	printf("done!\n");
-	//}
+		// test newton's method.
+		ScalarFunc F = func2;
+		GradientFunc g = func2d12;
+		HessianFunc H = func2h12;
+
+		EVector x0(2);
+		EVector xstar(2);
+		x0(0) = (-30.f * 3.1415f / 180.f);
+		x0(1) = (-30.f * 3.1415f / 180.f);
+
+		NewtonsMethodParams params;
+		params.m_maxIter = 20;
+
+		NewtonsMethod(F, g, H, params, x0, &xstar);
+		printf("done!\n");
+	}
 
 	//{
 	//	// test Symmetric Rank One method.
@@ -979,12 +937,15 @@ int main()
 		GradientFunc gC = cfunc6d12;
 		HessianFunc hC = cfunc6h12;
 
-		EVector x1(2); x1(0) = 0.f; x1(1) = 1.f;
+		EVector x1(2); 
+		x1(0) = 0.707f; x1(1) = sqrtf(1.f - x1(0) * x1(0));
+		x1(0) = 0.f; x1(1) = 1.f;
 		EVector xstar(2);
 		
 		LagrangeMultMethodResult res = LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
 
-		const float fstar = c(xstar);
+		const float cstar = c(xstar);
+		const float fstar = F(xstar);
 
 		printf("done!\n");
 	}

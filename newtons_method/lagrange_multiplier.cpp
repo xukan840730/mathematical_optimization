@@ -22,8 +22,10 @@ LagrangeMultMethodResult LagrangeMultMethod(
 
 	int numParams = x1.rows();
 
+	const float scale = 1.f;
+
 	// lagrange function
-	auto LFunc = [&F, &gF, &C, &gC](const EVector& input) -> float {
+	auto LFunc = [&F, &gF, &C, &gC, scale](const EVector& input) -> float {
 		int numParams = input.rows();
 		const float lamda = input(numParams - 1);
 
@@ -32,15 +34,15 @@ LagrangeMultMethodResult LagrangeMultMethod(
 		gF(input, &gf);
 		gC(input, &gc);
 
-		EVector ux = gf + gc * lamda;
+		EVector ux = gf + gc * lamda * scale;
 
 		float cx = C(input);
 
-		return ux.squaredNorm() + cx * cx;
+		return ux.squaredNorm() + cx * cx * scale * scale;
 	};
 
 	// gradiant of lagrange function
-	auto gLFunc = [&F, &gF, &hF, &C, &gC, &hC](const EVector& input, EVector* output) {
+	auto gLFunc = [&F, &gF, &hF, &C, &gC, &hC, scale](const EVector& input, EVector* output) {
 		xassert(input.rows() == output->rows());
 
 		const int numParams = input.rows();
@@ -52,7 +54,7 @@ LagrangeMultMethodResult LagrangeMultMethod(
 		gF(input, &gf);
 		gC(input, &gc);
 
-		EVector uu = gf + gc * lamda;
+		EVector uu = gf + gc * lamda * scale;
 
 		EMatrix hf(numParams - 1, numParams - 1);
 		EMatrix hc(numParams - 1, numParams - 1);
@@ -60,15 +62,15 @@ LagrangeMultMethodResult LagrangeMultMethod(
 		hF(input, &hf);
 		hC(input, &hc);
 
-		EMatrix tt = hf + hc * lamda;
+		EMatrix tt = hf + hc * lamda * scale;
 
 		float cx = C(input);
 
 		EVector result1 = 2 * tt * uu;
-		EVector result2 = 2 * cx * gc;
+		EVector result2 = 2 * scale * scale * cx * gc;
 		EVector result = result1 + result2;
 
-		float dlamba = 2 * (uu.dot(gc));
+		float dlamba = 2 * scale * (uu.dot(gc));
 
 		// fill results
 		*output = result;
