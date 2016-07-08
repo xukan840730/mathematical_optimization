@@ -5,8 +5,8 @@
 #include "../common/common_shared.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "../line_search/line_search_subp.h"
-#include "../newtons_method/newtons_method.h"
-#include "../newtons_method/lagrange_multiplier.h"
+#include "../unconstrained_optimization/newtons_method.h"
+#include "../constrained_optimization/lagrange_multiplier.h"
 
 #include <Eigen/Dense>
 
