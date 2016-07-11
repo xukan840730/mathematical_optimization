@@ -30,7 +30,7 @@ struct NewtonsMethodResult
 	int m_iter;
 };
 
-NewtonsMethodResult NewtonsMethod(const ScalarFunc F, const GradientFunc g, const HessianFunc H, const NewtonsMethodParams& params,
+NewtonsMethodResult NewtonsMethod(const ScalarFunc& F, const GradientFunc& g, const HessianFunc& H, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result);
 
 // rank one correction.
@@ -38,9 +38,11 @@ NewtonsMethodResult NewtonsMethod(const ScalarFunc F, const GradientFunc g, cons
 //	const ScalarVector& x1, ScalarVector* result);
 
 // Davidon Fletcher and Powell method, rank two correction
-NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
+NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result);
 
 // BFGS
-NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
+NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result);
+
+// Hello

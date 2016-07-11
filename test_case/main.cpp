@@ -526,8 +526,8 @@ int main()
 		params.tau2 = 0.1f;
 		params.tau3 = 0.5f;
 
-		ScalarFunc F = efunc1;
-		GradientFunc g = efunc1d12;
+		const ScalarFunc F = efunc1;
+		const GradientFunc g = efunc1d12;
 
 		EVector s(2); s(0) = 1.f; s(1) = 0.f;
 		EVector x0(2); x0(0) = 0.f; x0(1) = 0.f;

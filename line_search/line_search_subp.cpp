@@ -111,7 +111,7 @@ float choose(const Interval& currI, float currFa, float currFb, float currDevA, 
 	return selectedAlpha;
 }
 
-BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s, 
+BracketRes Bracketing(const ScalarFunc& F, const GradientFunc& g, const EVector& s, 
 	const EVector& x0, float a1, const LineSearchParams& params)
 {
 	BracketRes res;
@@ -225,7 +225,7 @@ BracketRes Bracketing(const ScalarFunc F, const GradientFunc g, const EVector& s
 	return res;
 }
 
-float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
+float Sectioning(const ScalarFunc& F, const GradientFunc& g, const EVector& s,
 	const EVector& x0, const Interval& _prevI, const LineSearchParams& params)
 {
 	xassert(_prevI.a == _prevI.a);
@@ -324,7 +324,7 @@ float Sectioning(const ScalarFunc F, const GradientFunc g, const EVector& s,
 // inexact line search method.
 //-----------------------------------------------------------------------------//
 
-float InexactLineSearch(const ScalarFunc F, const GradientFunc g, const EVector& s, 
+float InexactLineSearch(const ScalarFunc& F, const GradientFunc& g, const EVector& s, 
 	const EVector& x0, const LineSearchParams& params)
 {
 	//xassert(g.GetLength() == x0.rows());

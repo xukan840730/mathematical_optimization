@@ -5,7 +5,7 @@
 #define SEARCH_DIRECTION_MIN_LENGTH 0.00001f
 
 //-------------------------------------------------------------------------------------------------------------//
-NewtonsMethodResult NewtonsMethod(const ScalarFunc F, const GradientFunc g, const HessianFunc H, const NewtonsMethodParams& params,
+NewtonsMethodResult NewtonsMethod(const ScalarFunc& F, const GradientFunc& g, const HessianFunc& H, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result)
 {
 	xassert(x1.rows() == result->rows());
@@ -175,7 +175,7 @@ NewtonsMethodResult NewtonsMethod(const ScalarFunc F, const GradientFunc g, cons
 //}
 
 //-------------------------------------------------------------------------------------------------------------//
-NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
+NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result)
 {
 	xassert(x1.rows() == result->rows());
@@ -283,7 +283,7 @@ NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc F, const GradientFunc g, con
 }
 
 //-------------------------------------------------------------------------------------------------------------//
-NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc F, const GradientFunc g, const NewtonsMethodParams& params,
+NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
 	const EVector& x1, EVector* result)
 {
 	xassert(x1.rows() == result->rows());
