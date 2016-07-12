@@ -5,7 +5,7 @@ CC := g++
 
 EIGEN_INC := eigen
 
-CFLAGS := -std=c++11 -I$(EIGEN_INC) 
+CFLAGS := -std=c++11 -I$(EIGEN_INC) -g
 
 #################################################################
 ## output directory for everything.

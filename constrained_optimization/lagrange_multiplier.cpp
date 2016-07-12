@@ -103,3 +103,105 @@ LagrangeMultMethodResult LagrangeMultMethod(
 	res.m_iter = nres.m_iter;
 	return res;
 }
+
+//-----------------------------------------------------------------------------------------------------------//
+void SQP1(
+	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
+	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
+	const LagrangeMultMethodParams& params, const EVector& x1, EVector* result)
+{
+	// L = F(x) + lamda * C(x)
+	// gradient(L(x, lamda)) = 0  <==> gradient(F(x)) + lamda*(gradient(C(x))) = 0
+
+	const int numParams = x1.rows();
+
+	// L func
+	auto LFunc = [&F, &C](const EVector& input, const float lambda) -> float {
+		return F(input) + C(input) * lambda;
+	};
+
+	// gradient of L func respect to x vector
+	auto gLFunc = [&gF, &gC, numParams](const EVector& input, const float lambda, EVector* output) {
+		EVector res1(numParams);
+		EVector res2(numParams);
+		gF(input, &res1);
+		gC(input, &res2);
+		*output = res1 + res2 * lambda;
+	};
+
+	// hessian of L func respect to x vector
+	auto hLFunc = [&hF, &hC, numParams](const EVector& input, const float lambda, EMatrix* output) {
+		EMatrix res1(numParams, numParams);
+		EMatrix res2(numParams, numParams);
+		hF(input, &res1);
+		hC(input, &res2);
+		*output = res1 + res2 * lambda;
+	};
+
+	float lambdaK = params.m_lamda1;
+	EVector xk = x1;
+
+	for (int iter = 1; iter <= params.m_maxIter; iter++)
+	{
+		// evaluate g(k)
+		EVector gk(numParams);
+		gF(xk, &gk);
+
+		{
+			float norm2 = gk.squaredNorm();
+			if (norm2 < params.m_epsilon1 * params.m_epsilon1)
+			{
+				break;
+			}
+		}
+
+		EMatrix A;
+		{
+			EMatrix hLk(numParams, numParams);
+			hLFunc(xk, lambdaK, &hLk);
+			A = hLk;
+
+			EVector gCk(numParams);
+			gC(xk, &gCk);
+
+			A.conservativeResize(numParams + 1, numParams + 1);
+			// TODO: replace with Eigen interface
+			for (int i = 0; i < numParams; i++)
+			{
+				A(numParams, i) = A(i, numParams) = gCk(i);
+			}
+			A(numParams, numParams) = 0.f;
+		}
+
+		EVector B;
+		{
+			gLFunc(xk, lambdaK, &B);
+			B.conservativeResize(numParams + 1);
+
+			float ck = C(xk);
+			B(numParams) = ck;
+
+			B *= -1.f;
+		}
+
+		// solve A * delta = B;
+		EMatrix deltaM = A.fullPivLu().solve(B);
+		EVector deltaV = deltaM.col(0);
+
+		//xk += deltaV;
+		{
+			for (int ii = 0; ii < xk.rows(); ii++)
+			{
+				xk(ii) += deltaV(ii);
+			}
+		}
+		lambdaK += deltaV(numParams);
+
+		if (deltaV.squaredNorm() < params.m_epsilon2 * params.m_epsilon2)
+		{
+			break;
+		}
+	}
+
+	*result = xk;
+}

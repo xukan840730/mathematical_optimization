@@ -1025,5 +1025,86 @@ int main()
 		printf("done!\n");
 	}
 
+	{
+		// minimize cost function x1 * x2^2
+		// s.t: x1^2 + x2^2 - 2 = 0
+
+		auto func8 = [](const EVector& input) -> float {
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			return x1 * x2 * x2;
+		};
+
+		auto func8d12 = [](const EVector& input, EVector* output) {
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0) = x2*x2;
+			(*output)(1) = 2 * x1*x2;
+		};
+
+		auto func8h12 = [](const EVector& input, EMatrix* output) {
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0, 0) = 0;
+			(*output)(0, 1) = 2 * x2;
+			(*output)(1, 0) = 2 * x2;
+			(*output)(1, 1) = 2 * x1;
+		};
+
+		auto cfunc8 = [](const EVector& input) -> float {
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			return x1*x1 + x2*x2 - 2.f;
+		};
+
+		auto cfunc8d12 = [](const EVector& input, EVector* output) {
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0) = 2 * x1;
+			(*output)(1) = 2 * x2;
+		};
+
+		auto cfunc8h12 = [](const EVector& input, EMatrix* output) {
+			xassert(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0, 0) = 2;
+			(*output)(0, 1) = 0;
+			(*output)(1, 0) = 0;
+			(*output)(1, 1) = 2;
+		};
+
+		ScalarFunc F = func8;
+		GradientFunc gF = func8d12;
+		HessianFunc hF = func8h12;
+
+		ScalarFunc c = cfunc8;
+		GradientFunc gC = cfunc8d12;
+		HessianFunc hC = cfunc8h12;
+
+		EVector x1(2); x1(0) = -1.5f; x1(1) = -1.6f;
+		EVector xstar(2);
+
+		LagrangeMultMethodParams params;
+		params.m_maxIter = 20;
+		params.m_lamda1 = 0.f;
+
+		SQP1(F, gF, hF, c, gC, hC, params, x1, &xstar);
+
+		printf("done!\n");
+	}
+
+
 	return 0;
 }
