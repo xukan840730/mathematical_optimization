@@ -108,17 +108,27 @@ LagrangeMultMethodResult LagrangeMultMethod(
 void SQP1(
 	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
 	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
-	const LagrangeMultMethodParams& params, const EVector& x1, EVector* result)
+	const LagrangeMultMethodParams& params, const EVector& x0, EVector* result)
 {
+	const int numParams = x0.rows();
+
 	// L = F(x) + lamda * C(x)
 	// gradient(L(x, lamda)) = 0  <==> gradient(F(x)) + lamda*(gradient(C(x))) = 0
 
-	const int numParams = x1.rows();
+	// make initial lamda0 guess.
+	// lambdaStar = -[gC(xstar)^t . A . gC(xstar)]^-1 . gC(xstar)^t . A . gF(xstar), where A is nonsingular matrix that is positive definite on null space of gC(xstar)^t
+	// let A be I, lambda0 = -[gC(x0)^t * gC(x0)]^-1 . gC(x0)^t . gF(x0)
 
-	// L func
-	auto LFunc = [&F, &C](const EVector& input, const float lambda) -> float {
-		return F(input) + C(input) * lambda;
-	};
+	float lambda0;
+	{
+		EVector gC0(numParams);
+		gC(x0, &gC0);
+		EVector gF0(numParams);
+		gF(x0, &gF0);
+
+		float uu = gC0.transpose().dot(gC0);
+		lambda0 = -(gC0.transpose().dot(gF0)) / uu;
+	}
 
 	// gradient of L func respect to x vector
 	auto gLFunc = [&gF, &gC, numParams](const EVector& input, const float lambda, EVector* output) {
@@ -138,8 +148,8 @@ void SQP1(
 		*output = res1 + res2 * lambda;
 	};
 
-	float lambdaK = params.m_lamda1;
-	EVector xk = x1;
+	float lambdaK = lambda0;
+	EVector xk = x0;
 
 	for (int iter = 1; iter <= params.m_maxIter; iter++)
 	{

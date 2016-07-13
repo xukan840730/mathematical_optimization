@@ -39,6 +39,7 @@ LagrangeMultMethodResult LagrangeMultMethod(
 
 
 // Sequential Quadratic Programming
+// The original SQP method from Wil63.
 void SQP1(
 	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
 	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
