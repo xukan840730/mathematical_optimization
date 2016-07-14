@@ -105,61 +105,30 @@ LagrangeMultMethodResult LagrangeMultMethod(
 }
 
 //-----------------------------------------------------------------------------------------------------------//
-void SQP1(
-	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
-	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
-	const LagrangeMultMethodParams& params, const EVector& x0, EVector* result)
+// Lagrange functions:
+typedef std::function<float(const EVector& input, float lambda)> LScalarFunc;
+typedef std::function<void(const EVector& input, float lambda, EVector* output)> LGradientFunc;
+typedef std::function<void(const EVector& input, float lambda, EMatrix* output)> LHessianFunc;
+
+//-----------------------------------------------------------------------------------------------------------//
+static void SQPFramework(
+	const LScalarFunc& LFunc, const LGradientFunc& gLFunc, const LHessianFunc& hLFunc,
+	const ScalarFunc& HFunc, const GradientFunc& gHFunc, //const HessianFunc& hHFunc,
+	int maxIter, float lambda0, float epsilon1, float epsilon2, EVector x0, EVector* result)
 {
-	const int numParams = x0.rows();
-
-	// L = F(x) + lamda * C(x)
-	// gradient(L(x, lamda)) = 0  <==> gradient(F(x)) + lamda*(gradient(C(x))) = 0
-
-	// make initial lamda0 guess.
-	// lambdaStar = -[gC(xstar)^t . A . gC(xstar)]^-1 . gC(xstar)^t . A . gF(xstar), where A is nonsingular matrix that is positive definite on null space of gC(xstar)^t
-	// let A be I, lambda0 = -[gC(x0)^t * gC(x0)]^-1 . gC(x0)^t . gF(x0)
-
-	float lambda0;
-	{
-		EVector gC0(numParams);
-		gC(x0, &gC0);
-		EVector gF0(numParams);
-		gF(x0, &gF0);
-
-		float uu = gC0.transpose().dot(gC0);
-		lambda0 = -(gC0.transpose().dot(gF0)) / uu;
-	}
-
-	// gradient of L func respect to x vector
-	auto gLFunc = [&gF, &gC, numParams](const EVector& input, const float lambda, EVector* output) {
-		EVector res1(numParams);
-		EVector res2(numParams);
-		gF(input, &res1);
-		gC(input, &res2);
-		*output = res1 + res2 * lambda;
-	};
-
-	// hessian of L func respect to x vector
-	auto hLFunc = [&hF, &hC, numParams](const EVector& input, const float lambda, EMatrix* output) {
-		EMatrix res1(numParams, numParams);
-		EMatrix res2(numParams, numParams);
-		hF(input, &res1);
-		hC(input, &res2);
-		*output = res1 + res2 * lambda;
-	};
-
-	float lambdaK = lambda0;
+	const int numVars = x0.rows();
 	EVector xk = x0;
+	float lambdaK = lambda0;
 
-	for (int iter = 1; iter <= params.m_maxIter; iter++)
+	for (int iter = 1; iter <= maxIter; iter++)
 	{
 		// evaluate g(k)
-		EVector gk(numParams);
-		gF(xk, &gk);
+		EVector gk(numVars);
+		gLFunc(xk, lambdaK, &gk);
 
 		{
 			float norm2 = gk.squaredNorm();
-			if (norm2 < params.m_epsilon1 * params.m_epsilon1)
+			if (norm2 < epsilon1 * epsilon1)
 			{
 				break;
 			}
@@ -167,29 +136,28 @@ void SQP1(
 
 		EMatrix A;
 		{
-			EMatrix hLk(numParams, numParams);
+			EMatrix hLk(numVars, numVars);
 			hLFunc(xk, lambdaK, &hLk);
 			A = hLk;
 
-			EVector gCk(numParams);
-			gC(xk, &gCk);
+			EVector gCk(numVars);
+			gHFunc(xk, &gCk);
 
-			A.conservativeResize(numParams + 1, numParams + 1);
+			A.conservativeResize(numVars + 1, numVars + 1);
 			// TODO: replace with Eigen interface
-			for (int i = 0; i < numParams; i++)
-			{
-				A(numParams, i) = A(i, numParams) = gCk(i);
-			}
-			A(numParams, numParams) = 0.f;
+			for (int i = 0; i < numVars; i++)
+				A(numVars, i) = A(i, numVars) = gCk(i);
+
+			A(numVars, numVars) = 0.f;
 		}
 
 		EVector B;
 		{
 			gLFunc(xk, lambdaK, &B);
-			B.conservativeResize(numParams + 1);
+			B.conservativeResize(numVars + 1);
 
-			float ck = C(xk);
-			B(numParams) = ck;
+			float ck = HFunc(xk);
+			B(numVars) = ck;
 
 			B *= -1.f;
 		}
@@ -201,17 +169,225 @@ void SQP1(
 		//xk += deltaV;
 		{
 			for (int ii = 0; ii < xk.rows(); ii++)
-			{
 				xk(ii) += deltaV(ii);
-			}
 		}
-		lambdaK += deltaV(numParams);
+		lambdaK += deltaV(numVars);
 
-		if (deltaV.squaredNorm() < params.m_epsilon2 * params.m_epsilon2)
+		if (deltaV.squaredNorm() < epsilon2 * epsilon2)
 		{
 			break;
 		}
 	}
 
 	*result = xk;
+
+}
+
+//-----------------------------------------------------------------------------------------------------------//
+void SQP1(
+	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
+	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
+	const LagrangeMultMethodParams& params, const EVector& x0, EVector* result)
+{
+	const int numOrigParams = x0.rows();
+
+	// L = F(x) + lamda * C(x)
+	// gradient(L(x, lamda)) = 0  <==> gradient(F(x)) + lamda*(gradient(C(x))) = 0
+
+	// make initial lamda0 guess.
+	// lambdaStar = -[gC(xstar)^t . A . gC(xstar)]^-1 . gC(xstar)^t . A . gF(xstar), where A is nonsingular matrix that is positive definite on null space of gC(xstar)^t
+	// let A be I, lambda0 = -[gC(x0)^t * gC(x0)]^-1 . gC(x0)^t . gF(x0)
+
+	float lambda0;
+	{
+		EVector gC0(numOrigParams);
+		gC(x0, &gC0);
+		EVector gF0(numOrigParams);
+		gF(x0, &gF0);
+
+		float uu = gC0.transpose().dot(gC0);
+		lambda0 = -(gC0.transpose().dot(gF0)) / uu;
+	}
+
+	// L func
+	auto LFunc = [&F, &C](const EVector& input, const float lambda) -> float {
+		return F(input) + C(input) * lambda;
+	};
+
+	// gradient of L func respect to x vector
+	auto gLFunc = [&gF, &gC, numOrigParams](const EVector& input, const float lambda, EVector* output) {
+		EVector res1(numOrigParams);
+		EVector res2(numOrigParams);
+		gF(input, &res1);
+		gC(input, &res2);
+		*output = res1 + res2 * lambda;
+	};
+
+	// hessian of L func respect to x vector
+	auto hLFunc = [&hF, &hC, numOrigParams](const EVector& input, const float lambda, EMatrix* output) {
+		EMatrix res1(numOrigParams, numOrigParams);
+		EMatrix res2(numOrigParams, numOrigParams);
+		hF(input, &res1);
+		hC(input, &res2);
+		*output = res1 + res2 * lambda;
+	};
+
+	SQPFramework(LFunc, gLFunc, hLFunc, C, gC, //hC, 
+		params.m_maxIter, lambda0, params.m_epsilon1, params.m_epsilon2, x0, result);
+}
+
+//-----------------------------------------------------------------------------------------------------------//
+void SQP2(
+	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
+	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
+	const LagrangeMultMethodParams& params, const EVector& x0, EVector* result)
+{
+	// change inequality constraint to equality constraint by introducing slack variable.
+	// oinput is the original variables vector
+	// ninput is the variables vector with slack variables.
+
+	auto nF = [&F](const EVector& ninput) -> float {
+		EVector oinput = ninput;
+		oinput.conservativeResize(ninput.rows() - 1);
+		return F(oinput);
+	};
+
+	auto gnF = [gF](const EVector& ninput, EVector* noutput) {
+		int numORows = ninput.rows() - 1;
+
+		EVector oinput = ninput;
+		oinput.conservativeResize(numORows);
+
+		EVector ooutput(numORows);
+		gF(oinput, &ooutput);
+		*noutput = ooutput;
+		noutput->conservativeResize(numORows + 1);
+		(*noutput)(numORows) = 0.f;
+	};
+
+	auto hnF = [&hF](const EVector& ninput, EMatrix* noutput) {
+		int numORows = ninput.rows() - 1;
+		
+		EVector oinput = ninput;
+		oinput.conservativeResize(numORows);
+
+		EMatrix ooutput(numORows, numORows);
+		hF(oinput, &ooutput);
+
+		*noutput = ooutput;
+		noutput->conservativeResize(numORows + 1, numORows + 1);
+
+		for (int ii = 0; ii < numORows; ii++)
+			(*noutput)(ii, numORows) = (*noutput)(numORows, ii) = 0.f;
+
+		(*noutput)(numORows, numORows) = 0.f;
+	};
+
+	// h(x) = C(x) + slk * slk == 0
+	auto HFunc = [&C](const EVector& ninput) -> float {
+		int numORows = ninput.rows() - 1;
+		float slackVar = ninput(numORows);
+
+		EVector oinput = ninput;
+		oinput.conservativeResize(numORows);
+		return C(oinput) + slackVar * slackVar;
+	};
+
+	// gh(x) = (gC(x), 2 * slk)
+	auto gHFunc = [&gC](const EVector& ninput, EVector* noutput) {
+		int numORows = ninput.rows() - 1;
+		float slackVar = ninput(numORows);
+
+		EVector oinput = ninput;
+		oinput.conservativeResize(numORows);
+		
+		EVector ooutput(numORows);
+		gC(oinput, &ooutput);
+
+		*noutput = ooutput;
+		noutput->conservativeResize(numORows + 1);
+		(*noutput)(numORows) = 2.f * slackVar;
+	};
+
+	// hh(x) = ...
+	auto hHFunc = [&hC](const EVector& ninput, EMatrix* noutput) {
+		int numORows = ninput.rows() - 1;
+
+		EVector oinput = ninput;
+		oinput.conservativeResize(numORows);
+
+		EMatrix ooutput(numORows, numORows);
+		hC(oinput, &ooutput);
+
+		*noutput = ooutput;
+		noutput->conservativeResize(numORows + 1, numORows + 1);
+
+		for (int ii = 0; ii < numORows; ii++)
+			(*noutput)(ii, numORows) = (*noutput)(numORows, ii) = 0.f;
+
+		(*noutput)(numORows, numORows) = 2.f;
+	};
+
+	// new L func with converted equality constraint
+	auto LFunc = [&nF, &HFunc](const EVector& ninput, const float lambda) -> float {
+		int numORows = ninput.rows() - 1;
+
+		EVector oinput = ninput;
+		oinput.conservativeResize(numORows - 1);
+
+		return nF(oinput) + HFunc(ninput) * lambda;
+	};
+
+	// gradient of L func respect to x vector
+	auto gLFunc = [&gnF, &gHFunc](const EVector& ninput, const float lambda, EVector* output) {
+		int numNVars = ninput.rows();
+		EVector res1(numNVars);
+		EVector res2(numNVars);
+		gnF(ninput, &res1);
+		gHFunc(ninput, &res2);
+		*output = res1 + res2 * lambda;
+	};
+
+	// hessian of L func respect to x vector
+	auto hLFunc = [&hnF, &hHFunc](const EVector& ninput, const float lambda, EMatrix* output) {
+		int numNVars = ninput.rows();
+		EMatrix res1(numNVars, numNVars);
+		EMatrix res2(numNVars, numNVars);
+		hnF(ninput, &res1);
+		hHFunc(ninput, &res2);
+		*output = res1 + res2 * lambda;
+	};
+
+	const int numOVars = x0.rows();
+	const int numNVars = numOVars + 1;
+
+	float lambda0 = params.m_lamda1;
+	EVector nx0 = x0;
+	nx0.conservativeResize(numOVars + 1);
+	nx0(numOVars) = 0.f;
+	//{
+	//	float initC = _C(x0);
+	//	ASSERTF(initC <= 0.f, ("initial guess x0 doesn't satisfy constraint!"));
+	//	if (initC >= 0.f)
+	//	{
+	//		return;
+	//	}
+	//	xk(numOVars) = sqrtf(-initC);
+	//}
+
+	EVector nresult(numNVars);
+	SQPFramework(
+		LFunc, gLFunc, hLFunc, 
+		HFunc, 
+		gHFunc, 
+		//hHFunc,
+		params.m_maxIter, 
+		lambda0, 
+		params.m_epsilon1, 
+		params.m_epsilon2, 
+		nx0, 
+		&nresult);
+
+	*result = nresult;
+	result->conservativeResize(numOVars);
 }

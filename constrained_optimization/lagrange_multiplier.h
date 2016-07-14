@@ -40,8 +40,16 @@ LagrangeMultMethodResult LagrangeMultMethod(
 
 // Sequential Quadratic Programming
 // The original SQP method from Wil63.
+// C is equality constraint here.
 void SQP1(
 	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
 	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
 	const LagrangeMultMethodParams& params,
-	const EVector& x1, EVector* result);
+	const EVector& x0, EVector* result);
+
+// C is inequality constraint here.
+void SQP2(
+	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
+	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
+	const LagrangeMultMethodParams& params,
+	const EVector& x0, EVector* result);
