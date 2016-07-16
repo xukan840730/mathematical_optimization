@@ -1,5 +1,5 @@
 
-#include "../linear_algebra/gradient.h"
+#include "../common/common_shared.h"
 
 struct Interval
 {

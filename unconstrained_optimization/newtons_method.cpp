@@ -1,52 +1,49 @@
-#include "../common/common_shared.h"
-#include "../line_search/line_search_subp.h"
-#include "newtons_method.h"
+#include "ndlib/math/line_search_subp.h"
+#include "ndlib/math/newtons_method.h"
 
 #define SEARCH_DIRECTION_MIN_LENGTH 0.00001f
 
 //-------------------------------------------------------------------------------------------------------------//
-NewtonsMethodResult NewtonsMethod(const ScalarFunc& F, const GradientFunc& g, const HessianFunc& H, const NewtonsMethodParams& params,
-	const EVector& x1, EVector* result)
+void NewtonsMethod(const CD2Func& objectiveF, const EVector& x0, const NewtonsMethodParams& params,	EVector* result)
 {
-	xassert(x1.rows() == result->rows());
+	ASSERT(x0.rows() == result->rows());
 
-	const int numParams = x1.rows();
+	const int numParams = x0.rows();
 
 	// for newton's method, x1 needs to be sufficiently close to optima.
-	EVector xk = x1;
+	EVector xk = x0;
 	EVector gk(numParams);
 	EMatrix Gk(numParams, numParams);
 	EMatrix GkInv(numParams, numParams);
 
 	EVector deltaK(numParams);
 
-	int iter = 1;
-	for (; iter <= params.m_maxIter; iter++)
+	for (int iter = 1; iter <= params.m_maxIter; iter++)
 	{
-		const float fk = F(xk);
+		const float fk = objectiveF.f(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
-			return NewtonsMethodResult(iter);
+			return;
 		}
 
-		g(xk, &gk);
-		float norm2 = Norm2(gk);
+		objectiveF.g(xk, &gk);
+		float norm2 = gk.squaredNorm();
 		if (norm2 < params.m_epsilon * params.m_epsilon)
 		{
 			*result = xk;
-			return NewtonsMethodResult(iter);
+			return;
 		}
 
 		// solve G(k) * deltaK = -g(k)
-		H(xk, &Gk);
+		objectiveF.h(xk, &Gk);
 
 		float v = params.m_v;
 
 		// if Gk is not positive definite, let Gk = (Gk + vI) until Gk becomes a positive definite
 		do 
 		{
-			Eigen::LLT<EMatrix> LltOfGk; 
+			Eigen::LLT<EMatrix> LltOfGk;
 			LltOfGk.compute(Gk);
 
 			if (LltOfGk.info() == Eigen::Success)
@@ -63,12 +60,11 @@ NewtonsMethodResult NewtonsMethod(const ScalarFunc& F, const GradientFunc& g, co
 			}
 			else
 			{
-				xassert(false);
+				ALWAYS_ASSERTF(false, ("Never saw this before!"));
 			}
 		} while (true);
 
 		EVector gkNeg = gk * -1.f;
-		//MatrixMult(&deltaK, GkInv, gkNeg);
 		deltaK = GkInv * gkNeg;
 
 		// update x(k)
@@ -76,224 +72,19 @@ NewtonsMethodResult NewtonsMethod(const ScalarFunc& F, const GradientFunc& g, co
 	}
 
 	*result = xk;
-	return NewtonsMethodResult(iter);
 }
 
-//void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params, 
-//	const ScalarVector& x1, ScalarVector* result)
-//{
-//	xassert(x1.GetLength() == result->GetLength());
-//
-//	const int numParams = x1.GetLength();
-//
-//	ScalarMatrix Hk(numParams, numParams);
-//	Hk.Identity();
-//
-//	ScalarVector xk = x1;
-//	ScalarVector xk1(numParams);	// x(k+1)
-//	ScalarVector gk(numParams);		// g(k)
-//	ScalarVector gk1(numParams);	// g(k+1)
-//	ScalarVector sk(numParams);
-//
-//	ScalarVector deltaK(numParams);
-//	ScalarVector gammaK(numParams);
-//
-//	ScalarVector t0(numParams);
-//	ScalarVector t1(numParams);
-//	ScalarMatrix Ek(numParams, numParams);
-//
-//	for (int iter = 1; iter <= params.m_maxIter; iter++)
-//	{
-//		const float fk = F(xk);
-//		if (fk < params.m_min)
-//		{
-//			result->CopyFrom(xk);
-//			return;
-//		}
-//
-//		// evaluate g(k)
-//		g->Evaluate(xk, &gk);
-//
-//		{
-//			float norm2 = gk.Norm2();
-//			if (norm2 < params.m_epsilon * params.m_epsilon)
-//			{
-//				result->CopyFrom(xk);
-//				return;
-//			}
-//		}
-//
-//		// find line search direction s(k) = -H(k) * g(k)
-//		MatrixMult(&sk, Hk, gk);
-//		sk.Multiply(-1.f);
-//
-//		{
-//			// safe guard that search direction is very small, which means we should stop.
-//			float norm2 = sk.Norm2();
-//			if (norm2 < SEARCH_DIRECTION_MIN_LENGTH * SEARCH_DIRECTION_MIN_LENGTH)
-//			{
-//				result->CopyFrom(xk);
-//				return;
-//			}
-//		}
-//
-//		LineSearchParams lparams;
-//		lparams.fMin = params.m_min;
-//		lparams.rho = 0.01f;
-//		lparams.sigma = 0.1f;
-//		lparams.tau1 = 9.f;
-//		lparams.tau2 = 0.1f;
-//		lparams.tau3 = 0.5f;
-//
-//		// x(k+1) = x(k) + alphaK * s(k)
-//		float alphaK = InexactLineSearch(F, *g, sk, xk, lparams);		
-//		VectorMult(&deltaK, sk, alphaK);
-//		VectorAdd(&xk1, xk, deltaK);
-//
-//		// update H(k) giving H(k+1)
-//		{
-//			// evaluate g(k+1)
-//			g->Evaluate(xk1, &gk1);
-//			VectorSubtract(&gammaK, gk1, gk);
-//
-//			// H(k+1) = H(k) + ((deltaK - H . gammaK) . (deltaK - H . gammaK)T) / ((deltaK - H . gammaK)T . gammaK)
-//			{
-//				MatrixMult(&t0, Hk, gammaK);
-//				VectorSubtract(&t1, deltaK, t0);
-//				VectorMult(&Ek, t1, t1);
-//				float denom = DotProd(t1, gammaK);
-//				Ek.DividedBy(denom);
-//				Hk.Add(Ek);
-//			}
-//		}
-//
-//		// update x(k)
-//		xk.Add(deltaK);
-//	}
-//
-//	result->CopyFrom(xk);
-//}
-
 //-------------------------------------------------------------------------------------------------------------//
-NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
-	const EVector& x1, EVector* result)
-{
-	xassert(x1.rows() == result->rows());
+void QuasiNewtonBFGS(const CD1Func& objectiveF, const EVector& x0, const NewtonsMethodParams& params, EVector* result)
+{	
+	ASSERT(x0.rows() == result->rows());
 
-	const int numParams = x1.rows();
+	const int numParams = x0.rows();
 
 	EMatrix Hk(numParams, numParams);
 	Hk.setIdentity();
 
-	EVector xk = x1;
-	EVector xk1(numParams);	// x(k+1)
-	EVector gk(numParams);		// g(k)
-	EVector gk1(numParams);	// g(k+1)
-
-	EVector deltaK(numParams);
-	EVector gammaK(numParams);
-
-	EMatrix Uk(numParams, numParams);
-	EMatrix Vk(numParams, numParams);
-
-	int iter = 1;
-	for (; iter <= params.m_maxIter; iter++)
-	{
-		const float fk = F(xk);
-		if (fk < params.m_min)
-		{
-			*result = xk;
-			return NewtonsMethodResult(iter);
-		}
-
-		// evaluate g(k)
-		g(xk, &gk);
-
-		{
-			float norm2 = gk.squaredNorm();
-			if (norm2 < params.m_epsilon * params.m_epsilon)
-			{
-				*result = xk;
-				return NewtonsMethodResult(iter);
-			}
-		}
-
-		// find line search direction s(k) = -H(k) * g(k)
-		EVector sk = -1.f * Hk * gk;
-
-		{
-			// safe guard that search direction is very small, which means we should stop.
-			float norm2 = sk.squaredNorm();
-			if (norm2 < SEARCH_DIRECTION_MIN_LENGTH * SEARCH_DIRECTION_MIN_LENGTH)
-			{
-				*result = xk;
-				return NewtonsMethodResult(iter);
-			}
-		}
-
-		LineSearchParams lparams;
-		lparams.fMin = params.m_min;
-		lparams.rho = 0.01f;
-		lparams.sigma = 0.1f;
-		lparams.tau1 = 9.f;
-		lparams.tau2 = 0.1f;
-		lparams.tau3 = 0.5f;
-
-		// x(k+1) = x(k) + alphaK * s(k)
-		float alphaK = InexactLineSearch(F, g, sk, xk, lparams);
-		deltaK = sk * alphaK;
-		xk1 = xk + deltaK;
-
-		// update H(k) giving H(k+1)
-		{
-			// evaluate g(k+1)
-			g(xk1, &gk1);
-			gammaK = gk1 - gk;
-
-			// H(k+1) = H(k) + U + V = H(k) + (deltaK . (deltaK)T) / ((deltaK)T . gammaK) - (H(k) . gammaK . (gammaK)T . H(k)) / ((gammaK)T . H . gammaK)
-
-			// Uk
-			{
-				Uk = deltaK * deltaK.transpose();
-				float den = deltaK.dot(gammaK);
-				Uk /= den;
-			}
-
-			// Vk
-			{
-				EMatrix t1 = gammaK * gammaK.transpose();
-				EMatrix t2 = Hk * t1;
-				Vk = t2 * Hk;
-
-				EVector t4 = Hk * gammaK;
-				float den = -1.f * gammaK.dot(t4);
-				Vk /= den;
-			}
-
-			Hk += Uk;
-			Hk += Vk;
-		}
-
-		// update x(k)
-		xk += deltaK;
-	}
-
-	*result = xk;
-	return NewtonsMethodResult(iter);
-}
-
-//-------------------------------------------------------------------------------------------------------------//
-NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
-	const EVector& x1, EVector* result)
-{
-	xassert(x1.rows() == result->rows());
-
-	const int numParams = x1.rows();
-
-	EMatrix Hk(numParams, numParams);
-	Hk.setIdentity();
-
-	EVector xk = x1;
+	EVector xk = x0;
 	EVector xk1(numParams);	// x(k+1)
 	EVector gk(numParams);	// g(k)
 	EVector gk1(numParams);	// g(k+1)
@@ -302,25 +93,24 @@ NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, 
 	EMatrix Uk(numParams, numParams);
 	EMatrix Vk(numParams, numParams);
 
-	int iter = 1;
-	for (; iter <= params.m_maxIter; iter++)
+	for (int iter = 1; iter <= params.m_maxIter; iter++)
 	{
-		const float fk = F(xk);
+		const float fk = objectiveF.f(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
-			return NewtonsMethodResult(iter);
+			return;
 		}
 
 		// evaluate g(k)
-		g(xk, &gk);
+		objectiveF.g(xk, &gk);
 
 		{
-			float norm2 = Norm2(gk);
+			float norm2 = gk.squaredNorm();
 			if (norm2 < params.m_epsilon * params.m_epsilon)
 			{
 				*result = xk;
-				return NewtonsMethodResult(iter);
+				return;
 			}
 		}
 
@@ -329,11 +119,11 @@ NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, 
 
 		{
 			// safe guard that search direction is very small, which means we should stop.
-			float norm2 = Norm2(sk);
+			float norm2 = sk.squaredNorm();
 			if (norm2 < SEARCH_DIRECTION_MIN_LENGTH * SEARCH_DIRECTION_MIN_LENGTH)
 			{
 				*result = xk;
-				return NewtonsMethodResult(iter);
+				return;
 			}
 		}
 
@@ -346,17 +136,19 @@ NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, 
 		lparams.tau3 = 0.5f;
 
 		// x(k+1) = x(k) + alphaK * s(k)
-		float alphaK = InexactLineSearch(F, g, sk, xk, lparams);
+		float alphaK = InexactLineSearch(objectiveF.f, objectiveF.g, sk, xk, lparams);
 		EVector deltaK = sk * alphaK;
 		xk1 = xk + deltaK;
 
 		// update H(k) giving H(k+1)
 		{
 			// evaluate g(k+1)
-			g(xk1, &gk1);
+			objectiveF.g(xk1, &gk1);
 			EVector gammaK = gk1 - gk;
 
-			//// H(k+1) = H(k) + U + V = H(k) + (deltaK . (deltaK)T) / ((deltaK)T . gammaK) - (H(k) . gammaK . (gammaK)T . H(k)) / ((gammaK)T . H . gammaK)
+			// H(k+1) = H(k) + U + V
+			// U = (1 + (gammaKT . H . gammaK) / (deltaKT . gammaK)) * ((deltaK . deltaKT) / deltaKT . gammaK)
+			// V = -1 * (deltaK . gammakT . H + H . gammaK . deltaKT) / (deltaKT . gammaK)
 
 			// Uk
 			{
@@ -392,5 +184,4 @@ NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, 
 	}
 
 	*result = xk;
-	return NewtonsMethodResult(iter);
 }

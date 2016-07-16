@@ -1,6 +1,6 @@
 
-#include "../linear_algebra/gradient.h"
-#include "../linear_algebra/hessian.h"
+#ifndef _NEWTONS_METHOD_H_
+#define _NEWTONS_METHOD_H_
 
 struct NewtonsMethodParams
 {
@@ -17,32 +17,10 @@ struct NewtonsMethodParams
 	float m_v;			// if H matrix is not a positive definite at k iteration, start adding v * I to hessian matrix to become a hessian.
 };
 
-struct NewtonsMethodResult
-{
-	NewtonsMethodResult()
-		: m_iter(0)
-	{}
-
-	NewtonsMethodResult(int iter)
-		: m_iter(iter)
-	{}
-
-	int m_iter;
-};
-
-NewtonsMethodResult NewtonsMethod(const ScalarFunc& F, const GradientFunc& g, const HessianFunc& H, const NewtonsMethodParams& params,
-	const EVector& x1, EVector* result);
-
-// rank one correction.
-//void QuasiNewtonSR1(const ScalarF F, const Gradient* g, const NewtonsMethodParams& params,
-//	const ScalarVector& x1, ScalarVector* result);
-
-// Davidon Fletcher and Powell method, rank two correction
-NewtonsMethodResult QuasiNewtonDFP(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
-	const EVector& x1, EVector* result);
+// classical newton's method.
+void NewtonsMethod(const CD2Func& objectiveF, const EVector& x1, const NewtonsMethodParams& params, EVector* result);
 
 // BFGS
-NewtonsMethodResult QuasiNewtonBFGS(const ScalarFunc& F, const GradientFunc& g, const NewtonsMethodParams& params,
-	const EVector& x1, EVector* result);
+void QuasiNewtonBFGS(const CD1Func& objectiveF, const EVector& x1, const NewtonsMethodParams& params, EVector* result);
 
-// Hello
+#endif
