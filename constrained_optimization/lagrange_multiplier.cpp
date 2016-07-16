@@ -121,11 +121,16 @@ static void ChangeEMatrix(EMatrix* inout, int numRows)
 	{
 		inout->conservativeResize(numRows, numRows);
 
-		for (int ii = numORows; ii < numRows; ii++)
-			for (int jj = numRows; jj < numRows; jj++)
-				(*inout)(ii, jj) = (*inout)(jj, ii) = 0.f;
+		for (int ii = 0; ii < numRows; ii++)
+		{
+			for (int jj = 0; jj < numRows; jj++)
+			{
+				if (ii >= numORows || jj >= numORows)
+					(*inout)(ii, jj) = 0.f;
+			}
+		}
 
-		(*inout)(numORows, numORows) = 0.f;
+		//(*inout)(numRows - 1, numRows - 1) = 0.f;
 	}
 	else
 	{

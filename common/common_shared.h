@@ -5,7 +5,7 @@
 #define _COMMON_SHARED_H_
 
 #define xassert(f) { if (!(f)) { int* p = 0; *p = 0; } }
-#define ASSERT(f) { if (!f) { int* p = 0; *p = 0; } }
+#define ASSERT(f) { if (!(f)) { int* p = 0; *p = 0; } }
 
 #define NDI_FLT_EPSILON		(1.19209290e-07F)
 #define NDI_FLT_MAX			(3.40282347e+38f)
