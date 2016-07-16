@@ -1,5 +1,6 @@
-#include "ndlib/math/line_search_subp.h"
-#include "ndlib/math/newtons_method.h"
+#include "../line_search/line_search_subp.h"
+#include "../linear_algebra/scalar_matrix.h"
+#include "newtons_method.h"
 
 #define SEARCH_DIRECTION_MIN_LENGTH 0.00001f
 
@@ -60,7 +61,7 @@ void NewtonsMethod(const CD2Func& objectiveF, const EVector& x0, const NewtonsMe
 			}
 			else
 			{
-				ALWAYS_ASSERTF(false, ("Never saw this before!"));
+				ASSERT(false);
 			}
 		} while (true);
 

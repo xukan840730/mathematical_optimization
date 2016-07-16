@@ -1,6 +1,6 @@
-#include "ndlib/math/eigen-common.h"
-#include "ndlib/math/lagrange-multipliers.h"
-#include "ndlib/math/newtons_method.h"
+#include "../common/common_shared.h"
+#include "lagrange_multiplier.h"
+//#include "ndlib/math/newtons_method.h"
 
 //void LagrangeMultMethod(
 //	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
@@ -469,12 +469,13 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 //-----------------------------------------------------------------------------------------------------------//
 void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const CD2Func* inconstrFs, const LagrangeMultMethodParams& params, EVector* result)
 {
-	static const I32 kMaxNumConstrs = 32;
+	static const int kMaxNumConstrs = 32;
 
 	ASSERT(numInconstr >= 0);
 	ASSERT(numInconstr <= kMaxNumConstrs);
 
-	numInconstr = Min(numInconstr, kMaxNumConstrs);
+	numInconstr = numInconstr < kMaxNumConstrs ? numInconstr : kMaxNumConstrs;
+
 	int numOVars = x0.rows();
 
 	// change inequality constraints to equality constraints by introducing slack variables.

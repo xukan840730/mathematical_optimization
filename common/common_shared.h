@@ -5,6 +5,7 @@
 #define _COMMON_SHARED_H_
 
 #define xassert(f) { if (!(f)) { int* p = 0; *p = 0; } }
+#define ASSERT(f) { if (!f) { int* p = 0; *p = 0; } }
 
 #define NDI_FLT_EPSILON		(1.19209290e-07F)
 #define NDI_FLT_MAX			(3.40282347e+38f)
@@ -12,6 +13,12 @@
 
 #include "memory.h"
 #include "math.h"
+
+#include <Eigen/Dense>
+
+#define ND_MAX_EIGENSIZE 32
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, 0, 24, ND_MAX_EIGENSIZE> EMatrix;	// maximum 24 row, 32 cols
+typedef Eigen::Matrix<float, Eigen::Dynamic, 1, 0, ND_MAX_EIGENSIZE, 1> EVector;
 
 //-----------------------------------------------------------------------------------------------//
 // function definition: 

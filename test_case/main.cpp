@@ -729,10 +729,6 @@ int main()
 		};
 
 		// test newton's method.
-		ScalarFunc F = func2;
-		GradientFunc g = func2d12;
-		HessianFunc H = func2h12;
-
 		EVector x0(2);
 		EVector xstar(2);
 		x0(0) = (-30.f * 3.1415f / 180.f);
@@ -741,7 +737,9 @@ int main()
 		NewtonsMethodParams params;
 		params.m_maxIter = 20;
 
-		NewtonsMethod(F, g, H, params, x0, &xstar);
+		CD2Func F(func2, func2d12, func2h12);
+
+		NewtonsMethod(F, x0, params, &xstar);
 		printf("done!\n");
 	}
 
@@ -844,9 +842,6 @@ int main()
 			(*output)(2) = sum2;
 		};
 
-		ScalarFunc F = func5;
-		GradientFunc g = func5d123;
-
 		EVector x0(3);
 		EVector xstar0(3);
 		EVector xstar1(3);
@@ -861,10 +856,12 @@ int main()
 
 		//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
 
-		QuasiNewtonDFP(F, g, params, x0, &xstar1);
-		QuasiNewtonBFGS(F, g, params, x0, &xstar2);
+		CD1Func F(func5, func5d123);
 
-		const float ftest = F(xstar2);
+		//QuasiNewtonDFP(F, x0, params, &xstar1);
+		QuasiNewtonBFGS(F, x0, params, &xstar2);
+
+		const float ftest = func5(xstar2);
 
 		printf("done!\n");
 	}
@@ -942,12 +939,12 @@ int main()
 		x1(0) = 0.f; x1(1) = 1.f;
 		EVector xstar(2);
 		
-		LagrangeMultMethodResult res = LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		//LagrangeMultMethodResult res = LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
 
-		const float cstar = c(xstar);
-		const float fstar = F(xstar);
+		//const float cstar = c(xstar);
+		//const float fstar = F(xstar);
 
-		printf("done!\n");
+		//printf("done!\n");
 	}
 
 	{
@@ -1021,8 +1018,8 @@ int main()
 		EVector x1(2); x1(0) = 1.f; x1(1) = 0.f;
 		EVector xstar(2);
 
-		LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
-		printf("done!\n");
+		//LagrangeMultMethod(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		//printf("done!\n");
 	}
 
 	{
@@ -1085,13 +1082,13 @@ int main()
 			(*output)(1, 1) = 2;
 		};
 
-		ScalarFunc F = func8;
-		GradientFunc gF = func8d12;
-		HessianFunc hF = func8h12;
+		//ScalarFunc F = func8;
+		//GradientFunc gF = func8d12;
+		//HessianFunc hF = func8h12;
 
-		ScalarFunc c = cfunc8;
-		GradientFunc gC = cfunc8d12;
-		HessianFunc hC = cfunc8h12;
+		//ScalarFunc c = cfunc8;
+		//GradientFunc gC = cfunc8d12;
+		//HessianFunc hC = cfunc8h12;
 
 		EVector x1(2); x1(0) = -1.5f; x1(1) = -1.6f;
 		EVector xstar(2);
@@ -1100,9 +1097,13 @@ int main()
 		params.m_maxIter = 20;
 		params.m_lamda1 = 0.f;
 
-		SQP1(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		CD2Func F(func8, func8d12, func8h12);
+		CD2Func C(cfunc8, cfunc8d12, cfunc8h12);
 
-		printf("done!\n");
+		SQP1(F, x1, C, params, &xstar);
+
+		const float f = func8(xstar);
+		printf("SQP1 %f done!\n", f);
 	}
 
 	{
@@ -1165,13 +1166,13 @@ int main()
 			(*output)(1, 1) = 2;
 		};
 
-		ScalarFunc F = func8;
-		GradientFunc gF = func8d12;
-		HessianFunc hF = func8h12;
+		//ScalarFunc F = func8;
+		//GradientFunc gF = func8d12;
+		//HessianFunc hF = func8h12;
 
-		ScalarFunc c = cfunc8;
-		GradientFunc gC = cfunc8d12;
-		HessianFunc hC = cfunc8h12;
+		//ScalarFunc c = cfunc8;
+		//GradientFunc gC = cfunc8d12;
+		//HessianFunc hC = cfunc8h12;
 
 		EVector x1(2); x1(0) = -1.5f; x1(1) = -1.6f;
 		EVector xstar(2);
@@ -1180,9 +1181,14 @@ int main()
 		params.m_maxIter = 20;
 		params.m_lamda1 = 0.f;
 
-		SQP2(F, gF, hF, c, gC, hC, params, x1, &xstar);
+		CD2Func F(func8, func8d12, func8h12);
+		CD2Func C(cfunc8, cfunc8d12, cfunc8h12);
 
-		printf("SQP2 done!\n");
+		SQP2(F, x1, C, params, &xstar);
+
+		const float f = func8(xstar);
+
+		printf("SQP2 %f done!\n", f);
 	}
 
 	return 0;
