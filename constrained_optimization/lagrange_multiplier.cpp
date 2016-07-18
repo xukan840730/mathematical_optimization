@@ -1,6 +1,6 @@
 #include "../common/common_shared.h"
 #include "lagrange_multiplier.h"
-//#include "ndlib/math/newtons_method.h"
+#include "../unconstrained_optimization/newtons_method.h"
 
 //void LagrangeMultMethod(
 //	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
@@ -160,6 +160,19 @@ static EMatrix EMatrixTimesLambda(const EMatrix& input, const EVector& lambdas)
 	return result;
 }
 
+void ValidateEVector(const EVector& v)
+{
+	for (int i = 0; i < v.rows(); i++)
+		ASSERT(IsFinite(v(i)));
+}
+
+void ValidateEMatrix(const EMatrix& m)
+{
+	for (int i = 0; i < m.rows(); i++)
+		for (int j = 0; j < m.cols(); j++)
+			ASSERT(IsFinite(m(i, j)));
+}
+
 //-----------------------------------------------------------------------------------------------------------//
 // Lagrange functions:
 typedef std::function<float(const EVector& input, const EVector& lambdas)> LScalarFunc;
@@ -185,7 +198,7 @@ struct L2Func {
 
 //-----------------------------------------------------------------------------------------------------------//
 static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lambda0,
-	int numEConstr, const CD1Func* econstrFs, int maxIter, float epsilon1, float epsilon2, EVector* result)
+	int numEConstr, const CD1Func** econstrFs, int maxIter, float epsilon1, float epsilon2, EVector* result)
 {
 	const int numOVars = x0.rows();
 	EVector xk = x0;
@@ -194,7 +207,8 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 
 	LF.f(xk, lambdaK);
 
-	for (int iter = 1; iter <= maxIter; iter++)
+	int iter = 1;
+	for (; iter <= maxIter; iter++)
 	{
 		// evaluate g(k)
 		EVector gk(numOVars);
@@ -212,6 +226,7 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 		{
 			EMatrix hLk(numOVars, numOVars);
 			LF.h(xk, lambdaK, &hLk);
+			ValidateEMatrix(hLk);
 			A = hLk;
 
 			A.conservativeResize(numOVars + numEConstr, numOVars + numEConstr);
@@ -219,14 +234,16 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 			for (int iConstr = 0; iConstr < numEConstr; iConstr++)
 			{
 				EVector gCk(numOVars);
-				econstrFs[iConstr].g(xk, &gCk);
+				(*econstrFs[iConstr]).g(xk, &gCk);
 
 				for (int jj = 0; jj < numOVars; jj++)
 					A(numOVars + iConstr, jj) = A(jj, numOVars + iConstr) = gCk(jj);
 			}
 
 			for (int iConstr = 0; iConstr < numEConstr; iConstr++)
-				A(numOVars + iConstr, numOVars + iConstr) = 0.f;
+				for (int jConstr = 0; jConstr < numEConstr; jConstr++)
+					A(numOVars + iConstr, numOVars + jConstr) = 0.f;
+			ValidateEMatrix(A);
 		}
 
 		EVector B;
@@ -236,7 +253,7 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float ck = econstrFs[ii].f(xk);
+				float ck = (*econstrFs[ii]).f(xk);
 				B(numOVars + ii) = ck;
 			}
 
@@ -245,6 +262,7 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 
 		// solve A * delta = B;
 		EMatrix deltaM = A.fullPivLu().solve(B);
+		ValidateEMatrix(deltaM);
 		EVector deltaV = deltaM.col(0);
 
 		//xk += deltaV;
@@ -255,6 +273,9 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 			for (int ii = 0; ii < numEConstr; ii++)
 				lambdaK(ii) += deltaV(numOVars + ii);
 		}
+
+		ValidateEVector(xk);
+		ValidateEVector(lambdaK);
 
 		if (deltaV.squaredNorm() < epsilon2 * epsilon2)
 		{
@@ -314,8 +335,9 @@ void SQP1(const CD2Func& objectiveF, const EVector& x0, const CD2Func& econstrF,
 
 	L2Func LF(LFunc, gLFunc, hLFunc);
 	CD1Func econstrFs(econstrF.f, econstrF.g);
+	const CD1Func* pEconstrFs[1] = { &econstrFs };
 
-	SQPFramework(LF, x0, lambda0, 1, &econstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, result);
+	SQPFramework(LF, x0, lambda0, 1, pEconstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, result);
 }
 
 //-----------------------------------------------------------------------------------------------------------//
@@ -462,9 +484,10 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 
 	L2Func LF(LFunc, gLFunc, hLFunc);
 	CD1Func econstrFs(HFunc, gHFunc);
+	const CD1Func* pEconstrFs[1] = { &econstrFs };
 
 	EVector nresult(numNVars);
-	SQPFramework(LF, nx0, lambda0, 1, &econstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, &nresult);
+	SQPFramework(LF, nx0, lambda0, 1, pEconstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, &nresult);
 
 	*result = nresult;
 	ChangeEVector(result, numOVars);
@@ -645,7 +668,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 
 	L2Func LF(LFunc, gLFunc, hLFunc);
 
-	CD1Func econstrFs[7] = {
+	CD1Func econstrFs[8] = {
 		CD1Func(HFuncs[0], gHFuncs[0]),
 		CD1Func(HFuncs[1], gHFuncs[1]),
 		CD1Func(HFuncs[2], gHFuncs[2]),
@@ -653,11 +676,191 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 		CD1Func(HFuncs[4], gHFuncs[4]),
 		CD1Func(HFuncs[5], gHFuncs[5]),
 		CD1Func(HFuncs[6], gHFuncs[6]),
+		CD1Func(HFuncs[7], gHFuncs[7]),
+	};
+	const CD1Func* pEconstrFs[kMaxNumConstrs];
+	for (int ii = 0; ii < numInconstr; ii++)
+	{
+		pEconstrFs[ii] = &econstrFs[ii];
 	};
 
 	EVector nresult(numNVars);
-	SQPFramework(LF, nx0, lambda0, numInconstr, econstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, &nresult);
+	SQPFramework(LF, nx0, lambda0, numInconstr, pEconstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, &nresult);
 
 	*result = nresult;
 	result->conservativeResize(numOVars);
+}
+
+//-----------------------------------------------------------------------------------------------------------//
+void SQP4(const CD2Func& objectiveF, const EVector& x0, int numEconstr, const CD2Func* econstrFs, const LagrangeMultMethodParams& params, EVector* result)
+{
+	static const int kMaxNumConstrs = 32;
+
+	ASSERT(numEconstr >= 0);
+	ASSERT(numEconstr <= kMaxNumConstrs);
+
+	numEconstr = numEconstr < kMaxNumConstrs ? numEconstr : kMaxNumConstrs;
+	int numVars = x0.rows();
+
+	// new L func with equality constraints
+	LScalarFunc LFunc = [numVars, numEconstr, &objectiveF, &econstrFs](const EVector& input, const EVector& lambdas) -> float {
+		ASSERT(numEconstr == lambdas.rows());
+
+		float res = objectiveF.f(input);
+		for (int ii = 0; ii < numEconstr; ii++)
+			res += econstrFs[ii].f(input) * lambdas(ii);
+
+		return res;
+	};
+
+	// gradient of L func respect to x vector
+	LGradientFunc gLFunc = [numVars, numEconstr, &objectiveF, &econstrFs](const EVector& input, const EVector& lambdas, EVector* output) {
+		ASSERT(numEconstr == lambdas.rows());
+
+		EVector res1(numVars);
+		objectiveF.g(input, &res1);
+		*output = res1;
+
+		for (int ii = 0; ii < numEconstr; ii++)
+		{
+			EVector res2(numVars);
+			econstrFs[ii].g(input, &res2);
+			*output += res2 * lambdas(ii);
+		}
+	};
+
+	// hessian of L func respect to x vector
+	LHessianFunc hLFunc = [numVars, numEconstr, &objectiveF, &econstrFs](const EVector& input, const EVector& lambdas, EMatrix* output) {
+		ASSERT(numEconstr == lambdas.rows());
+
+		EMatrix res1(numVars, numVars);
+		objectiveF.h(input, &res1);
+		*output = res1;
+
+		for (int ii = 0; ii < numEconstr; ii++)
+		{
+			EMatrix res2(numVars, numVars);
+			econstrFs[ii].h(input, &res2);
+
+			*output += res2 * lambdas(ii);
+		}
+	};
+
+	EVector lambda0(numEconstr);
+	for (int ii = 0; ii < numEconstr; ii++)
+		lambda0(ii) = params.m_lamda1;
+
+	EVector nx0 = x0;
+	//{
+	//	float initC = _C(x0);
+	//	ASSERTF(initC <= 0.f, ("initial guess x0 doesn't satisfy constraint!"));
+	//	if (initC >= 0.f)
+	//	{
+	//		return;
+	//	}
+	//	xk(numOVars) = sqrtf(-initC);
+	//}
+
+	L2Func LF(LFunc, gLFunc, hLFunc);
+
+	const CD1Func* pEconstrFs[kMaxNumConstrs];
+	for (int ii = 0; ii < numEconstr; ii++)
+	{
+		pEconstrFs[ii] = &econstrFs[ii];
+	}
+
+	EVector nresult(numVars);
+	SQPFramework(LF, nx0, lambda0, numEconstr, pEconstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, &nresult);
+
+	*result = nresult;
+	//result->conservativeResize(numOVars);
+}
+
+//-----------------------------------------------------------------------------------------------------------//
+void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, const LagrangeMultMethodParams& params, EVector* result)
+{
+	EVector lambdaK(numEConstr);
+	for (int ii = 0; ii < numEConstr; ii++)
+		lambdaK(ii) = params.m_lamda1;
+
+	const int numVars = x0.rows();
+	EVector xk = x0;
+	
+	float c = 1.f;
+
+	int iter = 1;
+	for (; iter <= params.m_maxIter; iter++)
+	{
+		//float totalErr = 0.f;
+		//for (int ii = 0; ii < numEConstr; ii++)
+		//	totalErr += econstrFs[ii].f(xk);
+
+		//float c = 1.f;
+		//if (abs(totalErr) < 1.f)
+		//	c = 1 / totalErr;
+
+		// let AL function be f(x) + c*(e(x) - theta)^2 / 2, and ignoring constant term.
+		// ALfunc  = f(x) + c*e(x)^2/2 - c*theta*e(x), let lambda = c*theta
+		// as every iteration, lambdas should be closer and closer to lagrangian multipliers
+		ScalarFunc ALFunc = [c, numEConstr, &econstrFs, objectiveF, &lambdaK](const EVector& input) {
+			ASSERT(numEConstr == lambdaK.rows());
+			float res = objectiveF.f(input);
+			
+			for (int ii = 0; ii < numEConstr; ii++)
+			{
+				float e = econstrFs[ii].f(input);
+				res += c*e*e/2.f + lambdaK(ii)*e;
+			}
+
+			return res;
+		};
+
+		// gALfunc = gf(x) - c*theta*ge(x) + c*e(x)*ge(x), let lambda = c*theta
+		// so gALfunc = gf(x) + lambda*ge(x) + c*e(x)*ge(x)
+		GradientFunc gALFunc = [c, numEConstr, &econstrFs, objectiveF, &lambdaK](const EVector& input, EVector* output) {
+			ASSERT(numEConstr == lambdaK.rows());
+
+			EVector res(input.rows());
+			objectiveF.g(input, &res);
+
+			for (int ii = 0; ii < numEConstr; ii++)
+			{
+				float e = econstrFs[ii].f(input);
+				EVector ge(input.rows());				
+				econstrFs[ii].g(input, &ge);
+
+				res += lambdaK(ii) * ge + c * e * ge;
+			}
+
+			*output = res;
+		};
+
+		{
+			float fAL = ALFunc(xk);
+			float f = objectiveF.f(xk);
+			if ((fAL - f) * (fAL - f) < params.m_epsilon2 * params.m_epsilon2)
+			{
+				break;
+			}
+		}
+
+		// use BFGS to optimize sub problem.
+		CD1Func subP(ALFunc, gALFunc);
+
+		NewtonsMethodParams subParams;
+		subParams.m_min = -NDI_FLT_MAX;
+		subParams.m_maxIter = 100;
+
+		EVector subResult(numVars);
+		QuasiNewtonBFGS(subP, xk, subParams, &subResult);
+
+		xk = subResult;
+		// also update lambdaK to approximate lagrangian multipliers
+		for (int ii = 0; ii < numEConstr; ii++)
+		{
+			lambdaK(ii) += c * econstrFs[ii].f(xk);
+		}
+	}
+
+	*result = xk;
 }

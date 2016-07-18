@@ -30,6 +30,13 @@ void SQP1(const CD2Func& objectiveF, const EVector& x0,	const CD2Func& econstrF,
 // handle inequality constraint
 void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF, const LagrangeMultMethodParams& params, EVector* result);
 // to support any number of inequality constraints
+// SQP3 is not working yet
 void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const CD2Func* inconstrFs, const LagrangeMultMethodParams& params, EVector* result);
+
+// to support any number of equality constraints
+void SQP4(const CD2Func& objectiveF, const EVector& x0, int numEconstr, const CD2Func* econstrFs, const LagrangeMultMethodParams& params, EVector* result);
+
+// Augmented Lagrangian method: this is in factor a penalty function like method, not Lagrangian method.
+void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, const LagrangeMultMethodParams& params, EVector* result);
 
 #endif

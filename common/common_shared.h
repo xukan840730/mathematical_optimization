@@ -11,6 +11,11 @@
 #define NDI_FLT_MAX			(3.40282347e+38f)
 #define NDI_FLT_MIN			(1.17549435e-38F)
 
+static inline bool IsFinite(float a)
+{
+	return (*(unsigned int*)(&a) & 0x7F800000) != 0x7F800000;
+}
+
 #include "memory.h"
 #include "math.h"
 
@@ -47,19 +52,24 @@ typedef std::function<void(const EVector& input, EMatrix* output)> HessianFunc;
 // For 2 times differentiable function, we can get its hessian function
 //-----------------------------------------------------------------------------------------------//
 struct CD1Func {
+public:
 	const ScalarFunc& f;
 	const GradientFunc& g;
 
-	CD1Func(const ScalarFunc& _f, const GradientFunc& _g) : f(_f) , g(_g) {}
+private:
+	static const ScalarFunc* s_dummyF;
+	static const GradientFunc* s_dummyG;
+
+public:
+	CD1Func() : f(*s_dummyF), g(*s_dummyG) {}
+	CD1Func(const ScalarFunc& _f, const GradientFunc& _g) : f(_f), g(_g) {}
 };
 
-struct CD2Func {
-	const ScalarFunc& f;
-	const GradientFunc& g;
+struct CD2Func : public CD1Func {
 	const HessianFunc& h;
 
-	CD2Func(const ScalarFunc& _f, const GradientFunc& _g, const HessianFunc& _h) : f(_f) , g(_g) , h(_h) {}
+public:
+	CD2Func(const ScalarFunc& _f, const GradientFunc& _g, const HessianFunc& _h) : CD1Func(_f, _g), h(_h) {}
 };
-
 
 #endif
