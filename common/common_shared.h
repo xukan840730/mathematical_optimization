@@ -11,6 +11,9 @@
 #define NDI_FLT_MAX			(3.40282347e+38f)
 #define NDI_FLT_MIN			(1.17549435e-38F)
 
+#define ARRAY_COUNT(a) (sizeof(a) / sizeof(*(a)))
+
+
 static inline bool IsFinite(float a)
 {
 	return (*(unsigned int*)(&a) & 0x7F800000) != 0x7F800000;

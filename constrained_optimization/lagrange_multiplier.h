@@ -17,6 +17,13 @@ public:
 	int m_maxIter;		// max number of iterations
 };
 
+// optimization algorithm result.
+struct OptResult
+{
+	EVector xstar;		// x which minimum 
+	int numIter;		// number of iteration used.
+};
+
 //void LagrangeMultMethod(
 //	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
 //	const ScalarFunc& C, const GradientFunc& gC, const HessianFunc& hC,
@@ -37,6 +44,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 void SQP4(const CD2Func& objectiveF, const EVector& x0, int numEconstr, const CD2Func* econstrFs, const LagrangeMultMethodParams& params, EVector* result);
 
 // Augmented Lagrangian method: this is in factor a penalty function like method, not Lagrangian method.
-void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, const LagrangeMultMethodParams& params, EVector* result);
+OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, const LagrangeMultMethodParams& params);
+OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, int numInConstr, const CD1Func* inconstrFs, const LagrangeMultMethodParams& params);
 
 #endif

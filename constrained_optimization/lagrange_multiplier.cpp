@@ -656,6 +656,10 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 
 	EVector nx0 = x0;
 	ChangeEVector(&nx0, numNVars);
+	for (int ii = 0; ii < numInconstr; ii++)
+	{
+		nx0(numOVars + ii) = 0.1f;
+	}
 	//{
 	//	float initC = _C(x0);
 	//	ASSERTF(initC <= 0.f, ("initial guess x0 doesn't satisfy constraint!"));
@@ -777,27 +781,31 @@ void SQP4(const CD2Func& objectiveF, const EVector& x0, int numEconstr, const CD
 }
 
 //-----------------------------------------------------------------------------------------------------------//
-void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, const LagrangeMultMethodParams& params, EVector* result)
+static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const EVector& lambda0, int numEConstr, const CD1Func** econstrFs, int maxIter, float epsilon2)
 {
-	EVector lambdaK(numEConstr);
-	for (int ii = 0; ii < numEConstr; ii++)
-		lambdaK(ii) = params.m_lamda1;
-
-	const int numVars = x0.rows();
 	EVector xk = x0;
+	EVector lambdaK = lambda0;
+
+	int numVars = x0.rows();
 	
-	float c = 1.f;
-
+	// main loop.
 	int iter = 1;
-	for (; iter <= params.m_maxIter; iter++)
+	for (; iter <= maxIter; iter++)
 	{
-		//float totalErr = 0.f;
-		//for (int ii = 0; ii < numEConstr; ii++)
-		//	totalErr += econstrFs[ii].f(xk);
-
-		//float c = 1.f;
-		//if (abs(totalErr) < 1.f)
-		//	c = 1 / totalErr;
+		float c = 1.f;
+		{
+			float minErr = NDI_FLT_MAX;
+			EVector err(numEConstr);
+			for (int ii = 0; ii < numEConstr; ii++)
+			{
+				float e = (*econstrFs[ii]).f(xk);
+				err(ii) = e;
+				if (abs(e) < minErr)
+					minErr = abs(e);
+			}
+			if (minErr > NDI_FLT_EPSILON && minErr < 1.f)
+				c = 1 / minErr;
+		}
 
 		// let AL function be f(x) + c*(e(x) - theta)^2 / 2, and ignoring constant term.
 		// ALfunc  = f(x) + c*e(x)^2/2 - c*theta*e(x), let lambda = c*theta
@@ -805,11 +813,11 @@ void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, cons
 		ScalarFunc ALFunc = [c, numEConstr, &econstrFs, objectiveF, &lambdaK](const EVector& input) {
 			ASSERT(numEConstr == lambdaK.rows());
 			float res = objectiveF.f(input);
-			
+
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = econstrFs[ii].f(input);
-				res += c*e*e/2.f + lambdaK(ii)*e;
+				float e = (*econstrFs[ii]).f(input);
+				res += c*e*e / 2.f + lambdaK(ii)*e;
 			}
 
 			return res;
@@ -825,9 +833,9 @@ void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, cons
 
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = econstrFs[ii].f(input);
-				EVector ge(input.rows());				
-				econstrFs[ii].g(input, &ge);
+				float e = (*econstrFs[ii]).f(input);
+				EVector ge(input.rows());
+				(*econstrFs[ii]).g(input, &ge);
 
 				res += lambdaK(ii) * ge + c * e * ge;
 			}
@@ -838,7 +846,7 @@ void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, cons
 		{
 			float fAL = ALFunc(xk);
 			float f = objectiveF.f(xk);
-			if ((fAL - f) * (fAL - f) < params.m_epsilon2 * params.m_epsilon2)
+			if ((fAL - f) * (fAL - f) < epsilon2 * epsilon2)
 			{
 				break;
 			}
@@ -858,9 +866,175 @@ void ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, cons
 		// also update lambdaK to approximate lagrangian multipliers
 		for (int ii = 0; ii < numEConstr; ii++)
 		{
-			lambdaK(ii) += c * econstrFs[ii].f(xk);
+			lambdaK(ii) += c * (*econstrFs[ii]).f(xk);
 		}
 	}
 
-	*result = xk;
+	OptResult result;
+	result.xstar = xk;
+	result.numIter = iter;
+
+	return result;
 }
+
+//-----------------------------------------------------------------------------------------------------------//
+OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, const LagrangeMultMethodParams& params)
+{
+	EVector lambda0(numEConstr);
+	for (int ii = 0; ii < numEConstr; ii++)
+		lambda0(ii) = 0.f;
+
+	EVector xk = x0;
+
+	static const int kMaxNumConstrs = 32;
+
+	const CD1Func* pEconstrFs[kMaxNumConstrs];
+	for (int ii = 0; ii < numEConstr; ii++)
+		pEconstrFs[ii] = &econstrFs[ii];
+
+	return ALFramework(objectiveF, x0, lambda0, numEConstr, pEconstrFs, params.m_maxIter, params.m_epsilon2);
+}
+
+//-----------------------------------------------------------------------------------------------------------//
+OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr, const CD1Func* econstrFs, int numInconstr, const CD1Func* inconstrFs, const LagrangeMultMethodParams& params)
+{
+	static const int kMaxNumConstrs = 32;
+
+	const int numOVars = x0.rows();
+	const int numNVars = numOVars + numInconstr;
+
+	// change equality constraints to take extra parameter.
+	ScalarFunc EFuncs[kMaxNumConstrs];
+	GradientFunc gEFuncs[kMaxNumConstrs];
+	for (int iFunc = 0; iFunc < numEConstr; iFunc++)
+	{
+		EFuncs[iFunc] = [numOVars, iFunc, numEConstr, &econstrFs](const EVector& ninput) -> float {
+			EVector oinput = ninput;
+			ChangeEVector(&oinput, numOVars);
+
+			return econstrFs[iFunc].f(oinput);
+		};
+
+		gEFuncs[iFunc] = [numOVars, numNVars, iFunc, numEConstr, &econstrFs](const EVector& ninput, EVector* noutput) {
+			EVector oinput = ninput;
+			ChangeEVector(&oinput, numOVars);
+
+			EVector ooutput(numOVars);
+			econstrFs[iFunc].g(oinput, &ooutput);
+
+			*noutput = ooutput;
+			ChangeEVector(noutput, numNVars);
+		};
+	}
+
+	// change inequality constraints to equality constraints by introducing slack variables.
+	// oinput is the original variables vector
+	// ninput is the variables vector with slack variables.
+
+	// h(x) = C(x) + slk * slk == 0
+	// gh(x) = (gC(x), 2 * slk)
+	ScalarFunc HFuncs[kMaxNumConstrs];
+	GradientFunc gHFuncs[kMaxNumConstrs];
+	for (int iFunc = 0; iFunc < numInconstr; iFunc++)
+	{
+		HFuncs[iFunc] = [numOVars, iFunc, numInconstr, &inconstrFs](const EVector& ninput) -> float {
+			ASSERT(ninput.rows() == numOVars + numInconstr);
+			float slackVar = ninput(numOVars + iFunc);
+
+			EVector oinput = ninput;
+			ChangeEVector(&oinput, numOVars);
+
+			return inconstrFs[iFunc].f(oinput) + slackVar * slackVar;
+		};
+
+		gHFuncs[iFunc] = [numOVars, iFunc, numInconstr, &inconstrFs](const EVector& ninput, EVector* noutput) {
+			ASSERT(ninput.rows() == numOVars + numInconstr);
+			float slackVar = ninput(numOVars + iFunc);
+
+			EVector oinput = ninput;
+			ChangeEVector(&oinput, numOVars);
+
+			EVector ooutput(numOVars);
+			inconstrFs[iFunc].g(oinput, &ooutput);
+
+			*noutput = ooutput;
+			ChangeEVector(noutput, numOVars + numInconstr);
+			(*noutput)(numOVars + iFunc) = 2.f * slackVar;
+		};
+	}
+
+	ScalarFunc nF = [numOVars, &objectiveF, numInconstr](const EVector& ninput) -> float {
+		ASSERT(ninput.rows() == numOVars + numInconstr);
+
+		EVector oinput = ninput;
+		ChangeEVector(&oinput, numOVars);
+
+		return objectiveF.f(oinput);
+	};
+
+	GradientFunc gnF = [numOVars, &objectiveF, numInconstr](const EVector& ninput, EVector* noutput) {
+		ASSERT(ninput.rows() == numOVars + numInconstr);
+
+		EVector oinput = ninput;
+		ChangeEVector(&oinput, numOVars);
+
+		EVector ooutput(numOVars);
+		objectiveF.g(oinput, &ooutput);
+		*noutput = ooutput;
+
+		ChangeEVector(noutput, numOVars + numInconstr);
+	};
+
+	CD1Func nobjectiveF(nF, gnF);
+
+	int numTotalEConstr = numEConstr + numInconstr;
+
+	CD1Func convertedEconstrFs[8] = {
+		// TODO:
+		CD1Func(EFuncs[0], gEFuncs[0]),
+		CD1Func(EFuncs[1], gEFuncs[1]),
+		CD1Func(EFuncs[2], gEFuncs[2]),
+		CD1Func(EFuncs[3], gEFuncs[3]),
+		CD1Func(EFuncs[4], gEFuncs[4]),
+		CD1Func(EFuncs[5], gEFuncs[5]),
+		CD1Func(EFuncs[6], gEFuncs[6]),
+		CD1Func(EFuncs[7], gEFuncs[7]),
+	};
+
+	CD1Func convertedInconstrFs[8] = {
+		// TODO:
+		CD1Func(HFuncs[0], gHFuncs[0]),
+		CD1Func(HFuncs[1], gHFuncs[1]),
+		CD1Func(HFuncs[2], gHFuncs[2]),
+		CD1Func(HFuncs[3], gHFuncs[3]),
+		CD1Func(HFuncs[4], gHFuncs[4]),
+		CD1Func(HFuncs[5], gHFuncs[5]),
+		CD1Func(HFuncs[6], gHFuncs[6]),
+		CD1Func(HFuncs[7], gHFuncs[7]),
+	};
+
+	// fill final function array.
+	const CD1Func* pTotalEconstrFs[kMaxNumConstrs];
+	for (int ii = 0; ii < numEConstr; ii++)
+		pTotalEconstrFs[ii] = &convertedEconstrFs[ii];
+
+	for (int ii = 0; ii < numInconstr; ii++)
+		pTotalEconstrFs[numEConstr + ii] = &convertedInconstrFs[ii];
+
+	// initialize the variables.
+	EVector nx0 = x0;
+	ChangeEVector(&nx0, numNVars);
+	for (int ii = 0; ii < numInconstr; ii++)
+		nx0(numOVars + ii) = 0.1f;
+
+	EVector lambda0(numTotalEConstr);
+	for (int ii = 0; ii < numTotalEConstr; ii++)
+		lambda0(ii) = 0.f;
+
+	OptResult result = ALFramework(nobjectiveF, nx0, lambda0, numTotalEConstr, pTotalEconstrFs, params.m_maxIter, params.m_epsilon2);
+	ChangeEVector(&result.xstar, numOVars);
+
+	return result;
+}
+
+

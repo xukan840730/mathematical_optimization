@@ -2,7 +2,8 @@
 #include "../linear_algebra/scalar_matrix.h"
 #include "newtons_method.h"
 
-#define SEARCH_DIRECTION_MIN_LENGTH 0.00001f
+//#define SEARCH_DIRECTION_MIN_LENGTH 0.00001f
+#define SEARCH_DIRECTION_MIN_LENGTH 0.001f
 
 //-------------------------------------------------------------------------------------------------------------//
 void NewtonsMethod(const CD2Func& objectiveF, const EVector& x0, const NewtonsMethodParams& params,	EVector* result)

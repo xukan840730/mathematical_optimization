@@ -1299,6 +1299,103 @@ int main()
 
 		printf("SQP3 %f done!\n", f);
 	}
+	
+	
+	{
+		// minimize cost function x1 * x2^2
+		// s.t: x1^2 + x2^2 - 2 <= 0, (x1+1)^2 + (x2-1)^2 - 1 <= 0,
+		// x1 + 2 * x2 = 0,
+
+		ScalarFunc func8 = [](const EVector& input) -> float {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			return x1 * x2 * x2;
+		};
+
+		GradientFunc func8d12 = [](const EVector& input, EVector* output) {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0) = x2*x2;
+			(*output)(1) = 2 * x1*x2;
+		};
+
+		ScalarFunc cfunc1 = [](const EVector& input) -> float {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			return x1*x1 + x2*x2 - 2.f;
+		};
+
+		GradientFunc cfunc1d = [](const EVector& input, EVector* output) {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0) = 2 * x1;
+			(*output)(1) = 2 * x2;
+		};
+
+		ScalarFunc cfunc2 = [](const EVector& input) -> float {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			return (x1 + 1)*(x1 + 1) + (x2 - 1)*(x2 - 1) - 1.f;
+		};
+
+		GradientFunc cfunc2d = [](const EVector& input, EVector* output) {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0) = 2*(x1 + 1);
+			(*output)(1) = 2*(x2 - 1);
+		};
+
+		ScalarFunc cfunc3 = [](const EVector& input) -> float {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+			return x1 + 2 * x2;
+		};
+
+		GradientFunc cfunc3d = [](const EVector& input, EVector* output) {
+			ASSERT(input.rows() == 2);
+			float x1 = input(0);
+			float x2 = input(1);
+
+			(*output)(0) = 1;
+			(*output)(1) = 2;
+		};
+
+		EVector x1(2); x1(0) = -1.5f; x1(1) = -1.6f;
+
+		LagrangeMultMethodParams params;
+		params.m_maxIter = 100;
+		params.m_lamda1 = 0.f;
+
+		CD1Func objectiveF(func8, func8d12);
+		CD1Func inconstrFs[2] = {
+			CD1Func(cfunc1, cfunc1d),
+			CD1Func(cfunc2, cfunc2d),
+		};
+
+		CD1Func econstrFs[1] = {
+			CD1Func(cfunc3, cfunc3d),
+		};
+
+		OptResult res = ALMethod(objectiveF, x1, ARRAY_COUNT(econstrFs), econstrFs, ARRAY_COUNT(inconstrFs), inconstrFs, params);
+
+		float f = func8(res.xstar);
+		ASSERT(f < -0.5f);
+		printf("ALMethod done %f!\n", f);
+	}
+
 
 	return 0;
 }
