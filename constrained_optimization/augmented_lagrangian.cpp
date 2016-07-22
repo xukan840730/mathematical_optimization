@@ -37,7 +37,7 @@ static void ChangeEMatrix(EMatrix* inout, int numRows)
 }
 
 //-----------------------------------------------------------------------------------------------------------//
-static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const EVector& lambda0, int numEConstr, const CD1Func** econstrFs, int maxIter, float epsilon2)
+static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const EVector& lambda0, int numEConstr, const CD1Func* econstrFs, int maxIter, float epsilon2)
 {
 	EVector xk = x0;
 	EVector lambdaK = lambda0;
@@ -54,7 +54,7 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 			EVector err(numEConstr);
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = (*(*econstrFs[ii]).f)(xk);
+				float e = (*econstrFs[ii].f)(xk);
 				err(ii) = e;
 				if (abs(e) < minErr)
 					minErr = abs(e);
@@ -72,7 +72,7 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = (*(*econstrFs[ii]).f)(input);
+				float e = (*econstrFs[ii].f)(input);
 				res += c*e*e / 2.f + lambdaK(ii)*e;
 			}
 
@@ -89,9 +89,9 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = (*(*econstrFs[ii]).f)(input);
+				float e = (*econstrFs[ii].f)(input);
 				EVector ge(input.rows());
-				(*(*econstrFs[ii]).g)(input, &ge);
+				(*econstrFs[ii].g)(input, &ge);
 
 				res += lambdaK(ii) * ge + c * e * ge;
 			}
@@ -122,7 +122,7 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 		// also update lambdaK to approximate lagrangian multipliers
 		for (int ii = 0; ii < numEConstr; ii++)
 		{
-			lambdaK(ii) += c * (*(*econstrFs[ii]).f)(xk);
+			lambdaK(ii) += c * (*econstrFs[ii].f)(xk);
 		}
 	}
 
@@ -144,11 +144,11 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 
 	static const int kMaxNumConstrs = 32;
 
-	const CD1Func* pEconstrFs[kMaxNumConstrs];
-	for (int ii = 0; ii < numEConstr; ii++)
-		pEconstrFs[ii] = &econstrFs[ii];
+	//const CD1Func* pEconstrFs[kMaxNumConstrs];
+	//for (int ii = 0; ii < numEConstr; ii++)
+	//	pEconstrFs[ii] = &econstrFs[ii];
 
-	return ALFramework(objectiveF, x0, lambda0, numEConstr, pEconstrFs, params.m_maxIter, params.m_epsilon2);
+	return ALFramework(objectiveF, x0, lambda0, numEConstr, econstrFs, params.m_maxIter, params.m_epsilon2);
 }
 
 //-----------------------------------------------------------------------------------------------------------//
@@ -245,37 +245,17 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 
 	int numTotalEConstr = numEConstr + numInconstr;
 
-	CD1Func convertedEconstrFs[8] = {
-		// TODO:
-		CD1Func(EFuncs[0], gEFuncs[0]),
-		CD1Func(EFuncs[1], gEFuncs[1]),
-		CD1Func(EFuncs[2], gEFuncs[2]),
-		CD1Func(EFuncs[3], gEFuncs[3]),
-		CD1Func(EFuncs[4], gEFuncs[4]),
-		CD1Func(EFuncs[5], gEFuncs[5]),
-		CD1Func(EFuncs[6], gEFuncs[6]),
-		CD1Func(EFuncs[7], gEFuncs[7]),
-	};
-
-	CD1Func convertedInconstrFs[8] = {
-		// TODO:
-		CD1Func(HFuncs[0], gHFuncs[0]),
-		CD1Func(HFuncs[1], gHFuncs[1]),
-		CD1Func(HFuncs[2], gHFuncs[2]),
-		CD1Func(HFuncs[3], gHFuncs[3]),
-		CD1Func(HFuncs[4], gHFuncs[4]),
-		CD1Func(HFuncs[5], gHFuncs[5]),
-		CD1Func(HFuncs[6], gHFuncs[6]),
-		CD1Func(HFuncs[7], gHFuncs[7]),
-	};
-
 	// fill final function array.
-	const CD1Func* pTotalEconstrFs[kMaxNumConstrs];
+	CD1Func totalEconstrFs[kMaxNumConstrs];
 	for (int ii = 0; ii < numEConstr; ii++)
-		pTotalEconstrFs[ii] = &convertedEconstrFs[ii];
+	{
+		totalEconstrFs[ii] = CD1Func(EFuncs[ii], gEFuncs[ii]);
+	}
 
 	for (int ii = 0; ii < numInconstr; ii++)
-		pTotalEconstrFs[numEConstr + ii] = &convertedInconstrFs[ii];
+	{
+		totalEconstrFs[numEConstr + ii] = CD1Func(HFuncs[ii], gHFuncs[ii]);
+	}
 
 	// initialize the variables.
 	EVector nx0 = x0;
@@ -287,7 +267,7 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 	for (int ii = 0; ii < numTotalEConstr; ii++)
 		lambda0(ii) = 0.f;
 
-	OptResult result = ALFramework(nobjectiveF, nx0, lambda0, numTotalEConstr, pTotalEconstrFs, params.m_maxIter, params.m_epsilon2);
+	OptResult result = ALFramework(nobjectiveF, nx0, lambda0, numTotalEConstr, totalEconstrFs, params.m_maxIter, params.m_epsilon2);
 	ChangeEVector(&result.xstar, numOVars);
 
 	return result;
