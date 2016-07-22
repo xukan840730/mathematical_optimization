@@ -22,14 +22,14 @@ void NewtonsMethod(const CD2Func& objectiveF, const EVector& x0, const NewtonsMe
 
 	for (int iter = 1; iter <= params.m_maxIter; iter++)
 	{
-		const float fk = objectiveF.f(xk);
+		const float fk = (*objectiveF.f)(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
 			return;
 		}
 
-		objectiveF.g(xk, &gk);
+		(*objectiveF.g)(xk, &gk);
 		float norm2 = gk.squaredNorm();
 		if (norm2 < params.m_epsilon * params.m_epsilon)
 		{
@@ -38,7 +38,7 @@ void NewtonsMethod(const CD2Func& objectiveF, const EVector& x0, const NewtonsMe
 		}
 
 		// solve G(k) * deltaK = -g(k)
-		objectiveF.h(xk, &Gk);
+		(*objectiveF.h)(xk, &Gk);
 
 		float v = params.m_v;
 
@@ -97,7 +97,7 @@ void QuasiNewtonBFGS(const CD1Func& objectiveF, const EVector& x0, const Newtons
 
 	for (int iter = 1; iter <= params.m_maxIter; iter++)
 	{
-		const float fk = objectiveF.f(xk);
+		const float fk = (*objectiveF.f)(xk);
 		if (fk < params.m_min)
 		{
 			*result = xk;
@@ -105,7 +105,7 @@ void QuasiNewtonBFGS(const CD1Func& objectiveF, const EVector& x0, const Newtons
 		}
 
 		// evaluate g(k)
-		objectiveF.g(xk, &gk);
+		(*objectiveF.g)(xk, &gk);
 
 		{
 			float norm2 = gk.squaredNorm();
@@ -138,14 +138,14 @@ void QuasiNewtonBFGS(const CD1Func& objectiveF, const EVector& x0, const Newtons
 		lparams.tau3 = 0.5f;
 
 		// x(k+1) = x(k) + alphaK * s(k)
-		float alphaK = InexactLineSearch(objectiveF.f, objectiveF.g, sk, xk, lparams);
+		float alphaK = InexactLineSearch((*objectiveF.f), (*objectiveF.g), sk, xk, lparams);
 		EVector deltaK = sk * alphaK;
 		xk1 = xk + deltaK;
 
 		// update H(k) giving H(k+1)
 		{
 			// evaluate g(k+1)
-			objectiveF.g(xk1, &gk1);
+			(*objectiveF.g)(xk1, &gk1);
 			EVector gammaK = gk1 - gk;
 
 			// H(k+1) = H(k) + U + V

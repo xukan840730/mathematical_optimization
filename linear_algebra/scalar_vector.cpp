@@ -1,12 +1,6 @@
 #include "../common/common_shared.h"
 #include "scalar_vector.h"
 
-const ScalarFunc DummyScalarFunc = [](const EVector& input) { return 0.f; };
-const GradientFunc DummyGradientFunc = [](const EVector& input, EVector* output) {};
-
-const ScalarFunc* CD1Func::s_dummyF = &DummyScalarFunc;
-const GradientFunc* CD1Func::s_dummyG = &DummyGradientFunc;
-
 
 //---------------------------------------------------------------------//
 ScalarVector::ScalarVector(int length)

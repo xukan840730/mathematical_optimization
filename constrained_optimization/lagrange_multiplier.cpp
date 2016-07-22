@@ -105,8 +105,7 @@ static void ChangeEVector(EVector* inout, int numRows)
 	if (numORows < numRows)
 	{
 		inout->conservativeResize(numRows);
-		for (int i = numORows; i < numRows; i++)
-			(*inout)(i) = 0.f;
+		(*inout).block(numORows, 0, numRows - numORows, 1).setZero();
 	}
 	else if (numORows > numRows)
 	{
@@ -121,16 +120,9 @@ static void ChangeEMatrix(EMatrix* inout, int numRows)
 	{
 		inout->conservativeResize(numRows, numRows);
 
-		for (int ii = 0; ii < numRows; ii++)
-		{
-			for (int jj = 0; jj < numRows; jj++)
-			{
-				if (ii >= numORows || jj >= numORows)
-					(*inout)(ii, jj) = 0.f;
-			}
-		}
-
-		//(*inout)(numRows - 1, numRows - 1) = 0.f;
+		(*inout).block(numORows, 0, numRows - numORows, numRows - numORows).setZero();
+		(*inout).block(0, numORows, numRows - numORows, numRows - numORows).setZero();
+		(*inout).block(numORows, numORows, numRows - numORows, numRows - numORows).setZero();
 	}
 	else
 	{
@@ -230,30 +222,27 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 			A = hLk;
 
 			A.conservativeResize(numOVars + numEConstr, numOVars + numEConstr);
-			// TODO: replace with Eigen interface
 			for (int iConstr = 0; iConstr < numEConstr; iConstr++)
 			{
 				EVector gCk(numOVars);
-				(*econstrFs[iConstr]).g(xk, &gCk);
+				(*(*econstrFs[iConstr]).g)(xk, &gCk);
 
-				for (int jj = 0; jj < numOVars; jj++)
-					A(numOVars + iConstr, jj) = A(jj, numOVars + iConstr) = gCk(jj);
+				A.block(numOVars + iConstr, 0, 1, numOVars) = gCk.transpose();
+				A.block(0, numOVars + iConstr, numOVars, 1) = gCk;
 			}
 
-			for (int iConstr = 0; iConstr < numEConstr; iConstr++)
-				for (int jConstr = 0; jConstr < numEConstr; jConstr++)
-					A(numOVars + iConstr, numOVars + jConstr) = 0.f;
+			A.block(numOVars, numOVars, numEConstr, numEConstr).setZero();
 			ValidateEMatrix(A);
 		}
 
 		EVector B;
 		{
 			LF.g(xk, lambdaK, &B);
-			B.conservativeResize(numOVars + numEConstr);
+			ChangeEVector(&B, numOVars + numEConstr);
 
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float ck = (*econstrFs[ii]).f(xk);
+				float ck = (*(*econstrFs[ii]).f)(xk);
 				B(numOVars + ii) = ck;
 			}
 
@@ -263,21 +252,14 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 		// solve A * delta = B;
 		EMatrix deltaM = A.fullPivLu().solve(B);
 		ValidateEMatrix(deltaM);
-		EVector deltaV = deltaM.col(0);
 
-		//xk += deltaV;
-		{
-			for (int ii = 0; ii < numOVars; ii++)
-				xk(ii) += deltaV(ii);
-
-			for (int ii = 0; ii < numEConstr; ii++)
-				lambdaK(ii) += deltaV(numOVars + ii);
-		}
+		xk += deltaM.block(0, 0, numOVars, 1);
+		lambdaK += deltaM.block(numOVars, 0, numEConstr, 1);		
 
 		ValidateEVector(xk);
 		ValidateEVector(lambdaK);
 
-		if (deltaV.squaredNorm() < epsilon2 * epsilon2)
+		if (deltaM.squaredNorm() < epsilon2 * epsilon2)
 		{
 			break;
 		}
@@ -302,9 +284,9 @@ void SQP1(const CD2Func& objectiveF, const EVector& x0, const CD2Func& econstrF,
 	EVector lambda0(1);
 	{
 		EVector gC0(numOVars);
-		econstrF.g(x0, &gC0);
+		(*econstrF.g)(x0, &gC0);
 		EVector gF0(numOVars);
-		objectiveF.g(x0, &gF0);
+		(*objectiveF.g)(x0, &gF0);
 
 		float uu = gC0.transpose().dot(gC0);
 		lambda0(0) = -(gC0.transpose().dot(gF0)) / uu;
@@ -312,15 +294,15 @@ void SQP1(const CD2Func& objectiveF, const EVector& x0, const CD2Func& econstrF,
 
 	// L func
 	LScalarFunc LFunc = [&objectiveF, &econstrF](const EVector& input, const EVector& lambdas) -> float {
-		return objectiveF.f(input) + econstrF.f(input) * lambdas(0);	// there's only 1 constraint.
+		return (*objectiveF.f)(input) + (*econstrF.f)(input) * lambdas(0);	// there's only 1 constraint.
 	};
 
 	// gradient of L func respect to x vector
 	LGradientFunc gLFunc = [&objectiveF, &econstrF, numOVars](const EVector& input, const EVector& lambdas, EVector* output) {
 		EVector res1(numOVars);
 		EVector res2(numOVars);
-		objectiveF.g(input, &res1);
-		econstrF.g(input, &res2);
+		(*objectiveF.g)(input, &res1);
+		(*econstrF.g)(input, &res2);
 		*output = res1 + res2 * lambdas(0);	// there's only 1 constraint.
 	};
 
@@ -328,13 +310,13 @@ void SQP1(const CD2Func& objectiveF, const EVector& x0, const CD2Func& econstrF,
 	LHessianFunc hLFunc = [&objectiveF, &econstrF, numOVars](const EVector& input, const EVector& lambdas, EMatrix* output) {
 		EMatrix res1(numOVars, numOVars);
 		EMatrix res2(numOVars, numOVars);
-		objectiveF.h(input, &res1);
-		econstrF.h(input, &res2);
+		(*objectiveF.h)(input, &res1);
+		(*econstrF.h)(input, &res2);
 		*output = res1 + res2 * lambdas(0);	// there's only 1 constraint.
 	};
 
 	L2Func LF(LFunc, gLFunc, hLFunc);
-	CD1Func econstrFs(econstrF.f, econstrF.g);
+	CD1Func econstrFs(*econstrF.f, *econstrF.g);
 	const CD1Func* pEconstrFs[1] = { &econstrFs };
 
 	SQPFramework(LF, x0, lambda0, 1, pEconstrFs, params.m_maxIter, params.m_epsilon1, params.m_epsilon2, result);
@@ -353,7 +335,7 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 		ASSERT(ninput.rows() == numOVars + 1);
 		EVector oinput = ninput;
 		oinput.conservativeResize(ninput.rows() - 1);
-		return objectiveF.f(oinput);
+		return (*objectiveF.f)(oinput);
 	};
 
 	GradientFunc gnF = [numOVars, &objectiveF](const EVector& ninput, EVector* noutput) {
@@ -364,7 +346,7 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 		oinput.conservativeResize(numORows);
 
 		EVector ooutput(numORows);
-		objectiveF.g(oinput, &ooutput);
+		(*objectiveF.g)(oinput, &ooutput);
 		*noutput = ooutput;
 		noutput->conservativeResize(numORows + 1);
 		(*noutput)(numORows) = 0.f;
@@ -378,7 +360,7 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 		oinput.conservativeResize(numORows);
 
 		EMatrix ooutput(numORows, numORows);
-		objectiveF.h(oinput, &ooutput);
+		(*objectiveF.h)(oinput, &ooutput);
 
 		*noutput = ooutput;
 		noutput->conservativeResize(numORows + 1, numORows + 1);
@@ -397,7 +379,7 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 
 		EVector oinput = ninput;
 		oinput.conservativeResize(numORows);
-		return inconstrF.f(oinput) + slackVar * slackVar;
+		return (*inconstrF.f)(oinput) + slackVar * slackVar;
 	};
 
 	// gh(x) = (gC(x), 2 * slk)
@@ -410,7 +392,7 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 		oinput.conservativeResize(numORows);
 		
 		EVector ooutput(numORows);
-		inconstrF.g(oinput, &ooutput);
+		(*inconstrF.g)(oinput, &ooutput);
 
 		*noutput = ooutput;
 		noutput->conservativeResize(numORows + 1);
@@ -426,7 +408,7 @@ void SQP2(const CD2Func& objectiveF, const EVector& x0, const CD2Func& inconstrF
 		oinput.conservativeResize(numORows);
 
 		EMatrix ooutput(numORows, numORows);
-		inconstrF.h(oinput, &ooutput);
+		(*inconstrF.h)(oinput, &ooutput);
 
 		*noutput = ooutput;
 		noutput->conservativeResize(numORows + 1, numORows + 1);
@@ -516,7 +498,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 		EVector oinput = ninput;
 		ChangeEVector(&oinput, numOVars);
 
-		return objectiveF.f(oinput);
+		return (*objectiveF.f)(oinput);
 	};
 
 	GradientFunc gnF = [numOVars, &objectiveF, numInconstr](const EVector& ninput, EVector* noutput) {
@@ -526,7 +508,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 		ChangeEVector(&oinput, numOVars);
 
 		EVector ooutput(numOVars);
-		objectiveF.g(oinput, &ooutput);
+		(*objectiveF.g)(oinput, &ooutput);
 		*noutput = ooutput;
 
 		ChangeEVector(noutput, numOVars + numInconstr);
@@ -539,7 +521,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 		ChangeEVector(&oinput, numOVars);
 
 		EMatrix ooutput(numOVars, numOVars);
-		objectiveF.h(oinput, &ooutput);
+		(*objectiveF.h)(oinput, &ooutput);
 
 		*noutput = ooutput;
 		ChangeEMatrix(noutput, numOVars + numInconstr);
@@ -556,7 +538,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 			EVector oinput = ninput;
 			ChangeEVector(&oinput, numOVars);
 
-			return inconstrFs[iFunc].f(oinput) + slackVar * slackVar;
+			return (*inconstrFs[iFunc].f)(oinput) + slackVar * slackVar;
 		};
 	}
 
@@ -572,7 +554,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 			ChangeEVector(&oinput, numOVars);
 
 			EVector ooutput(numOVars);
-			inconstrFs[iFunc].g(oinput, &ooutput);
+			(*inconstrFs[iFunc].g)(oinput, &ooutput);
 
 			*noutput = ooutput;
 			ChangeEVector(noutput, numOVars + numInconstr);
@@ -591,7 +573,7 @@ void SQP3(const CD2Func& objectiveF, const EVector& x0, int numInconstr, const C
 			ChangeEVector(&oinput, numOVars);
 
 			EMatrix ooutput(numOVars, numOVars);
-			inconstrFs[iFunc].h(oinput, &ooutput);
+			(*inconstrFs[iFunc].h)(oinput, &ooutput);
 
 			*noutput = ooutput;
 			ChangeEMatrix(noutput, numOVars + numInconstr);
@@ -710,9 +692,9 @@ void SQP4(const CD2Func& objectiveF, const EVector& x0, int numEconstr, const CD
 	LScalarFunc LFunc = [numVars, numEconstr, &objectiveF, &econstrFs](const EVector& input, const EVector& lambdas) -> float {
 		ASSERT(numEconstr == lambdas.rows());
 
-		float res = objectiveF.f(input);
+		float res = (*objectiveF.f)(input);
 		for (int ii = 0; ii < numEconstr; ii++)
-			res += econstrFs[ii].f(input) * lambdas(ii);
+			res += (*econstrFs[ii].f)(input) * lambdas(ii);
 
 		return res;
 	};
@@ -722,13 +704,13 @@ void SQP4(const CD2Func& objectiveF, const EVector& x0, int numEconstr, const CD
 		ASSERT(numEconstr == lambdas.rows());
 
 		EVector res1(numVars);
-		objectiveF.g(input, &res1);
+		(*objectiveF.g)(input, &res1);
 		*output = res1;
 
 		for (int ii = 0; ii < numEconstr; ii++)
 		{
 			EVector res2(numVars);
-			econstrFs[ii].g(input, &res2);
+			(*econstrFs[ii].g)(input, &res2);
 			*output += res2 * lambdas(ii);
 		}
 	};
@@ -738,13 +720,13 @@ void SQP4(const CD2Func& objectiveF, const EVector& x0, int numEconstr, const CD
 		ASSERT(numEconstr == lambdas.rows());
 
 		EMatrix res1(numVars, numVars);
-		objectiveF.h(input, &res1);
+		(*objectiveF.h)(input, &res1);
 		*output = res1;
 
 		for (int ii = 0; ii < numEconstr; ii++)
 		{
 			EMatrix res2(numVars, numVars);
-			econstrFs[ii].h(input, &res2);
+			(*econstrFs[ii].h)(input, &res2);
 
 			*output += res2 * lambdas(ii);
 		}
@@ -798,7 +780,7 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 			EVector err(numEConstr);
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = (*econstrFs[ii]).f(xk);
+				float e = (*(*econstrFs[ii]).f)(xk);
 				err(ii) = e;
 				if (abs(e) < minErr)
 					minErr = abs(e);
@@ -812,11 +794,11 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 		// as every iteration, lambdas should be closer and closer to lagrangian multipliers
 		ScalarFunc ALFunc = [c, numEConstr, &econstrFs, objectiveF, &lambdaK](const EVector& input) {
 			ASSERT(numEConstr == lambdaK.rows());
-			float res = objectiveF.f(input);
+			float res = (*objectiveF.f)(input);
 
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = (*econstrFs[ii]).f(input);
+				float e = (*(*econstrFs[ii]).f)(input);
 				res += c*e*e / 2.f + lambdaK(ii)*e;
 			}
 
@@ -829,13 +811,13 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 			ASSERT(numEConstr == lambdaK.rows());
 
 			EVector res(input.rows());
-			objectiveF.g(input, &res);
+			(*objectiveF.g)(input, &res);
 
 			for (int ii = 0; ii < numEConstr; ii++)
 			{
-				float e = (*econstrFs[ii]).f(input);
+				float e = (*(*econstrFs[ii]).f)(input);
 				EVector ge(input.rows());
-				(*econstrFs[ii]).g(input, &ge);
+				(*(*econstrFs[ii]).g)(input, &ge);
 
 				res += lambdaK(ii) * ge + c * e * ge;
 			}
@@ -845,7 +827,7 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 
 		{
 			float fAL = ALFunc(xk);
-			float f = objectiveF.f(xk);
+			float f = (*objectiveF.f)(xk);
 			if ((fAL - f) * (fAL - f) < epsilon2 * epsilon2)
 			{
 				break;
@@ -866,7 +848,7 @@ static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const
 		// also update lambdaK to approximate lagrangian multipliers
 		for (int ii = 0; ii < numEConstr; ii++)
 		{
-			lambdaK(ii) += c * (*econstrFs[ii]).f(xk);
+			lambdaK(ii) += c * (*(*econstrFs[ii]).f)(xk);
 		}
 	}
 
@@ -912,7 +894,7 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 			EVector oinput = ninput;
 			ChangeEVector(&oinput, numOVars);
 
-			return econstrFs[iFunc].f(oinput);
+			return (*econstrFs[iFunc].f)(oinput);
 		};
 
 		gEFuncs[iFunc] = [numOVars, numNVars, iFunc, numEConstr, &econstrFs](const EVector& ninput, EVector* noutput) {
@@ -920,7 +902,7 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 			ChangeEVector(&oinput, numOVars);
 
 			EVector ooutput(numOVars);
-			econstrFs[iFunc].g(oinput, &ooutput);
+			(*econstrFs[iFunc].g)(oinput, &ooutput);
 
 			*noutput = ooutput;
 			ChangeEVector(noutput, numNVars);
@@ -944,7 +926,7 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 			EVector oinput = ninput;
 			ChangeEVector(&oinput, numOVars);
 
-			return inconstrFs[iFunc].f(oinput) + slackVar * slackVar;
+			return (*inconstrFs[iFunc].f)(oinput) + slackVar * slackVar;
 		};
 
 		gHFuncs[iFunc] = [numOVars, iFunc, numInconstr, &inconstrFs](const EVector& ninput, EVector* noutput) {
@@ -955,7 +937,7 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 			ChangeEVector(&oinput, numOVars);
 
 			EVector ooutput(numOVars);
-			inconstrFs[iFunc].g(oinput, &ooutput);
+			(*inconstrFs[iFunc].g)(oinput, &ooutput);
 
 			*noutput = ooutput;
 			ChangeEVector(noutput, numOVars + numInconstr);
@@ -969,7 +951,7 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 		EVector oinput = ninput;
 		ChangeEVector(&oinput, numOVars);
 
-		return objectiveF.f(oinput);
+		return (*objectiveF.f)(oinput);
 	};
 
 	GradientFunc gnF = [numOVars, &objectiveF, numInconstr](const EVector& ninput, EVector* noutput) {
@@ -979,7 +961,7 @@ OptResult ALMethod(const CD1Func& objectiveF, const EVector& x0, int numEConstr,
 		ChangeEVector(&oinput, numOVars);
 
 		EVector ooutput(numOVars);
-		objectiveF.g(oinput, &ooutput);
+		(*objectiveF.g)(oinput, &ooutput);
 		*noutput = ooutput;
 
 		ChangeEVector(noutput, numOVars + numInconstr);

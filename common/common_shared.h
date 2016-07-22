@@ -56,23 +56,19 @@ typedef std::function<void(const EVector& input, EMatrix* output)> HessianFunc;
 //-----------------------------------------------------------------------------------------------//
 struct CD1Func {
 public:
-	const ScalarFunc& f;
-	const GradientFunc& g;
-
-private:
-	static const ScalarFunc* s_dummyF;
-	static const GradientFunc* s_dummyG;
+	const ScalarFunc* f;
+	const GradientFunc* g;
 
 public:
-	CD1Func() : f(*s_dummyF), g(*s_dummyG) {}
-	CD1Func(const ScalarFunc& _f, const GradientFunc& _g) : f(_f), g(_g) {}
+	CD1Func() : f(nullptr), g(nullptr) {}
+	CD1Func(const ScalarFunc& _f, const GradientFunc& _g) : f(&_f), g(&_g) {}
 };
 
 struct CD2Func : public CD1Func {
-	const HessianFunc& h;
+	const HessianFunc* h;
 
 public:
-	CD2Func(const ScalarFunc& _f, const GradientFunc& _g, const HessianFunc& _h) : CD1Func(_f, _g), h(_h) {}
+	CD2Func(const ScalarFunc& _f, const GradientFunc& _g, const HessianFunc& _h) : CD1Func(_f, _g), h(&_h) {}
 };
 
 #endif
