@@ -71,4 +71,28 @@ public:
 	CD2Func(const ScalarFunc& _f, const GradientFunc& _g, const HessianFunc& _h) : CD1Func(_f, _g), h(&_h) {}
 };
 
+
+struct LagrangeMultMethodParams
+{
+public:
+	LagrangeMultMethodParams()
+		: m_epsilon1(0.001f)
+		, m_epsilon2(0.001f)
+		, m_lamda1(1.f)
+		, m_maxIter(20)
+	{}
+
+	float m_epsilon1;	// gradient epsilon to stop the iteration.
+	float m_epsilon2;	
+	float m_lamda1;		// init guess of lagrange multiplier
+	int m_maxIter;		// max number of iterations
+};
+
+// optimization algorithm result.
+struct OptResult
+{
+	EVector xstar;		// x which minimum 
+	int numIter;		// number of iteration used.
+};
+
 #endif
