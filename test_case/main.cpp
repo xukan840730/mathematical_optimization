@@ -7,6 +7,8 @@
 #include "../line_search/line_search_subp.h"
 #include "../unconstrained_optimization/newtons_method.h"
 #include "../constrained_optimization/lagrange_multiplier.h"
+#include "../constrained_optimization/augmented_lagrangian.h"
+#include "../constrained_optimization/quadratic-programming.h"
 
 #include <Eigen/Dense>
 
@@ -1396,6 +1398,37 @@ int main()
 		printf("ALMethod done %f!\n", f);
 	}
 
+	{
+		EMatrix A(3, 5); 
+		{
+			A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1; A(0, 3) = 1; A(0, 4) = 1;
+			A(1, 0) = 1; A(1, 1) = -1; A(1, 2) = 1; A(1, 3) = -1; A(1, 4) = 1;
+			A(2, 0) = 1; A(2, 1) = 1; A(2, 2) = -1; A(2, 3) = 1; A(2, 4) = 1;
+		}
+		EVector b(3); b(0) = 3; b(1) = 4; b(2) = 5;
+
+		EMatrix H(5, 5); 
+		for (int ii = 0; ii < 5; ii++)
+		{
+			for (int jj = 0; jj < 5; jj++)
+			{
+				if (ii == jj)
+					H(ii, jj) = 2;
+				else
+					H(ii, jj) = 1;
+			}
+		}
+		EVector q(5); q(0) = -6; q(1) = 7; q(2) = 3; q(3) = 1; q(4) = -1;
+
+		EQuadProgRes res = EQuadProg(H, q, A, b);
+
+		for (int ii = 0; ii < A.rows(); ii++)
+		{
+			float c = A.row(ii).dot(res.xstar);
+			ASSERT(abs(c - b(ii)) < 0.00001f);
+		}
+		printf("EQP done!\n");
+	}
 
 	return 0;
 }
