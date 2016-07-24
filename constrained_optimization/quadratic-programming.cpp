@@ -63,6 +63,14 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 	return res;
 }
 
+static bool QuadProgNoConstr(const EMatrix& H, const EVector& q, EVector* xstar)
+{
+	EVector res = H.colPivHouseholderQr().solve(-q);
+	bool slnEst = (H * res).isApprox(-q, 0.00001f);
+	*xstar = res;
+	return slnEst;
+}
+
 //------------------------------------------------------------------------------------------------------//
 EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, const EVector& beq)
 {
@@ -98,6 +106,13 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 		return result;
 
 	EVector xHat = qHat * uu;
+	if (mm == nn)
+	{
+		// the number of active constaints equals to the number of variables, the system has only 1 solution.
+		result.success = true;
+		result.xstar = xHat;
+		return result;
+	}
 
 	// let P = Qn^t . H . Qn, if P is positive definite, which means H is positive definite on the null space of constraint matrix A.
 	// so we can get a unique solution.
@@ -129,4 +144,149 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 	}
 
 	return result;
+}
+
+// TODO: replaced with BitArray later.
+static bool IsBitSet(unsigned int& block, int index)
+{
+	ASSERT(index >= 0 && index < 32);
+	return block & (1 << index);
+}
+
+static void SetBit(unsigned int& block, int index)
+{
+	ASSERT(index >= 0 && index < 32);
+	block |= (1 << index);
+}
+
+static void ClearBit(unsigned int& block, int index)
+{
+	ASSERT(index >= 0 && index < 32);
+	block &= ~(1 << index);
+}
+
+static int CountBits(unsigned int& block)
+{
+	int count = 0;
+	for (int ii = 0; ii < 32; ii++)
+		if (block & (1 << ii))
+			count++;
+
+	return count;
+}
+
+//------------------------------------------------------------------------------------------//
+void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector& b)
+{
+	ASSERT(H.rows() == q.rows());
+	ASSERT(H.cols() == A.cols());
+	ASSERT(A.rows() == b.rows());
+	
+	int numVars = H.rows();
+	int numConstrs = A.rows();
+
+	// TODO: this should be solved by a linear system.
+	EVector x0(numVars);
+	for (int ii = 0; ii < numVars; ii++)
+		x0(ii) = 0.f;
+
+	unsigned int activeSet = 0;
+	SetBit(activeSet, 0);
+	SetBit(activeSet, 1);
+
+	int maxIter = numConstrs * 2;
+
+	EVector xk = x0;
+	//EVector xkminus1 = xk;
+
+	for (int iter = 0; iter < maxIter; iter++)
+	{
+		int numActiveConstrs = CountBits(activeSet);
+		EMatrix Ak(numActiveConstrs, numVars);
+		EVector bk(numActiveConstrs);
+		static const int kMaxNumVars = 32;
+		int rowIdx[kMaxNumVars];
+		ASSERT(numActiveConstrs <= kMaxNumVars);
+		{
+			int activeIdx = 0;
+			// fill Ak by active constraints
+			for (int ii = 0; ii < numConstrs; ii++)
+			{
+				if (IsBitSet(activeSet, ii))
+				{
+					Ak.row(activeIdx) = A.row(ii);
+					bk(activeIdx) = b(ii);
+					rowIdx[activeIdx] = ii;
+					activeIdx++;
+				}
+			}
+		}
+
+		// solve active set EQP
+		EVector xeqp;
+		if (numActiveConstrs == 0)
+		{
+			bool success = QuadProgNoConstr(H, q, &xeqp);
+			if (!success)
+				break;
+		}
+		else
+		{	
+			EQuadProgRes eqpRes = EQuadProg(H, q, Ak, bk);
+			if (!eqpRes.success)
+				break;
+			xeqp = eqpRes.xstar;
+		}
+	
+		EVector xkminus1 = xk;
+		FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, A, b);
+		
+		if (fres.type == FeasibilityRes::kFeasible)
+		{
+			EVector xkminus1 = xk;
+			xk = xeqp;
+
+			// calculate lagrangian multipliers after we get xeqp.
+			// gF(x) + lambdaK * gC(x) = 0
+			// => Hx + q + lambdaK * A^t = 0
+			// => A^t * lambdaK = -(H.x + q)
+			EMatrix rhm = -1.f * (H * xk + q);
+			EVector lambdaK = Ak.transpose().colPivHouseholderQr().solve(rhm);
+			ASSERT(lambdaK.rows() == numActiveConstrs);
+
+			bool allPositive = true;
+			int rmActConstrIdx = -1;
+			float smallestLambda = 0.f;
+			for (int ii = 0; ii < numActiveConstrs; ii++)
+			{
+				if (lambdaK(ii) < 0)	// TODO: < or <= ??
+				{
+					allPositive = false;
+					if (lambdaK(ii) < smallestLambda)
+					{
+						smallestLambda = lambdaK(ii);
+						rmActConstrIdx = ii;
+					}
+				}
+			}
+
+			if (allPositive)
+				break;
+
+			ClearBit(activeSet, rowIdx[rmActConstrIdx]);
+		}
+		else if (fres.type == FeasibilityRes::kInfeasible)
+		{
+			EVector xkminus1 = xk;
+			xk = xkminus1 + fres.t * (xeqp - xkminus1);
+
+			SetBit(activeSet, fres.vconstrIdx);
+		}
+		else
+		{
+			ASSERT(false);
+		}
+
+	}
+	
 }

@@ -1430,5 +1430,23 @@ int main()
 		printf("EQP done!\n");
 	}
 
+	{
+		EMatrix A(3, 2);
+		A(0, 0) = -1; A(0, 1) = 0;
+		A(1, 0) = 0; A(1, 1) = -1;
+		A(2, 0) = 1; A(2, 1) = 1;
+		
+		EVector b(3); b(0) = 0; b(1) = 0; b(2) = 5;
+
+		EMatrix H(2, 2);
+		H(0, 0) = 2; H(0, 1) = 0;
+		H(1, 0) = 0; H(1, 1) = 2;
+
+		EVector q(2); q(0) = -8; q(1) = -6;
+		
+		QuadProg(H, q, A, b);
+		printf("QP done!\n");
+	}
+
 	return 0;
 }
