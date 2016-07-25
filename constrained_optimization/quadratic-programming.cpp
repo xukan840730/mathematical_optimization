@@ -1,4 +1,5 @@
 #include "../common/common_shared.h"
+#include "../common/bit_array.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "quadratic-programming.h"
 #include <Eigen/QR>
@@ -146,35 +147,6 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 	return result;
 }
 
-// TODO: replaced with BitArray later.
-static bool IsBitSet(unsigned int& block, int index)
-{
-	ASSERT(index >= 0 && index < 32);
-	return block & (1 << index);
-}
-
-static void SetBit(unsigned int& block, int index)
-{
-	ASSERT(index >= 0 && index < 32);
-	block |= (1 << index);
-}
-
-static void ClearBit(unsigned int& block, int index)
-{
-	ASSERT(index >= 0 && index < 32);
-	block &= ~(1 << index);
-}
-
-static int CountBits(unsigned int& block)
-{
-	int count = 0;
-	for (int ii = 0; ii < 32; ii++)
-		if (block & (1 << ii))
-			count++;
-
-	return count;
-}
-
 //------------------------------------------------------------------------------------------//
 void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector& b)
 {
@@ -190,9 +162,13 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 	for (int ii = 0; ii < numVars; ii++)
 		x0(ii) = 0.f;
 
-	unsigned int activeSet = 0;
-	SetBit(activeSet, 0);
-	SetBit(activeSet, 1);
+	static const int kMaxNumConstrs = 1024;
+	U64 activeSetBlocks[16];
+	ExternalBitArray activeSet;
+	ASSERT(ExternalBitArray::DetermineNumBlocks(kMaxNumConstrs) == 16);
+	activeSet.Init(kMaxNumConstrs, activeSetBlocks);
+	activeSet.SetBit(0);
+	activeSet.SetBit(1);
 
 	int maxIter = numConstrs * 2;
 
@@ -201,7 +177,7 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 
 	for (int iter = 0; iter < maxIter; iter++)
 	{
-		int numActiveConstrs = CountBits(activeSet);
+		int numActiveConstrs = activeSet.CountSetBits();
 		EMatrix Ak(numActiveConstrs, numVars);
 		EVector bk(numActiveConstrs);
 		static const int kMaxNumVars = 32;
@@ -212,7 +188,7 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 			// fill Ak by active constraints
 			for (int ii = 0; ii < numConstrs; ii++)
 			{
-				if (IsBitSet(activeSet, ii))
+				if (activeSet.IsBitSet(ii))
 				{
 					Ak.row(activeIdx) = A.row(ii);
 					bk(activeIdx) = b(ii);
@@ -273,14 +249,14 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 			if (allPositive)
 				break;
 
-			ClearBit(activeSet, rowIdx[rmActConstrIdx]);
+			activeSet.ClearBit(rowIdx[rmActConstrIdx]);
 		}
 		else if (fres.type == FeasibilityRes::kInfeasible)
 		{
 			EVector xkminus1 = xk;
 			xk = xkminus1 + fres.t * (xeqp - xkminus1);
 
-			SetBit(activeSet, fres.vconstrIdx);
+			activeSet.SetBit(fres.vconstrIdx);
 		}
 		else
 		{

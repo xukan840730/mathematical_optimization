@@ -13,6 +13,9 @@
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof(*(a)))
 
+typedef long U32;
+typedef long long U64;
+
 
 static inline bool IsFinite(float a)
 {
