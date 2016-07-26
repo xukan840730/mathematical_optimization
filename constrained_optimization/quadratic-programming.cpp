@@ -64,17 +64,10 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 	return res;
 }
 
-static bool QuadProgNoConstr(const EMatrix& H, const EVector& q, EVector* xstar)
-{
-	EVector res = H.colPivHouseholderQr().solve(-q);
-	bool slnEst = (H * res).isApprox(-q, 0.00001f);
-	*xstar = res;
-	return slnEst;
-}
-
 //------------------------------------------------------------------------------------------------------//
 EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, const EVector& beq)
 {
+	ASSERT(Aeq.rows() > 0);
 	ASSERT(Aeq.rows() <= Aeq.cols());	// otherwise the linear system is overdetermined and could not have a solution.
 	ASSERT(Aeq.rows() == beq.rows());
 	ASSERT(H.rows() == H.cols());
@@ -175,6 +168,16 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 	EVector xk = x0;
 	//EVector xkminus1 = xk;
 
+	Eigen::LLT<EMatrix> lltOfH; 
+	lltOfH.compute(H);
+	EMatrix HInv(H.rows(), H.cols()); // HInv is only calculated if H is positive definite. use it carefully. 
+	bool isHPosD = lltOfH.info() == Eigen::Success;	// whether H is positive definite matrix.
+	if (isHPosD)
+	{
+		EMatrix lOfH = lltOfH.matrixL();
+		LLtInverse(&HInv, lOfH);
+	}
+
 	for (int iter = 0; iter < maxIter; iter++)
 	{
 		int numActiveConstrs = activeSet.CountSetBits();
@@ -202,9 +205,16 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 		EVector xeqp;
 		if (numActiveConstrs == 0)
 		{
-			bool success = QuadProgNoConstr(H, q, &xeqp);
-			if (!success)
+			if (isHPosD)
+			{
+				// H.x + q = 0;
+				xeqp = HInv * -q;
+			}
+			else
+			{
+				// TODO: 
 				break;
+			}
 		}
 		else
 		{	
