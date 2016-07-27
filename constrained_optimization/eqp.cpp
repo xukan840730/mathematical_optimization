@@ -81,8 +81,9 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 		// find minimun eigenvec column.
 		int indminR = 0;
 		{
-			float smallestVal = NDI_FLT_MAX;
-			for (int ii = 0; ii < mm; ii++)
+			ASSERT(nn == eigenvalP.rows());
+			float smallestVal = eigenvalP(0).real();
+			for (int ii = 0; ii < nn; ii++)
 			{
 				if (eigenvalP(ii).real() < smallestVal)
 				{
@@ -92,7 +93,8 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 			}
 		}
 
-		EMatrix eVrH = eigenvecP.col(indminR);
+		EVector eVrH = eigenvecP.col(indminR).real();
+		ASSERT(eVrH.rows() == qN.cols());
 		EVector stepp = qN * eVrH;
 
 		result.type = EQuadProgRes::kUnbounded; 

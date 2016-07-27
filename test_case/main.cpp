@@ -11,7 +11,6 @@
 #include "../constrained_optimization/quadratic-programming.h"
 
 #include <Eigen/Dense>
-
 //float func(float x1, float x2)
 //{
 //	float A = (x2 - x1 * x1);
