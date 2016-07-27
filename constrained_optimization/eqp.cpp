@@ -83,7 +83,7 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 		{
 			ASSERT(nn == eigenvalP.rows());
 			float smallestVal = eigenvalP(0).real();
-			for (int ii = 0; ii < nn; ii++)
+			for (int ii = 1; ii < nn; ii++)
 			{
 				if (eigenvalP(ii).real() < smallestVal)
 				{
@@ -98,6 +98,7 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 		EVector stepp = qN * eVrH;
 
 		result.type = EQuadProgRes::kUnbounded; 
+		result.stepp = stepp;
 	}
 
 	return result;

@@ -107,6 +107,9 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 
 	for (int iter = 0; iter < maxIter; iter++)
 	{
+		// calculate gradient of each step
+		EVector gk = H * xk + q;
+
 		int numActiveConstrs = activeSet.CountSetBits();
 		EMatrix Ak(numActiveConstrs, numVars);
 		EVector bk(numActiveConstrs);
@@ -141,77 +144,110 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 			else
 			{
 				// TODO: 
+				Eigen::EigenSolver<EMatrix> eh(H);
+				EMatrix::EigenvaluesReturnType eigenvalH = eh.eigenvalues();
+				Eigen::EigenSolver<EMatrix>::EigenvectorsType eigenvecH = eh.eigenvectors();
+
+				// find minimun eigenvec column.
+				int indminR = 0;
+				{
+					float smallestVal = eigenvalH(0).real();
+					for (int ii = 1; ii < eigenvalH.rows(); ii++)
+					{
+						if (eigenvalH(ii).real() < smallestVal)
+						{
+							smallestVal = eigenvalH(ii).real();
+							indminR = ii;
+						}
+					}
+				}
+				EVector stepp = eigenvecH.col(indminR).real();
+				ASSERT(stepp.rows() == H.cols());
+				if (stepp.dot(gk) > epsilon) // make sure stepp is descent direction
+					stepp *= -1.f;
+				xeqp = xk + stepp;
+
 				res = 1;
-				break;
 			}
 		}
 		else
 		{	
 			EQuadProgRes eqpRes = EQuadProg(H, q, Ak, bk);
-			if (eqpRes.type == EQuadProgRes::kUnbounded) // TODO:
-				break;
-			xeqp = eqpRes.xstar;
+			if (eqpRes.type == EQuadProgRes::kUnbounded)
+			{
+				EVector stepp = eqpRes.stepp;
+				if (stepp.dot(gk) > epsilon) // make sure stepp is descent direction
+					stepp *= -1.f;
+				xeqp = xk + stepp;
+			}
+			else
+			{
+				xeqp = eqpRes.xstar;
+			}			
 		}
 
 		EVector xkminus1 = xk;
 		EVector stepk = xeqp - xkminus1;
 
 		bool isStepSmall = stepk.squaredNorm() < epsilon * epsilon; 
-		if (isStepSmall && numActiveConstrs == 0)
+		if (isStepSmall)
 		{
 			// the step is tiny.
-			break;
-		}
-		else
-		{
-
-		}
-	
-		FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, A, b);
-		
-		if (fres.type == FeasibilityRes::kFeasible)
-		{
-			xk = xeqp;
-
-			// calculate lagrangian multipliers after we get xeqp.
-			// gF(x) + lambdaK * gC(x) = 0
-			// => Hx + q + lambdaK * A^t = 0
-			// => A^t * lambdaK = -(H.x + q)
-			EMatrix rhm = -1.f * (H * xk + q);
-			EVector lambdaK = Ak.transpose().colPivHouseholderQr().solve(rhm);
-			ASSERT(lambdaK.rows() == numActiveConstrs);
-
-			bool allPositive = true;
-			int rmActConstrIdx = -1;
-			float smallestLambda = 0.f;
-			for (int ii = 0; ii < numActiveConstrs; ii++)
-			{
-				if (lambdaK(ii) < 0)	// TODO: < or <= ??
-				{
-					allPositive = false;
-					if (lambdaK(ii) < smallestLambda)
-					{
-						smallestLambda = lambdaK(ii);
-						rmActConstrIdx = ii;
-					}
-				}
-			}
-
-			if (allPositive)
+			if (numActiveConstrs == 0)
 				break;
 
-			activeSet.ClearBit(rowIdx[rmActConstrIdx]);
-		}
-		else if (fres.type == FeasibilityRes::kInfeasible)
-		{
-			xk = xkminus1 + fres.t * (xeqp - xkminus1);
-
-			activeSet.SetBit(fres.vconstrIdx);
+			ASSERT(false);
 		}
 		else
 		{
-			ASSERT(false);
+			FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, A, b);
+			
+			if (fres.type == FeasibilityRes::kFeasible)
+			{
+				xk = xeqp;
+
+				// calculate lagrangian multipliers after we get xeqp.
+				// gF(x) + lambdaK * gC(x) = 0
+				// => Hx + q + lambdaK * A^t = 0
+				// => A^t * lambdaK = -(H.x + q)
+				ASSERT(Ak.rows() > 0);
+				EMatrix rhm = -1.f * (H * xk + q);
+				EVector lambdaK = Ak.transpose().colPivHouseholderQr().solve(rhm);
+				ASSERT(lambdaK.rows() == numActiveConstrs);
+
+				bool allPositive = true;
+				int rmActConstrIdx = -1;
+				float smallestLambda = 0.f;
+				for (int ii = 0; ii < numActiveConstrs; ii++)
+				{
+					if (lambdaK(ii) < 0)	// TODO: < or <= ??
+					{
+						allPositive = false;
+						if (lambdaK(ii) < smallestLambda)
+						{
+							smallestLambda = lambdaK(ii);
+							rmActConstrIdx = ii;
+						}
+					}
+				}
+
+				if (allPositive)
+					break;
+
+				activeSet.ClearBit(rowIdx[rmActConstrIdx]);
+			}
+			else if (fres.type == FeasibilityRes::kInfeasible)
+			{
+				xk = xkminus1 + fres.t * (xeqp - xkminus1);
+
+				activeSet.SetBit(fres.vconstrIdx);
+			}
+			else
+			{
+				ASSERT(false);
+			}
 		}
+	
 
 	}
 	
