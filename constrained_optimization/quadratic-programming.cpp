@@ -2,8 +2,6 @@
 #include "../common/bit_array.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "quadratic-programming.h"
-#include <Eigen/QR>
-#include <Eigen/LU>
 
 // to find a point satisfy constraints Ax <= b, x = xstart + t*(xend - xstart), and maximum t.
 FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, const EMatrix& A, const EVector& b)
@@ -64,88 +62,15 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 	return res;
 }
 
-//------------------------------------------------------------------------------------------------------//
-EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, const EVector& beq)
-{
-	ASSERT(Aeq.rows() > 0);
-	ASSERT(Aeq.rows() <= Aeq.cols());	// otherwise the linear system is overdetermined and could not have a solution.
-	ASSERT(Aeq.rows() == beq.rows());
-	ASSERT(H.rows() == H.cols());
-	ASSERT(H.rows() == q.rows());
-	ASSERT(Aeq.cols() == H.cols());
-
-	EQuadProgRes result;
-	result.success = false;
-
-	EMatrix AT = Aeq.transpose();
-
-	int mm = AT.rows();
-	int nn = AT.cols();
-	ASSERT(mm >= nn);
-
-	Eigen::HouseholderQR<EMatrix> qrOfA(AT);
-	EMatrix qOfAT = qrOfA.householderQ();
-	EMatrix rOfAT = qrOfA.matrixQR().triangularView<Eigen::Upper>();
-
-	EMatrix qHat = qOfAT.block(0, 0, mm, nn);
-	EMatrix qN = qOfAT.block(0, nn, mm, mm - nn);
-
-	EMatrix rHat = rOfAT.block(0, 0, nn, nn);
-
-	// solve A * delta = B;
-	EMatrix rHatT = rHat.transpose();
-	EMatrix uu = rHatT.colPivHouseholderQr().solve(beq);
-	bool slnEst = (rHatT * uu).isApprox(beq, 0.0001f);
-	if (!slnEst)
-		return result;
-
-	EVector xHat = qHat * uu;
-	if (mm == nn)
-	{
-		// the number of active constaints equals to the number of variables, the system has only 1 solution.
-		result.success = true;
-		result.xstar = xHat;
-		return result;
-	}
-
-	// let P = Qn^t . H . Qn, if P is positive definite, which means H is positive definite on the null space of constraint matrix A.
-	// so we can get a unique solution.
-	EMatrix P = qN.transpose() * H * qN;
-
-	Eigen::LLT<EMatrix> lltOfP;
-	lltOfP.compute(P);
-
-	if (lltOfP.info() == Eigen::Success)
-	{
-		EMatrix L = lltOfP.matrixL();
-		// TODO: replaced by Eigen library LLT.
-		EMatrix PInv(L.rows(), L.cols());
-		LLtInverse(&PInv, L);
-
-		EMatrix ww = (xHat.transpose() * H * qN + q.transpose() * qN);
-		EMatrix vv = -1.f * PInv * ww.transpose();
-
-		EVector vPart = qN * vv;
-		ASSERT(vPart.rows() == xHat.rows());
-		EVector xstar = xHat + vPart;
-
-		result.success = true;
-		result.xstar = xstar;
-	}
-	else if (lltOfP.info() == Eigen::NumericalIssue)
-	{
-		// Matrix P is unbound in null-space of constraint matrix A.
-	}
-
-	return result;
-}
 
 //------------------------------------------------------------------------------------------//
-void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector& b)
+int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector& b)
 {
 	ASSERT(H.rows() == q.rows());
 	ASSERT(H.cols() == A.cols());
 	ASSERT(A.rows() == b.rows());
+
+	int res = 0;
 	
 	int numVars = H.rows();
 	int numConstrs = A.rows();
@@ -167,6 +92,8 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 
 	EVector xk = x0;
 	//EVector xkminus1 = xk;
+	
+	const float epsilon = NDI_FLT_EPSILON;
 
 	Eigen::LLT<EMatrix> lltOfH; 
 	lltOfH.compute(H);
@@ -209,27 +136,41 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 			{
 				// H.x + q = 0;
 				xeqp = HInv * -q;
+				res = 0;
 			}
 			else
 			{
 				// TODO: 
+				res = 1;
 				break;
 			}
 		}
 		else
 		{	
 			EQuadProgRes eqpRes = EQuadProg(H, q, Ak, bk);
-			if (!eqpRes.success)
+			if (eqpRes.type == EQuadProgRes::kUnbounded) // TODO:
 				break;
 			xeqp = eqpRes.xstar;
 		}
-	
+
 		EVector xkminus1 = xk;
+		EVector stepk = xeqp - xkminus1;
+
+		bool isStepSmall = stepk.squaredNorm() < epsilon * epsilon; 
+		if (isStepSmall && numActiveConstrs == 0)
+		{
+			// the step is tiny.
+			break;
+		}
+		else
+		{
+
+		}
+	
 		FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, A, b);
 		
 		if (fres.type == FeasibilityRes::kFeasible)
 		{
-			EVector xkminus1 = xk;
 			xk = xeqp;
 
 			// calculate lagrangian multipliers after we get xeqp.
@@ -263,7 +204,6 @@ void QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVecto
 		}
 		else if (fres.type == FeasibilityRes::kInfeasible)
 		{
-			EVector xkminus1 = xk;
 			xk = xkminus1 + fres.t * (xeqp - xkminus1);
 
 			activeSet.SetBit(fres.vconstrIdx);
