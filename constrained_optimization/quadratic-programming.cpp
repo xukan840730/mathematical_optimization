@@ -3,14 +3,48 @@
 #include "../linear_algebra/scalar_matrix.h"
 #include "quadratic-programming.h"
 
+static void PrintEVector(const EVector& v)
+{
+	printf("[");
+	for (int i = 0; i < v.rows(); i++)
+		if (i != v.rows() - 1)
+			printf("%0.3f, ", v(i));
+		else
+			printf("%0.3f", v(i));
+	printf("]");
+}
+
+static void PrintBitArray(const ExternalBitArray& b)
+{
+	printf("[");
+	for (int i = 0; i < b.GetMaxBitCount(); i++)
+		if (b.IsBitSet(i))
+			printf("%d, ", i);
+	printf("]");
+}
+
+struct FeasibilityRes
+{
+public:
+	enum Type {
+		kFeasible,		// the minimal of EQP is feasible in original QP problem.
+		kInfeasible,	// the minimal of EQP violates constraints of original QP problem
+		kImpossible,	// it's impossible to find t between [0-1] to move along x0 to xeqp
+	};
+
+	Type type;
+	float t;
+	int vconstrIdx;		// the first violated constrained index.
+};
+
 // to find a point satisfy constraints Ax <= b, x = xstart + t*(xend - xstart), and maximum t.
-FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, const EMatrix& A, const EVector& b)
+FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, const EMatrix& A, const EVector& b, const ExternalBitArray& activeSet)
 {
 	ASSERT(xstart.rows() == xend.rows());
 	ASSERT(A.rows() == b.rows());
 
 	FeasibilityRes res;
-	res.type = FeasibilityRes::kImpossible;
+	res.type = FeasibilityRes::kFeasible;
 
 	// new x = xstart + t * (xend - xstart), 
 	// so original constraints Ax <= b can be written as A(xstart + t*(xend - xstart)) <= b
@@ -29,6 +63,10 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 		float lhi = lh(ii);
 		float rhi = rh(ii);
 		ASSERT(rhi >= 0.f);
+
+		// we only care about inactive inequality constraint.
+		if (activeSet.IsBitSet(ii))
+			continue;
 
 		if (abs(lhi) < NDI_FLT_EPSILON && rhi < 0.f)
 		{
@@ -54,7 +92,9 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 	res.t = maximumT;
 	res.vconstrIdx = vconstrIdx;
 
-	if (vconstrIdx >= 0)
+	if (res.type == FeasibilityRes::kImpossible)
+		return res;
+	else if (vconstrIdx >= 0)
 		res.type = FeasibilityRes::kInfeasible;
 	else
 		res.type = FeasibilityRes::kFeasible;
@@ -83,7 +123,7 @@ static int FindNegativeLambda(const EVector& lambdaK)
 	float smallestLambda = 0.f;
 	for (int ii = 0; ii < lambdaK.rows(); ii++)
 	{
-		if (lambdaK(ii) < 0)	// TODO: < or <= ??
+		if (lambdaK(ii) < 0)
 		{
 			if (lambdaK(ii) < smallestLambda)
 			{
@@ -131,7 +171,7 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 	lltOfH.compute(H);
 	EMatrix HInv(H.rows(), H.cols()); // HInv is only calculated if H is positive definite. use it carefully. 
 	bool isHPosD = lltOfH.info() == Eigen::Success;	// whether H is positive definite matrix.
-	EVector hstep(numVars);
+	EVector hstep(numVars); // hstep is valid only if H is not positive definite.
 	if (isHPosD)
 	{
 		EMatrix lOfH = lltOfH.matrixL();
@@ -162,8 +202,12 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 
 	for (int iter = 0; iter < maxIter; iter++)
 	{
+		printf("iter: %d, ", iter);
 		// calculate gradient of each step
 		EVector gk = H * xk + q;
+
+		printf("xk: "); PrintEVector(xk); printf(", ");
+		printf("gk: "); PrintEVector(gk); printf(", ");
 
 		int numActiveConstrs = activeSet.CountSetBits();
 		EMatrix Ak(numActiveConstrs, numVars);
@@ -185,6 +229,8 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 				}
 			}
 		}
+
+		printf("active constrs: "); PrintBitArray(activeSet); printf(", ");
 
 		// solve active set EQP
 		EVector xeqp;
@@ -223,6 +269,8 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 			}			
 		}
 
+		printf("xeqp: "); PrintEVector(xeqp); printf(", ");
+
 		EVector xkminus1 = xk;
 		EVector stepk = xeqp - xkminus1;
 
@@ -236,6 +284,8 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 			EVector lambdaK = SolveLambda(H, q, xk, Ak);
 			ASSERT(lambdaK.rows() == numActiveConstrs);
 
+			printf("lambdaK: "); PrintEVector(lambdaK); printf(", ");
+
 			int negLambdaIdx = FindNegativeLambda(lambdaK);
 			if (negLambdaIdx < 0)
 				break;
@@ -245,8 +295,7 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 		}
 		else
 		{
-			FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, A, b);
-			
+			FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, A, b, activeSet);
 			if (fres.type == FeasibilityRes::kFeasible)
 			{
 				xk = xeqp;
@@ -256,6 +305,8 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 					// calculate lagrangian multipliers after we get xeqp.
 					EVector lambdaK = SolveLambda(H, q, xk, Ak);
 					ASSERT(lambdaK.rows() == numActiveConstrs);
+					
+					printf("lambdaK: "); PrintEVector(lambdaK); printf(", ");
 
 					int negLambdaIdx = FindNegativeLambda(lambdaK);
 					if (negLambdaIdx < 0)
@@ -275,5 +326,8 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 				ASSERT(false);
 			}
 		}
+		printf("\n");
 	}
+
+	printf("final: "); PrintEVector(xk); printf("\n");
 }
