@@ -23,6 +23,79 @@ static void PrintBitArray(const ExternalBitArray& b)
 	printf("]");
 }
 
+// to solve a single linear equation.
+struct LinEquation
+{
+	enum ReturnType
+	{
+		kExists,	// 
+		kAlways,	// equation always true no matter which x, ex: 0 * x = 0.
+		kImpossible,	// equation can never be satisfied no matter which x, ex: 0 * x = 1
+	};
+
+	enum Operator
+	{
+		kEq,	// equal to
+		kLT,	// Less than
+		kLTE,	// less than and equal
+		kGT,	// greater than
+		kGTE,	// greater than and equal
+	};
+
+	struct Result
+	{
+		ReturnType returnType;
+		Operator op;
+		float number;
+	};
+
+	// solve A * x "op" b
+	static Result Solve(const float a, const float b, Operator op, const float epsilon = 0.00001f)
+	{
+		Result res;
+		if (fabs(a) < epsilon)
+		{
+			// first, if a is close to, or equal to 0.
+			switch (op)
+			{
+			case kEq: 
+				if (a == 0.f)
+				{
+					if (b == 0.f)
+						res.returnType = kAlways;
+					else
+						res.returnType = kImpossible;
+				}
+				else if (fabsf(b) < 1.f)
+				{
+					res.op = op;
+					res.number = a / b;
+					res.returnType = kExists;
+				}
+				else
+				{
+					res.returnType = kImpossible;
+				}
+				break;
+			case kLT: 
+
+				break;
+		  	case kLTE:
+				break;
+			case kGT:
+			case kGTE:
+				break;
+			}
+		}
+		else if (a > 0.f)
+		{}
+		else
+		{}
+
+		return res;
+	}
+};
+
 struct FeasibilityRes
 {
 public:
