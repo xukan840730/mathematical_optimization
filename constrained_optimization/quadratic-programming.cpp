@@ -1,5 +1,6 @@
 #include "../common/common_shared.h"
 #include "../common/bit_array.h"
+#include "../common/lin-equation.h"
 #include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "quadratic-programming.h"
@@ -24,78 +25,6 @@ static void PrintBitArray(const ExternalBitArray& b)
 	printf("]");
 }
 
-// to solve a single linear equation.
-struct LinEquation
-{
-	enum ReturnType
-	{
-		kExists,	// 
-		kAlways,	// equation always true no matter which x, ex: 0 * x = 0.
-		kImpossible,	// equation can never be satisfied no matter which x, ex: 0 * x = 1
-	};
-
-	enum Operator
-	{
-		kEq,	// equal to
-		kLT,	// Less than
-		kLTE,	// less than and equal
-		kGT,	// greater than
-		kGTE,	// greater than and equal
-	};
-
-	struct Result
-	{
-		ReturnType returnType;
-		Operator op;
-		float number;
-	};
-
-	// solve A * x "op" b
-	static Result Solve(const float a, const float b, Operator op, const float epsilon = 0.00001f)
-	{
-		Result res;
-		if (fabs(a) < epsilon)
-		{
-			// first, if a is close to, or equal to 0.
-			switch (op)
-			{
-			case kEq: 
-				if (a == 0.f)
-				{
-					if (b == 0.f)
-						res.returnType = kAlways;
-					else
-						res.returnType = kImpossible;
-				}
-				else if (fabsf(b) < 1.f)
-				{
-					res.op = op;
-					res.number = a / b;
-					res.returnType = kExists;
-				}
-				else
-				{
-					res.returnType = kImpossible;
-				}
-				break;
-			case kLT: 
-
-				break;
-		  	case kLTE:
-				break;
-			case kGT:
-			case kGTE:
-				break;
-			}
-		}
-		else if (a > 0.f)
-		{}
-		else
-		{}
-
-		return res;
-	}
-};
 
 struct FeasibilityRes
 {
@@ -142,24 +71,21 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 		if (activeSet.IsBitSet(ii))
 			continue;
 
-		if (abs(lhi) < NDI_FLT_EPSILON && rhi < 0.f)
+		LinEquation::Result lres = LinEquation::Solve(lhi, rhi, LinEquation::kLTE);
+		if (lres.returnType == LinEquation::kNever)
 		{
 			// e.x. 0.00000 * t <= -1, no matter what t is, it can't be satisfied.
+			ASSERT(false);
 			res.type = FeasibilityRes::kImpossible;
 			break;
 		}
-		else if (lhi > 0.f)
+		else if (lres.returnType == LinEquation::kExists && lres.op == LinEquation::kLTE)
 		{
-			float tt = rhi / lhi;
-			if (tt < maximumT)
+			if (lres.number < maximumT)
 			{
-				maximumT = tt;
+				maximumT = lres.number;
 				vconstrIdx = ii;
 			}
-		}
-		else if (lhi < 0.f)
-		{
-			// lhi is smaller than 0, rhi is greater than 0, so that t from [0-1] must satisfy the constraint.
 		}
 	}
 

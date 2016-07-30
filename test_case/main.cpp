@@ -3,6 +3,7 @@
 #include "math.h"
 
 #include "../common/common_shared.h"
+#include "../common/lin-equation.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "../line_search/line_search_subp.h"
 #include "../unconstrained_optimization/newtons_method.h"
@@ -1463,6 +1464,46 @@ int main()
 		
 		QuadProg(H, q, A, b);
 		printf("QP done!\n");
+	}
+	
+	{
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, 0.f, LinEquation::kEq);
+			ASSERT(res1.returnType == LinEquation::kAlways);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, -0.f, LinEquation::kEq);
+			ASSERT(res1.returnType == LinEquation::kAlways);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, 1.f, LinEquation::kEq);
+			ASSERT(res1.returnType == LinEquation::kNever);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, -1.f, LinEquation::kEq);
+			ASSERT(res1.returnType == LinEquation::kNever);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, 10.f, LinEquation::kLT);
+			ASSERT(res1.returnType == LinEquation::kAlways);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, -10.f, LinEquation::kLT);
+			ASSERT(res1.returnType == LinEquation::kNever);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, -0.f, LinEquation::kLTE);
+			ASSERT(res1.returnType == LinEquation::kAlways);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, 10.f, LinEquation::kLTE);
+			ASSERT(res1.returnType == LinEquation::kAlways);
+		}
+		{
+			LinEquation::Result res1 = LinEquation::Solve(-0.f, -10.f, LinEquation::kLTE);
+			ASSERT(res1.returnType == LinEquation::kNever);
+		}
+
 	}
 
 	return 0;
