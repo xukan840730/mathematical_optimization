@@ -1,3 +1,5 @@
+#include "../common/common_shared.h"
+#include "../common/eigen_wrapper.h"
 #include "../line_search/line_search_subp.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "newtons_method.h"
@@ -45,24 +47,18 @@ void NewtonsMethod(const CD2Func& objectiveF, const EVector& x0, const NewtonsMe
 		// if Gk is not positive definite, let Gk = (Gk + vI) until Gk becomes a positive definite
 		do 
 		{
-			Eigen::LLT<EMatrix> LltOfGk;
-			LltOfGk.compute(Gk);
-
-			if (LltOfGk.info() == Eigen::Success)
+			EMatrix L;
+			bool isPosD = EigenLlt(Gk, &L);
+			if (isPosD)
 			{
-				EMatrix L = LltOfGk.matrixL();
 				// TODO: replaced by Eigen library LLT.
 				LLtInverse(&GkInv, L);
 				break;
 			}
-			else if (LltOfGk.info() == Eigen::NumericalIssue)
+			else 
 			{
 				Gk += v * EMatrix::Identity(numParams, numParams);
 				v *= 2.f;
-			}
-			else
-			{
-				ASSERT(false);
 			}
 		} while (true);
 

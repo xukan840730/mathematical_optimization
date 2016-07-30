@@ -1,40 +1,7 @@
 #include "../common/common_shared.h"
+#include "../common/eigen_wrapper.h"
 #include "augmented_lagrangian.h"
 #include "../unconstrained_optimization/newtons_method.h"
-
-//-----------------------------------------------------------------------------------------------------------//
-// helper function for eigen vectors.
-//-----------------------------------------------------------------------------------------------------------//
-static void ChangeEVector(EVector* inout, int numRows)
-{
-	int numORows = inout->rows();
-	if (numORows < numRows)
-	{
-		inout->conservativeResize(numRows);
-		(*inout).block(numORows, 0, numRows - numORows, 1).setZero();
-	}
-	else if (numORows > numRows)
-	{
-		inout->conservativeResize(numRows);
-	}
-}
-
-static void ChangeEMatrix(EMatrix* inout, int numRows)
-{
-	int numORows = inout->rows();
-	if (numORows < numRows)
-	{
-		inout->conservativeResize(numRows, numRows);
-
-		(*inout).block(numORows, 0, numRows - numORows, numRows - numORows).setZero();
-		(*inout).block(0, numORows, numRows - numORows, numRows - numORows).setZero();
-		(*inout).block(numORows, numORows, numRows - numORows, numRows - numORows).setZero();
-	}
-	else
-	{
-		inout->conservativeResize(numRows, numRows);
-	}
-}
 
 //-----------------------------------------------------------------------------------------------------------//
 static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const EVector& lambda0, int numEConstr, const CD1Func* econstrFs, int maxIter, float epsilon2)

@@ -1,7 +1,7 @@
 #include "../common/common_shared.h"
+#include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "quadratic-programming.h"
-#include <Eigen/Eigenvalues>
 
 //------------------------------------------------------------------------------------------------------//
 EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, const EVector& beq)
@@ -23,16 +23,16 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 	ASSERT(mm >= nn);
 
 	// QR decomposition to get null space.
-	Eigen::HouseholderQR<EMatrix> qrOfA(AT);
-	EMatrix qOfAT = qrOfA.householderQ();
-	EMatrix rOfAT = qrOfA.matrixQR().triangularView<Eigen::Upper>();
+	EMatrix qOfAT;
+	EMatrix rOfAT;
+	EigenQrDecomp(AT, &qOfAT, &rOfAT);
 
 	EMatrix qHat = qOfAT.block(0, 0, mm, nn);
 	EMatrix rHat = rOfAT.block(0, 0, nn, nn);
 
 	// solve A * delta = B;
 	EMatrix rHatT = rHat.transpose();
-	EMatrix uu = rHatT.colPivHouseholderQr().solve(beq);
+	EVector uu = EigenColPivQrSolve(rHatT, beq);
 	bool slnEst = (rHatT * uu).isApprox(beq, 0.0001f);
 	if (!slnEst)
 		return result;
@@ -51,12 +51,10 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 	EMatrix qN = qOfAT.block(0, nn, mm, mm - nn);
 	EMatrix P = qN.transpose() * H * qN;
 
-	Eigen::LLT<EMatrix> lltOfP;
-	lltOfP.compute(P);
-
-	if (lltOfP.info() == Eigen::Success)
+	EMatrix L;
+	bool isPosD = EigenLlt(P, &L);
+	if (isPosD)
 	{
-		EMatrix L = lltOfP.matrixL();
 		// TODO: replaced by Eigen library LLT.
 		EMatrix PInv(L.rows(), L.cols());
 		LLtInverse(&PInv, L);
@@ -71,12 +69,12 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 		result.type = EQuadProgRes::kFound;
 		result.xstar = xstar;
 	}
-	else if (lltOfP.info() == Eigen::NumericalIssue)
+	else
 	{
 		// Matrix P is unbound in null-space of constraint matrix A.
-		Eigen::EigenSolver<EMatrix> ep(P);
-		EMatrix::EigenvaluesReturnType eigenvalP = ep.eigenvalues();
-		Eigen::EigenSolver<EMatrix>::EigenvectorsType eigenvecP = ep.eigenvectors();
+		EMatrix::EigenvaluesReturnType eigenvalP;
+		Eigen::EigenSolver<EMatrix>::EigenvectorsType eigenvecP;
+		EigenValVec(P, &eigenvalP, &eigenvecP);
 
 		// find minimun eigenvec column.
 		int indminR = 0;

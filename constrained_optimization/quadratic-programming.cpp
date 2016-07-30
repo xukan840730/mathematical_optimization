@@ -1,5 +1,6 @@
 #include "../common/common_shared.h"
 #include "../common/bit_array.h"
+#include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "quadratic-programming.h"
 
@@ -184,7 +185,8 @@ static EVector SolveLambda(const EMatrix& H, const EVector& q, const EVector xk,
 	ASSERT(q.rows() == xk.rows());
 	ASSERT(Ak.rows() > 0);
 	EMatrix rhm = -1.f * (H * xk + q);
-	EVector lambdaK = Ak.transpose().colPivHouseholderQr().solve(rhm);
+	//EVector lambdaK = Ak.transpose().colPivHouseholderQr().solve(rhm);
+	EVector lambdaK = EigenColPivQrSolve(Ak.transpose(), rhm);
 	//ASSERT(lambdaK.rows() == numActiveConstrs);
 
 	return lambdaK;
@@ -240,37 +242,38 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 	
 	const float epsilon = NDI_FLT_EPSILON;
 
-	Eigen::LLT<EMatrix> lltOfH; 
-	lltOfH.compute(H);
 	EMatrix HInv(H.rows(), H.cols()); // HInv is only calculated if H is positive definite. use it carefully. 
-	bool isHPosD = lltOfH.info() == Eigen::Success;	// whether H is positive definite matrix.
 	EVector hstep(numVars); // hstep is valid only if H is not positive definite.
-	if (isHPosD)
-	{
-		EMatrix lOfH = lltOfH.matrixL();
-		LLtInverse(&HInv, lOfH);
-	}
-	else
-	{
 
-		Eigen::EigenSolver<EMatrix> eh(H);
-		EMatrix::EigenvaluesReturnType eigenvalH = eh.eigenvalues();
-		Eigen::EigenSolver<EMatrix>::EigenvectorsType eigenvecH = eh.eigenvectors();
-
-		// find minimun eigenvec column.
-		int indminR = 0;
+	bool isHPosD = false;
+	{
+		EMatrix lOfH;
+		isHPosD = EigenLlt(H, &lOfH);
+		if (isHPosD)
 		{
-			float smallestVal = eigenvalH(0).real();
-			for (int ii = 1; ii < eigenvalH.rows(); ii++)
+			LLtInverse(&HInv, lOfH);
+		}
+		else
+		{
+			EMatrix::EigenvaluesReturnType eigenvalH;
+			Eigen::EigenSolver<EMatrix>::EigenvectorsType eigenvecH;
+			EigenValVec(H, &eigenvalH, &eigenvecH);
+
+			// find minimun eigenvec column.
+			int indminR = 0;
 			{
-				if (eigenvalH(ii).real() < smallestVal)
+				float smallestVal = eigenvalH(0).real();
+				for (int ii = 1; ii < eigenvalH.rows(); ii++)
 				{
-					smallestVal = eigenvalH(ii).real();
-					indminR = ii;
+					if (eigenvalH(ii).real() < smallestVal)
+					{
+						smallestVal = eigenvalH(ii).real();
+						indminR = ii;
+					}
 				}
 			}
+			hstep = eigenvecH.col(indminR).real();
 		}
-		hstep = eigenvecH.col(indminR).real();
 	}
 
 	for (int iter = 0; iter < maxIter; iter++)
