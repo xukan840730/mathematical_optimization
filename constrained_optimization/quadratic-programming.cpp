@@ -102,6 +102,85 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 	return res;
 }
 
+int IsConstrAlwaysSatisfied(const EVector& x0, const EVector& p, const EVector& ai, const float bi, float* t)
+{
+	// test x = x0 + t * p, t from (0, +inf), does xp always satisfy constraint ai.x <= b.
+	// Ai.(x0 + t*p) <= bi
+	// t(Ai.p) <= bi - Ai.x0
+	ASSERT(x0.rows() == p.rows());
+	ASSERT(x0.rows() == ai.rows());
+	
+	float lhi = ai.dot(p);
+	float rhi = bi - ai.dot(x0);
+
+	LinEquation::Result lres = LinEquation::Solve(lhi, rhi, LinEquation::kLTE);
+	if (lres.returnType == LinEquation::kAlways)
+		return 1;	// always satisfy constraint
+	else if (lres.returnType == LinEquation::kExists)
+	{
+		if (lres.op == LinEquation::kLTE)
+		{
+			if (lres.number <= 0)	// never satisfy constraint
+				return -1;
+			else 
+			{
+				*t = lres.number;
+				return 0;
+			}
+		}
+		else if (lres.op == LinEquation::kGTE)
+		{
+			if (lres.number <= 0)	// always satisfy constraint
+				return 1;
+			else
+			{
+				ASSERT(false);	// it shouldn't happen
+				*t = lres.number;
+				return 0;
+			}
+		}
+		else
+		{
+			ASSERT(false);
+		}
+	}
+	else
+	{
+		return -1;	// never satisfy constraint
+	}
+}
+
+int IsConstrAlwaysSatisfied(const EVector& x0, const EVector& p, const EMatrix& A, const EVector& b, float* t)
+{
+	int res = 1; // always true
+	float maximumT = NDI_FLT_MAX;
+
+	for (int ii = 0; ii < A.rows(); ii++)
+	{
+		float t;
+		EVector Ai = A.row(ii);
+		float bi = b(ii);
+		int cond = IsConstrAlwaysSatisfied(x0, p, Ai, bi, &t);
+		switch (cond)
+		{
+		case 1: break;
+		case 0: 
+			res = 0;
+			if (t < maximumT)
+				maximumT = t;
+		break;
+		case -1: 
+			res = -1;
+		break;
+		}
+
+		if (res == -1)	// one of the constraints can be never be satisfied, quit!
+			break;
+	}
+	*t = maximumT;
+	return res;
+}
+
 static EVector SolveLambda(const EMatrix& H, const EVector& q, const EVector xk, const EMatrix& Ak)
 {
 	// gF(x) + lambdaK * gC(x) = 0
@@ -250,9 +329,21 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 				ASSERT(stepp.rows() == H.cols());
 				if (stepp.dot(gk) > epsilon) // make sure stepp is descent direction
 					stepp *= -1.f;
-				xeqp = xk + stepp;
 
-				res = 1;
+				float t;
+				int cond = IsConstrAlwaysSatisfied(xk, stepp, A, b, &t);
+				if (cond == 1)	// constrs are always satisfied and quad func is unbounded.
+					break;
+				else if (cond == -1)
+				{
+					ASSERT(false);
+					break;
+				}
+				else
+				{
+					xeqp = xk + stepp * (t + 0.01);
+					res = 1;
+				}
 			}
 		}
 		else
