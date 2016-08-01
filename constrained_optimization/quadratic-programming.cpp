@@ -333,7 +333,10 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 				float t;
 				int cond = IsConstrAlwaysSatisfied(xk, stepp, A, b, &t);
 				if (cond == 1)	// constrs are always satisfied and quad func is unbounded.
+				{
+					res = 2;
 					break;
+				}
 				else if (cond == -1)
 				{
 					ASSERT(false);
@@ -422,5 +425,5 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 		printf("\n");
 	}
 
-	printf("final: "); PrintEVector(xk); printf("\n");
+	printf("\nfinal: %d, ", res); PrintEVector(xk); printf("\n");
 }
