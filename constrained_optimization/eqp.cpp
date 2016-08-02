@@ -1,7 +1,7 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
-#include "quadratic-programming.h"
+#include "quad-prog.h"
 
 //------------------------------------------------------------------------------------------------------//
 EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, const EVector& beq)

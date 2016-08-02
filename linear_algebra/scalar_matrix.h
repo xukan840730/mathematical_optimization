@@ -1,4 +1,4 @@
-#include "scalar_vector.h"
+//#include "scalar_vector.h"
 
 #ifndef _SCALAR_MATRIX_H_
 #define _SCALAR_MATRIX_H_
@@ -31,8 +31,8 @@ public:
 	float Get(int r, int c) const;
 	void Set(int r, int c, float val);
 
-	ScalarVector GetRow(int r) const;
-	ScalarVector GetCol(int c) const;
+	//ScalarVector GetRow(int r) const;
+	//ScalarVector GetCol(int c) const;
 
 	void Add(const ScalarMatrix& b);
 	void AddI(float v);	// Add v * I.
@@ -40,9 +40,9 @@ public:
 	void DividedBy(float v);
 };
 
-void VectorMult(ScalarMatrix* result, const ScalarVector& a, const ScalarVector& b);	// [n,1] * [1,n] => [n,n] matrix
+//void VectorMult(ScalarMatrix* result, const ScalarVector& a, const ScalarVector& b);	// [n,1] * [1,n] => [n,n] matrix
 void MatrixMult(ScalarMatrix* result, const ScalarMatrix& m1, const ScalarMatrix& m2);
-void MatrixMult(ScalarVector* result, const ScalarMatrix& m, const ScalarVector& v);
+//void MatrixMult(ScalarVector* result, const ScalarMatrix& m, const ScalarVector& v);
 
 // use LU matrix to calculate the inverse matrix.
 void LUInverse(ScalarMatrix* result, const ScalarMatrix& L, const ScalarMatrix& U);

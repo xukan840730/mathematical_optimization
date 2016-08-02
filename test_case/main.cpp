@@ -9,7 +9,8 @@
 #include "../unconstrained_optimization/newtons_method.h"
 #include "../constrained_optimization/lagrange_multiplier.h"
 #include "../constrained_optimization/augmented_lagrangian.h"
-#include "../constrained_optimization/quadratic-programming.h"
+#include "../constrained_optimization/quad-prog.h"
+#include "../constrained_optimization/simplex.h"
 
 #include <Eigen/Dense>
 //float func(float x1, float x2)
@@ -30,61 +31,6 @@
 //}
 
 //------------------------------------------------------------------------------------//
-float f_test_newton(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	return x1 * x1 * x1 * x1 + x1 * x2 + (1 + x2) * (1 + x2);
-}
-
-float f_test_newton_g1(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	return 4 * x1 * x1 * x1 + x2;
-}
-
-float f_test_newton_g2(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	return x1 + 2 * (1 + x2);
-}
-
-float f_test_newton_H00(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	return 12 * x1 * x1;
-}
-
-float f_test_newton_H01(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	return 1;
-}
-
-float f_test_newton_H10(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	return 1;
-}
-
-float f_test_newton_H11(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-	return 2;
-}
 
 float ef_test_newton(const EVector& input)
 {
@@ -143,32 +89,6 @@ float ef_test_newton_H11(const EVector& input)
 }
 
 //------------------------------------------------------------------------------------//
-float func1(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return 100 * (x2 - x1 * x1) * (x2 - x1 * x1) + (1 - x1) * (1 - x1);
-}
-
-float func1d1(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return -400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1);
-}
-
-float func1d2(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return 200 * (x2 - x1 * x1);
-}
 
 float efunc1(const EVector& input)
 {
@@ -285,208 +205,6 @@ float efunc2h11(const EVector& input)
 
 
 //------------------------------------------------------------------------------------//
-float func3(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return 10 * x1 * x1 + x2 * x2;
-}
-
-float func3d1(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return 20 * x1;
-}
-
-float func3d2(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 2);
-	float x1 = input.Get(0);
-	float x2 = input.Get(1);
-
-	return 2 * x2;
-}
-
-//------------------------------------------------------------------------------------//
-float sample4x[4] = {-1.f, 1.f, 2.f, 4.f};
-float sample4y[4] = {1.f, -1.f, 1.f, 6.f};
-
-// f() = a*x^5 + b*x^4 + c*x^3 + d*x^2 + e*x + f
-float func4(const ScalarVector& input)
-{
-	// from f() to get cost func.
-	xassert(input.GetLength() == 6);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-	float d = input.Get(3);
-	float e = input.Get(4);
-	float f = input.Get(5);
-
-	float sum = 0.f;
-
-	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample4x[i];
-		float sample = sample4y[i];
-		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
-		sum += t * t;
-	}
-
-	return sum;
-}
-
-float func4d1(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 6);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-	float d = input.Get(3);
-	float e = input.Get(4);
-	float f = input.Get(5);
-
-	float sum = 0.f;
-
-	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample4x[i];
-		float sample = sample4y[i];
-		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
-		sum += 2 * t * (x * x * x * x * x);
-	}
-
-	return sum;
-}
-
-float func4d2(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 6);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-	float d = input.Get(3);
-	float e = input.Get(4);
-	float f = input.Get(5);
-
-	float sum = 0.f;
-
-	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample4x[i];
-		float sample = sample4y[i];
-		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
-		sum += 2 * t * (x * x * x * x);
-	}
-
-	return sum;
-}
-
-float func4d3(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 6);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-	float d = input.Get(3);
-	float e = input.Get(4);
-	float f = input.Get(5);
-
-	float sum = 0.f;
-
-	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample4x[i];
-		float sample = sample4y[i];
-		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
-		sum += 2 * t * (x * x * x);
-	}
-
-	return sum;
-}
-
-float func4d4(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 6);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-	float d = input.Get(3);
-	float e = input.Get(4);
-	float f = input.Get(5);
-
-	float sum = 0.f;
-
-	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample4x[i];
-		float sample = sample4y[i];
-		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
-		sum += 2 * t * (x * x);
-	}
-
-	return sum;
-}
-
-float func4d5(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 6);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-	float d = input.Get(3);
-	float e = input.Get(4);
-	float f = input.Get(5);
-
-	float sum = 0.f;
-
-	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample4x[i];
-		float sample = sample4y[i];
-		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
-		sum += 2 * t * (x);
-	}
-
-	return sum;
-}
-
-float func4d6(const ScalarVector& input)
-{
-	xassert(input.GetLength() == 6);
-	float a = input.Get(0);
-	float b = input.Get(1);
-	float c = input.Get(2);
-	float d = input.Get(3);
-	float e = input.Get(4);
-	float f = input.Get(5);
-
-	float sum = 0.f;
-
-	const int length = sizeof(sample4x) / sizeof(sample4x[0]);
-	for (int i = 0; i < length; i++)
-	{
-		float x = sample4x[i];
-		float sample = sample4y[i];
-		float t = (a * x * x * x * x * x + b * x * x * x * x + c * x * x * x + d * x * x + e * x + f - sample);
-		sum += 2 * t;
-	}
-
-	return sum;
-}
-
-//------------------------------------------------------------------------------------//
 float sample5x[6] = {-1.f, 0.f, 1.f, 2.f, 3.f, 4.f};
 float sample5y[6] = {1.f, 0.f, -1.f, 1.f, 2.5f, 6.f};
 
@@ -495,29 +213,6 @@ float sample5y[6] = {1.f, 0.f, -1.f, 1.f, 2.5f, 6.f};
 //------------------------------------------------------------------------------------//
 int main()
 {
-
-	//{
-	//	LineSearchParams params;
-	//	params.fMin = -1.f;
-	//	params.rho = 0.01f;
-	//	params.sigma = 0.1f;
-	//	params.tau1 = 9.f;
-	//	params.tau2 = 0.1f;
-	//	params.tau3 = 0.5f;
-
-	//	ScalarF F = func1;
-	//	Gradient g(2);
-	//	{
-	//		g.Set(0, func1d1);
-	//		g.Set(1, func1d2);
-	//	}
-
-	//	ScalarVector s(2); s.Set(0, 1.f); s.Set(1, 0.f);
-	//	ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
-
-	//	float finalA = InexactLineSearch(F, g, s, x0, params);
-	//	printf("done!\n");
-	//}
 
 	{
 		LineSearchParams params;
@@ -538,28 +233,6 @@ int main()
 		printf("done!\n");
 	}
 
-	//{
-	//	LineSearchParams params;
-	//	params.fMin = -2.f;
-	//	params.rho = 0.01f;
-	//	params.sigma = 0.001f;
-	//	params.tau1 = 9.f;
-	//	params.tau2 = 0.1f;
-	//	params.tau3 = 0.5f;
-
-	//	ScalarF F = func2;
-	//	Gradient g(2);
-	//	{
-	//		g.Set(0, func2d1);
-	//		g.Set(1, func2d2);
-	//	}
-
-	//	ScalarVector s(2); s.Set(0, 0.707f); s.Set(1, 0.707f);
-	//	ScalarVector x0(2); x0.Set(0, 0.f); x0.Set(1, 0.f);
-
-	//	float finalA = InexactLineSearch(F, g, s, x0, params);
-	//	printf("done!\n");
-	//}
 
 	{
 		LineSearchParams params;
@@ -646,59 +319,6 @@ int main()
 		printf("done!\n");
 	}
 
-	//{
-	//	// test newton's method
-	//	ScalarF F = f_test_newton;
-
-	//	Gradient g(2);
-	//	Hessian H(2);
-
-	//	g.Set(0, f_test_newton_g1);
-	//	g.Set(1, f_test_newton_g2);
-
-	//	H.Set(0, 0, f_test_newton_H00);
-	//	H.Set(0, 1, f_test_newton_H01);
-	//	H.Set(1, 0, f_test_newton_H10);
-	//	H.Set(1, 1, f_test_newton_H11);
-
-	//	ScalarVector initGuess(2);
-	//	ScalarVector result(2);
-	//	initGuess.Set(0, 0.75f);
-	//	initGuess.Set(1, -1.25f);
-
-	//	NewtonsMethodParams params;
-
-	//	NewtonsMethod(F, &g, &H, params, initGuess, &result);
-	//	printf("done!\n");
-	//}
-
-	//{
-	//	// test newton's method
-	//	ScalarFunc F = ef_test_newton;
-
-	//	EGradient g(2);
-	//	EHessian H(2);
-
-	//	g.Set(0, ef_test_newton_g1);
-	//	g.Set(1, ef_test_newton_g2);
-
-	//	H.Set(0, 0, ef_test_newton_H00);
-	//	H.Set(0, 1, ef_test_newton_H01);
-	//	H.Set(1, 0, ef_test_newton_H10);
-	//	H.Set(1, 1, ef_test_newton_H11);
-
-	//	EVector initGuess(2);
-	//	EVector result(2);
-	//	initGuess(0) = 0.75f;
-	//	initGuess(1) = -1.25f;
-
-	//	NewtonsMethodParams params;
-
-	//	NewtonsMethod(F, &g, &H, params, initGuess, &result);
-	//	printf("done!\n");
-	//}
-
-
 	{
 		auto func2 = [](const EVector& input)->float {
 			xassert(input.rows() == 2);
@@ -744,59 +364,6 @@ int main()
 		NewtonsMethod(F, x0, params, &xstar);
 		printf("done!\n");
 	}
-
-	//{
-	//	// test Symmetric Rank One method.
-	//	ScalarF F = func3;
-	//	Gradient g(2);
-	//	g.Set(0, func3d1);
-	//	g.Set(1, func3d2);
-
-	//	ScalarVector x0(2);
-	//	ScalarVector xstar(2);
-	//	x0.Set(0, 0.1f);
-	//	x0.Set(1, 1.f);
-
-	//	NewtonsMethodParams params;
-	//	params.m_min = -1.f;
-
-	//	QuasiNewtonSR1(F, &g, params, x0, &xstar);
-	//	printf("done!\n");
-	//}
-
-	//{
-	//	ScalarF F = func4;
-	//	Gradient g(6);
-	//	g.Set(0, func4d1);
-	//	g.Set(1, func4d2);
-	//	g.Set(2, func4d3);
-	//	g.Set(3, func4d4);
-	//	g.Set(4, func4d5);
-	//	g.Set(5, func4d6);
-
-	//	ScalarVector x0(6);
-	//	ScalarVector xstar0(6);
-	//	ScalarVector xstar1(6);
-	//	ScalarVector xstar2(6);
-	//	x0.Set(0, 1.f);
-	//	x0.Set(1, 1.f);
-	//	x0.Set(2, 1.f);
-	//	x0.Set(3, 1.f);
-	//	x0.Set(4, 1.f);
-	//	x0.Set(5, 1.f);
-
-	//	NewtonsMethodParams params;
-	//	params.m_min = -1.f;
-
-	//	//QuasiNewtonSR1(F, &g, params, x0, &xstar0);
-	//	QuasiNewtonDFP(F, &g, params, x0, &xstar1);
-	//	QuasiNewtonBFGS(F, &g, params, x0, &xstar2);
-
-	//	float test1 = F(xstar1);
-	//	float test2 = F(xstar2);
-	//	printf("done!\n");
-	//}
-
 	{
 		auto func5 = [](const EVector& input)->float {
 			xassert(input.rows() == 3);
@@ -1541,5 +1108,27 @@ int main()
 
 	}
 
+	{
+		EMatrix tableu(3, 5);
+		tableu(0, 0) = 1; tableu(0, 1) = 1; tableu(0, 2) = 1; tableu(0, 3) = 0; tableu(0, 4) = 2;
+		tableu(1, 0) = 1; tableu(1, 1) = 0; tableu(1, 2) = 0; tableu(1, 3) = 1; tableu(1, 4) = 1;
+		tableu(2, 0) = -3; tableu(2, 1) = -1; tableu(2, 2) = 0; tableu(2, 3) = 0; tableu(2, 4) = 0;
+
+		BasicVarIdx idx(4);
+		idx(0) = -1; idx(1) = -1; idx(2) = 0; idx(3) = 1;
+
+		Simplex(tableu, idx);
+	}
+	{
+		EMatrix tableu(3, 6);
+		tableu(0, 0) = 1; tableu(0, 1) = 1; tableu(0, 2) = 1; tableu(0, 3) = 0; tableu(0, 4) = 0; tableu(0, 5) = 3;
+		tableu(1, 0) = -1; tableu(1, 1) = 1; tableu(1, 2) = 0; tableu(1, 3) = -1; tableu(1, 4) = 1; tableu(1, 5) = 1;
+		tableu(2, 0) = 0; tableu(2, 1) = 0; tableu(2, 2) = 1; tableu(2, 3) = 0; tableu(2, 4) = 1; tableu(2, 5) = 0;
+
+		BasicVarIdx idx(5);
+		idx(0) = -1; idx(1) = -1; idx(2) = 0; idx(3) = -1; idx(4) = 1;
+
+		Simplex(tableu, idx);
+	}
 	return 0;
 }
