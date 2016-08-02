@@ -39,6 +39,8 @@ void Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 
 	Simplex1(tableu, basicVarIdx);
 
+	int res = 0;
+
 	while (true)
 	{
 		float minLambda = 0.f;
@@ -60,6 +62,7 @@ void Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 		if (newBasicIdx < 0) 
 		{
 			// algorithm termiate.
+			res = 0;
 			break;
 		}
 		else
@@ -85,6 +88,7 @@ void Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 			if (replacedRowIdx < 0)
 			{
 				// unbounded.
+				res = 1;
 				break;
 			}
 			else
@@ -117,5 +121,40 @@ void Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 		}
 	}
 
-	printf("Simplex done!\n");
+	printf("Simplex done! %d\n", res);
+}
+
+EVector SolveInitBasicFeasible(const EMatrix& A, const EVector& b)
+{
+	ASSERT(A.rows() == b.rows());
+	int numVars = A.cols();
+	int numConstrs = A.rows();
+
+	int numRows = numConstrs + 1;
+	int numCols = 2 * numVars + numConstrs + 1;
+	EMatrix tableu(numRows, numCols);
+
+	for (int ii = 0; ii < numConstrs; ii++)
+	{
+		for (int jj = 0; jj < numVars; jj++)
+		{
+			tableu(ii, jj) = A(ii, jj);
+			tableu(ii, numVars + jj) = -A(ii, jj);
+		}
+	}
+
+	tableu.block(0, numVars * 2, numConstrs, numConstrs).setIdentity();
+	tableu.block(0, numVars * 2 + numConstrs, numConstrs, 1) = b;
+
+	tableu.block(numConstrs, 0, 1, numVars * 2).setZero();
+	tableu.block(numConstrs, numVars * 2, 1, numConstrs).setOnes();
+	tableu(numRows - 1, numCols - 1) = 0;
+
+	BasicVarIdx bvarIdx(numVars * 2 + numConstrs);
+	for (int ii = 0; ii < numVars * 2; ii++)
+		bvarIdx(ii) = -1;
+	for (int ii = 0; ii < numConstrs; ii++)
+		bvarIdx(numVars * 2 + ii) = ii;
+
+	Simplex(tableu, bvarIdx);
 }

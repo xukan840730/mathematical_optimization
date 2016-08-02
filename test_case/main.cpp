@@ -1130,5 +1130,14 @@ int main()
 
 		Simplex(tableu, idx);
 	}
+	{
+		EMatrix A(2, 2); 
+		A(0, 0) = 1; A(0, 1) = 2;
+		A(1, 0) = 3; A(1, 1)= -1;
+		EVector b(2);
+		b(0) = 2; b(1) = 1;
+
+		SolveInitBasicFeasible(A, b);
+	}
 	return 0;
 }
