@@ -5,7 +5,7 @@ CC := g++
 
 EIGEN_INC := eigen
 
-CFLAGS := -std=c++11 -I$(EIGEN_INC) -g 
+CFLAGS := -std=c++11 -I$(EIGEN_INC) -Wno-deprecated-declarations -g 
 
 #################################################################
 ## output directory for everything.
