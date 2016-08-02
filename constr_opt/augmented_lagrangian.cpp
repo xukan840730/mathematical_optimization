@@ -1,7 +1,7 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
 #include "augmented_lagrangian.h"
-#include "../unconstrained_optimization/newtons_method.h"
+#include "../unconstr_opt/newtons_method.h"
 
 //-----------------------------------------------------------------------------------------------------------//
 static OptResult ALFramework(const CD1Func& objectiveF, const EVector& x0, const EVector& lambda0, int numEConstr, const CD1Func* econstrFs, int maxIter, float epsilon2)

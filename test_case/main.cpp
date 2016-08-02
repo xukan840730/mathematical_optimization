@@ -6,11 +6,11 @@
 #include "../common/lin-equation.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "../line_search/line_search_subp.h"
-#include "../unconstrained_optimization/newtons_method.h"
-#include "../constrained_optimization/lagrange_multiplier.h"
-#include "../constrained_optimization/augmented_lagrangian.h"
-#include "../constrained_optimization/quad-prog.h"
-#include "../constrained_optimization/simplex.h"
+#include "../unconstr_opt/newtons_method.h"
+#include "../constr_opt/lagrange_multiplier.h"
+#include "../constr_opt/augmented_lagrangian.h"
+#include "../constr_opt/quad-prog.h"
+#include "../constr_opt/simplex.h"
 
 #include <Eigen/Dense>
 //float func(float x1, float x2)

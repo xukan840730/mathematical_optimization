@@ -1,6 +1,6 @@
 #include "../common/common_shared.h"
 #include "lagrange_multiplier.h"
-#include "../unconstrained_optimization/newtons_method.h"
+#include "../unconstr_opt/newtons_method.h"
 
 //void LagrangeMultMethod(
 //	const ScalarFunc& F, const GradientFunc& gF, const HessianFunc& hF,
