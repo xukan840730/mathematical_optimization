@@ -3,7 +3,7 @@
 #include "../common/lin-equation.h"
 #include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
-#include "quadratic-programming.h"
+#include "quad-prog.h"
 
 static void PrintEVector(const EVector& v)
 {
