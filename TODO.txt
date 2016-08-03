@@ -1,0 +1,2 @@
+1. simplex: need fix no feasible solution case.
+2. quad-prog: need support both Aeq and Ain.
