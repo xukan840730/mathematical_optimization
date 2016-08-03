@@ -133,27 +133,31 @@ int SolveInitFeasible(const EMatrix& A, const EVector& b, EVector* x0)
 	int numConstrs = A.rows();
 
 	int numRows = numConstrs + 1;
-	int numCols = numVars * 2 + numConstrs + 1;
+	int numCols = numVars * 2 + numConstrs * 2 + 1;
+
 	EMatrix tableu(numRows, numCols);
 
 	for (int ii = 0; ii < numConstrs; ii++)
 	{
 		for (int jj = 0; jj < numVars; jj++)
 		{
-			tableu(ii, jj) = A(ii, jj);
-			tableu(ii, numVars + jj) = -A(ii, jj);
+			float aij = A(ii, jj);
+			tableu(ii, jj) = aij;
+			tableu(ii, numVars + jj) = -aij;
 		}
 	}
 
 	tableu.block(0, numVars * 2, numConstrs, numConstrs).setIdentity();
-	tableu.block(0, numVars * 2 + numConstrs, numConstrs, 1) = b;
+	tableu.block(0, numVars * 2 + numConstrs, numConstrs, numConstrs).setIdentity();
+	tableu.block(0, numVars * 2 + numConstrs * 2, numConstrs, 1) = b;
 
 	tableu.block(numConstrs, 0, 1, numVars * 2).setZero();
 	tableu.block(numConstrs, numVars * 2, 1, numConstrs).setOnes();
+	tableu.block(numConstrs, numVars * 2 + numConstrs, 1, numConstrs).setZero();
 	tableu(numRows - 1, numCols - 1) = 0;
 
-	BasicVarIdx bvarIdx(numVars * 2 + numConstrs);
-	for (int ii = 0; ii < numVars * 2; ii++)
+	BasicVarIdx bvarIdx(numVars * 2 + numConstrs * 2);
+	for (int ii = 0; ii < bvarIdx.rows(); ii++)
 		bvarIdx(ii) = -1;
 	for (int ii = 0; ii < numConstrs; ii++)
 		bvarIdx(numVars * 2 + ii) = ii;
@@ -161,15 +165,23 @@ int SolveInitFeasible(const EMatrix& A, const EVector& b, EVector* x0)
 	int res = Simplex(tableu, bvarIdx);
 	if (res == 0)
 	{
-		EVector initVars(numVars * 2 + numConstrs);
-		for (int ii = 0; ii < initVars.rows(); ii++)
+		float f = tableu(numRows - 1, numCols - 1);
+		if (fabs(f) < NDI_FLT_EPSILON)	// if initial feasible solution is found, the sum of artifical variables must be zero
 		{
-			initVars(ii) = bvarIdx(ii) >= 0 ? tableu(bvarIdx(ii), numCols - 1) : 0.f;
-		}
+			EVector initVars(numVars * 2 + numConstrs * 2);
+			for (int ii = 0; ii < initVars.rows(); ii++)
+			{
+				initVars(ii) = bvarIdx(ii) >= 0 ? tableu(bvarIdx(ii), numCols - 1) : 0.f;
+			}
 
-		// convert from, x = y - z.
-		for (int ii = 0; ii < numVars; ii++)
-			(*x0)(ii) = initVars(ii) - initVars(ii + numVars);
+			// convert from, x = y - z.
+			for (int ii = 0; ii < numVars; ii++)
+				(*x0)(ii) = initVars(ii) - initVars(ii + numVars);
+		}
+		else
+		{
+			res = 1;
+		}
 	}
 
 	return res;

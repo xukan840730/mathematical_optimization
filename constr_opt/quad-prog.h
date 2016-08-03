@@ -12,7 +12,7 @@ struct EQuadProgRes
 	EVector xstar;	// if minima found
 	EVector stepp;	// if unbounded, stepp is the most negative curvature direction
 };
-// minimize a quadratic problem: min 1/2 x^t H x + q^t x, s.t. A.x = b
+// minimize a quadratic problem: min 1/2 x^t H x + q^t x, s.t. Aeq.x = beq
 EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, const EVector& beq);
 
 // minimize a quadratic problem: min 1/2 x^t H x + q^t x, s.t. Ain.x <= bin
