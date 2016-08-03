@@ -126,62 +126,92 @@ int Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 	return res;
 }
 
-int SolveInitFeasible(const EMatrix& Aeq, const EVector& beq, const EMatrix& Ain, const EVector& bin, EVector* x0)
+int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain, const EVector* bin, EVector* x0)
 {
-	ASSERT(Aeq.rows() == beq.rows());
-	ASSERT(Ain.rows() == bin.rows());	
-	ASSERT(x0->rows() == A.cols());
-	int numOVars = A.cols(); // number of old variables.
-	int numEconstrs = Aeq.rows();
-	int numInconstrs = Ain.rows();
+	if (Aeq || beq) ASSERT(Aeq && beq && Aeq->rows() == beq->rows());
+	if (Ain || bin) ASSERT(Ain && bin && Ain->rows() == bin->rows());
+
+	int numOVars = x0->rows(); // number of old variables.
+	int numEconstrs = Aeq ? (*Aeq).rows() : 0;
+	int numInconstrs = Ain ? (*Ain).rows() : 0;
 	int numTotalConstrs = numEconstrs + numInconstrs;
+	ASSERT(numTotalConstrs > 0);
 
 	// each old varialbe is converted to xplus - xminus, and xplus >= 0, xminus >= 0,
 	int numNRows = numEconstrs + numInconstrs + 1;
-	int numNCols = numOVars * 2 + numEconstrs + numConstrs * 2 + 1;
+	int numNCols = numOVars * 2 + numEconstrs + numInconstrs * 2 + 1;
 
 	EMatrix tableu(numNRows, numNCols);
 
-	for (int ii = 0; ii < numTotalConstrs; ii++)
+	// convert Aeq.x to Aeq.(xplus - xminus)
+	for (int ii = 0; ii < numEconstrs; ii++)
 	{
-		for (int jj = 0; jj < numOVars; jj++)
-		{
-			float aij = Aeq(ii, jj);
-			tableu(ii, jj) = aij;
-			tableu(ii, numVars + jj) = -aij;
-		}
+		tableu.block(ii, 0, 1, numOVars) = (*Aeq).row(ii);
+		tableu.block(ii, numOVars, 1, numOVars) = -(*Aeq).row(ii);
+	}
+	// convert Ain.x to Ain.(xplus - xminus)
+	for (int ii = 0; ii < numInconstrs; ii++)
+	{
+		tableu.block(numEconstrs + ii, 0, 1, numOVars) = (*Ain).row(ii);
+		tableu.block(numEconstrs + ii, numOVars, 1, numOVars) = -(*Ain).row(ii);
 	}
 
-	tableu.block(0, numVars * 2, numConstrs, numConstrs).setIdentity();
-	tableu.block(0, numVars * 2 + numConstrs, numConstrs, numConstrs).setIdentity();
-	tableu.block(0, numVars * 2 + numConstrs * 2, numConstrs, 1) = b;
+	int teqColIdx = numOVars * 2;
+	int sColIdx = teqColIdx + numEconstrs;
+	int tinColIdx = sColIdx + numInconstrs;
+	int bColIdx = tinColIdx + numInconstrs;
+	ASSERT(bColIdx == numNCols - 1);
 
-	tableu.block(numConstrs, 0, 1, numVars * 2).setZero();
-	tableu.block(numConstrs, numVars * 2, 1, numConstrs).setOnes();
-	tableu.block(numConstrs, numVars * 2 + numConstrs, 1, numConstrs).setZero();
-	tableu(numRows - 1, numCols - 1) = 0;
+	// artifical variable teq, from Aeq.x + teq = beq
+	tableu.block(0, teqColIdx, numEconstrs, numEconstrs).setIdentity();
+	tableu.block(0, sColIdx, numInconstrs, numInconstrs * 2).setZero();
 
-	BasicVarIdx bvarIdx(numVars * 2 + numConstrs * 2);
-	for (int ii = 0; ii < bvarIdx.rows(); ii++)
+	// slack variable s, from Ain.x + s + tin = bin
+	tableu.block(numEconstrs, teqColIdx, numEconstrs, numEconstrs).setZero();
+	tableu.block(numEconstrs, sColIdx, numInconstrs, numInconstrs).setIdentity();
+	//tableu.block(numEconstrs, sColIdx, numInconstrs, numInconstrs) *= -1.f;
+
+	// artifical variable tin, from Ain.x + s + tin = bin
+	tableu.block(numEconstrs, tinColIdx, numInconstrs, numInconstrs).setIdentity();
+
+	// beq part
+	if (beq != nullptr)
+		tableu.block(0, bColIdx, numEconstrs, 1) = *beq;
+	// bin part
+	if (bin != nullptr)
+		tableu.block(numEconstrs, bColIdx, numInconstrs, 1) = *bin;
+
+	// fill the rest part
+	tableu.block(numTotalConstrs, 0, 1, numOVars * 2).setZero();
+	tableu.block(numTotalConstrs, teqColIdx, 1, numEconstrs).setOnes();
+	tableu.block(numTotalConstrs, sColIdx, 1, numInconstrs).setZero();
+	tableu.block(numTotalConstrs, tinColIdx, 1, numInconstrs).setOnes();
+	tableu(numNRows - 1, numNCols - 1) = 0;
+
+	int numNVars = numOVars * 2 + numEconstrs + numInconstrs * 2;
+	BasicVarIdx bvarIdx(numNVars);
+	for (int ii = 0; ii < numNVars; ii++)
 		bvarIdx(ii) = -1;
-	for (int ii = 0; ii < numConstrs; ii++)
-		bvarIdx(numVars * 2 + ii) = ii;
+	for (int ii = 0; ii < numEconstrs; ii++)
+		bvarIdx(teqColIdx + ii) = ii;
+	for (int ii = 0; ii < numInconstrs; ii++)
+		bvarIdx(tinColIdx + ii) = numEconstrs + ii;
 
 	int res = Simplex(tableu, bvarIdx);
 	if (res == 0)
 	{
-		float f = tableu(numRows - 1, numCols - 1);
+		float f = tableu(numNRows - 1, numNCols - 1);
 		if (fabs(f) < NDI_FLT_EPSILON)	// if initial feasible solution is found, the sum of artifical variables must be zero
 		{
-			EVector initVars(numVars * 2 + numConstrs * 2);
-			for (int ii = 0; ii < initVars.rows(); ii++)
+			EVector initVars(numNVars);
+			for (int ii = 0; ii < numNVars; ii++)
 			{
-				initVars(ii) = bvarIdx(ii) >= 0 ? tableu(bvarIdx(ii), numCols - 1) : 0.f;
+				initVars(ii) = bvarIdx(ii) >= 0 ? tableu(bvarIdx(ii), numNCols - 1) : 0.f;
 			}
 
 			// convert from, x = y - z.
-			for (int ii = 0; ii < numVars; ii++)
-				(*x0)(ii) = initVars(ii) - initVars(ii + numVars);
+			for (int ii = 0; ii < numOVars; ii++)
+				(*x0)(ii) = initVars(ii) - initVars(ii + numOVars);
 		}
 		else
 		{

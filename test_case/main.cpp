@@ -1131,14 +1131,14 @@ int main()
 		Simplex(tableu, idx);
 	}
 	{
-		EMatrix A(2, 2); 
-		A(0, 0) = 1; A(0, 1) = 2;
-		A(1, 0) = 3; A(1, 1)= -1;
-		EVector b(2);
-		b(0) = 2; b(1) = 1;
+		EMatrix Aeq(1, 2); Aeq(0, 0) = 1; Aeq(0, 1) = 1;
+		EVector beq(1); beq(0) = 2;
+
+		EMatrix Ain(1, 2); Ain(0, 0) = 1; Ain(0, 1) = 2;
+		EVector bin(1); bin(0) = 3;
 
 		EVector x0(2);
-		int res = SolveInitFeasible(A, b, &x0);
+		int res = SolveInitFeasible(&Aeq, &beq, &Ain, &bin, &x0);
 	}
 	return 0;
 }

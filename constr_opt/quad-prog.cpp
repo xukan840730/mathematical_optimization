@@ -245,7 +245,7 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& Ain, const EVect
 	int numConstrs = Ain.rows();
 
 	EVector x0(numVars);
-	int initFound = SolveInitFeasible(Ain, bin, &x0);
+	int initFound = SolveInitFeasible(nullptr, nullptr, &Ain, &bin, &x0);
 	if (initFound != 0)
 	{
 		printf("QP: initial feasible not found!\n");

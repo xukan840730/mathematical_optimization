@@ -8,6 +8,6 @@
 typedef Eigen::Matrix<int, Eigen::Dynamic, 1, 0, ND_MAX_EIGENSIZE, 1> BasicVarIdx;
 
 int Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx);
-int SolveInitFeasible(const EMatrix& Aeq, const EVector& beq, const EMatrix& Ain, const EVector& bin, EVector* x0);
+int SolveInitFeasible(const EMatrix* _Aeq, const EVector* _beq, const EMatrix* _Ain, const EVector* _bin, EVector* x0);
 
 #endif
