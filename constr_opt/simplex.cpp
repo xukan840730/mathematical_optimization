@@ -1,5 +1,6 @@
 #include "simplex.h"
 
+//-------------------------------------------------------------------------//
 void Simplex1(EMatrix& tableu, const BasicVarIdx& basicVarIdx)
 {
 	ASSERT(tableu.cols() == basicVarIdx.rows() + 1);
@@ -29,7 +30,7 @@ void Simplex1(EMatrix& tableu, const BasicVarIdx& basicVarIdx)
 	}
 }
 
-
+//-------------------------------------------------------------------------//
 int Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 {
 	// find a non basic variable with negative lambda.
@@ -125,23 +126,27 @@ int Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 	return res;
 }
 
-int SolveInitFeasible(const EMatrix& A, const EVector& b, EVector* x0)
+int SolveInitFeasible(const EMatrix& Aeq, const EVector& beq, const EMatrix& Ain, const EVector& bin, EVector* x0)
 {
-	ASSERT(A.rows() == b.rows());
+	ASSERT(Aeq.rows() == beq.rows());
+	ASSERT(Ain.rows() == bin.rows());	
 	ASSERT(x0->rows() == A.cols());
-	int numVars = A.cols();
-	int numConstrs = A.rows();
+	int numOVars = A.cols(); // number of old variables.
+	int numEconstrs = Aeq.rows();
+	int numInconstrs = Ain.rows();
+	int numTotalConstrs = numEconstrs + numInconstrs;
 
-	int numRows = numConstrs + 1;
-	int numCols = numVars * 2 + numConstrs * 2 + 1;
+	// each old varialbe is converted to xplus - xminus, and xplus >= 0, xminus >= 0,
+	int numNRows = numEconstrs + numInconstrs + 1;
+	int numNCols = numOVars * 2 + numEconstrs + numConstrs * 2 + 1;
 
-	EMatrix tableu(numRows, numCols);
+	EMatrix tableu(numNRows, numNCols);
 
-	for (int ii = 0; ii < numConstrs; ii++)
+	for (int ii = 0; ii < numTotalConstrs; ii++)
 	{
-		for (int jj = 0; jj < numVars; jj++)
+		for (int jj = 0; jj < numOVars; jj++)
 		{
-			float aij = A(ii, jj);
+			float aij = Aeq(ii, jj);
 			tableu(ii, jj) = aij;
 			tableu(ii, numVars + jj) = -aij;
 		}
