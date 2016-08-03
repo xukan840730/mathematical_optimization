@@ -1137,7 +1137,8 @@ int main()
 		EVector b(2);
 		b(0) = 2; b(1) = 1;
 
-		SolveInitBasicFeasible(A, b);
+		EVector x0(2);
+		int res = SolveInitFeasible(A, b, &x0);
 	}
 	return 0;
 }

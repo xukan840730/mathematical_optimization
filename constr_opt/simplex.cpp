@@ -30,7 +30,7 @@ void Simplex1(EMatrix& tableu, const BasicVarIdx& basicVarIdx)
 }
 
 
-void Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
+int Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 {
 	// find a non basic variable with negative lambda.
 	ASSERT(tableu.cols() == basicVarIdx.rows() + 1);
@@ -122,16 +122,18 @@ void Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 	}
 
 	printf("Simplex done! %d\n", res);
+	return res;
 }
 
-EVector SolveInitBasicFeasible(const EMatrix& A, const EVector& b)
+int SolveInitFeasible(const EMatrix& A, const EVector& b, EVector* x0)
 {
 	ASSERT(A.rows() == b.rows());
+	ASSERT(x0->rows() == A.cols());
 	int numVars = A.cols();
 	int numConstrs = A.rows();
 
 	int numRows = numConstrs + 1;
-	int numCols = 2 * numVars + numConstrs + 1;
+	int numCols = numVars * 2 + numConstrs + 1;
 	EMatrix tableu(numRows, numCols);
 
 	for (int ii = 0; ii < numConstrs; ii++)
@@ -156,5 +158,19 @@ EVector SolveInitBasicFeasible(const EMatrix& A, const EVector& b)
 	for (int ii = 0; ii < numConstrs; ii++)
 		bvarIdx(numVars * 2 + ii) = ii;
 
-	Simplex(tableu, bvarIdx);
+	int res = Simplex(tableu, bvarIdx);
+	if (res == 0)
+	{
+		EVector initVars(numVars * 2 + numConstrs);
+		for (int ii = 0; ii < initVars.rows(); ii++)
+		{
+			initVars(ii) = bvarIdx(ii) >= 0 ? tableu(bvarIdx(ii), numCols - 1) : 0.f;
+		}
+
+		// convert from, x = y - z.
+		for (int ii = 0; ii < numVars; ii++)
+			(*x0)(ii) = initVars(ii) - initVars(ii + numVars);
+	}
+
+	return res;
 }

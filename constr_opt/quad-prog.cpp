@@ -3,6 +3,7 @@
 #include "../common/lin-equation.h"
 #include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
+#include "simplex.h"
 #include "quad-prog.h"
 
 static void PrintEVector(const EVector& v)
@@ -215,6 +216,22 @@ static int FindNegativeLambda(const EVector& lambdaK)
 	return negLambdaIdx;
 }
 
+static void CalcActiveSet(const EMatrix& A, const EVector& b, const EVector& x0, ExternalBitArray& activeSet)
+{
+	ASSERT(A.rows() == b.rows());
+	ASSERT(b.rows() <= activeSet.GetMaxBitCount());
+
+	int numConstrs = b.rows();
+	EVector c = A * x0 - b;
+	for (int ii = 0; ii < numConstrs; ii++)
+	{
+		if (fabs(c(ii)) < NDI_FLT_EPSILON)
+			activeSet.SetBit(ii);
+		else
+			activeSet.ClearBit(ii);
+	}
+}
+
 //------------------------------------------------------------------------------------------//
 int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector& b)
 {
@@ -227,18 +244,20 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 	int numVars = H.rows();
 	int numConstrs = A.rows();
 
-	// TODO: this should be solved by a linear system.
 	EVector x0(numVars);
-	for (int ii = 0; ii < numVars; ii++)
-		x0(ii) = 0.f;
+	int initFound = SolveInitFeasible(A, b, &x0);
+	if (initFound != 0)
+	{
+		printf("QP: initial feasible not found!\n");
+		return -1;
+	}
 
 	static const int kMaxNumConstrs = 1024;
 	U64 activeSetBlocks[16];
 	ExternalBitArray activeSet;
 	ASSERT(ExternalBitArray::DetermineNumBlocks(kMaxNumConstrs) == 16);
 	activeSet.Init(kMaxNumConstrs, activeSetBlocks);
-	activeSet.SetBit(0);
-	activeSet.SetBit(1);
+	CalcActiveSet(A, b, x0, activeSet);
 
 	int maxIter = numConstrs * 10;
 
