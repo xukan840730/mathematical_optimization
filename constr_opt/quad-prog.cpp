@@ -216,13 +216,13 @@ static int FindNegativeLambda(const EVector& lambdaK)
 	return negLambdaIdx;
 }
 
-static void CalcActiveSet(const EMatrix& A, const EVector& b, const EVector& x0, ExternalBitArray& activeSet)
+static void CalcActiveSet(const EMatrix& Ain, const EVector& bin, const EVector& x0, ExternalBitArray& activeSet)
 {
-	ASSERT(A.rows() == b.rows());
-	ASSERT(b.rows() <= activeSet.GetMaxBitCount());
+	ASSERT(Ain.rows() == bin.rows());
+	ASSERT(bin.rows() <= activeSet.GetMaxBitCount());
 
-	int numConstrs = b.rows();
-	EVector c = A * x0 - b;
+	int numConstrs = bin.rows();
+	EVector c = Ain * x0 - bin;
 	for (int ii = 0; ii < numConstrs; ii++)
 	{
 		if (fabs(c(ii)) < NDI_FLT_EPSILON)
@@ -233,19 +233,19 @@ static void CalcActiveSet(const EMatrix& A, const EVector& b, const EVector& x0,
 }
 
 //------------------------------------------------------------------------------------------//
-int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector& b)
+int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& Ain, const EVector& bin)
 {
 	ASSERT(H.rows() == q.rows());
-	ASSERT(H.cols() == A.cols());
-	ASSERT(A.rows() == b.rows());
+	ASSERT(H.cols() == Ain.cols());
+	ASSERT(Ain.rows() == bin.rows());
 
 	int res = 0;
 	
 	int numVars = H.rows();
-	int numConstrs = A.rows();
+	int numConstrs = Ain.rows();
 
 	EVector x0(numVars);
-	int initFound = SolveInitFeasible(A, b, &x0);
+	int initFound = SolveInitFeasible(Ain, bin, &x0);
 	if (initFound != 0)
 	{
 		printf("QP: initial feasible not found!\n");
@@ -257,7 +257,7 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 	ExternalBitArray activeSet;
 	ASSERT(ExternalBitArray::DetermineNumBlocks(kMaxNumConstrs) == 16);
 	activeSet.Init(kMaxNumConstrs, activeSetBlocks);
-	CalcActiveSet(A, b, x0, activeSet);
+	CalcActiveSet(Ain, bin, x0, activeSet);
 
 	int maxIter = numConstrs * 10;
 
@@ -322,8 +322,8 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 			{
 				if (activeSet.IsBitSet(ii))
 				{
-					Ak.row(activeIdx) = A.row(ii);
-					bk(activeIdx) = b(ii);
+					Ak.row(activeIdx) = Ain.row(ii);
+					bk(activeIdx) = bin(ii);
 					rowIdx[activeIdx] = ii;
 					activeIdx++;
 				}
@@ -350,7 +350,7 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 					stepp *= -1.f;
 
 				float t;
-				int cond = IsConstrAlwaysSatisfied(xk, stepp, A, b, &t);
+				int cond = IsConstrAlwaysSatisfied(xk, stepp, Ain, bin, &t);
 				if (cond == 1)	// constrs are always satisfied and quad func is unbounded.
 				{
 					res = 2;
@@ -410,7 +410,7 @@ int QuadProg(const EMatrix& H, const EVector& q, const EMatrix& A, const EVector
 		}
 		else
 		{
-			FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, A, b, activeSet);
+			FeasibilityRes fres = LConstrFeasibility(xkminus1, xeqp, Ain, bin, activeSet);
 			if (fres.type == FeasibilityRes::kFeasible)
 			{
 				xk = xeqp;
