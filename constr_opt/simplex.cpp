@@ -137,23 +137,40 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 	int numTotalConstrs = numEconstrs + numInconstrs;
 	ASSERT(numTotalConstrs > 0);
 
-	// each old varialbe is converted to xplus - xminus, and xplus >= 0, xminus >= 0,
+	static const float kErrorNumber = 12345678.f; // WTF?
+
+	// each old variable is converted to xplus - xminus, and xplus >= 0, xminus >= 0,
 	int numNRows = numEconstrs + numInconstrs + 1;
 	int numNCols = numOVars * 2 + numEconstrs + numInconstrs * 2 + 1;
 
 	EMatrix tableu(numNRows, numNCols);
+	for (int ii = 0; ii < numNRows; ii++)
+		for (int jj = 0; jj < numNCols; jj++)
+			tableu(ii, jj) = kErrorNumber;
 
 	// convert Aeq.x to Aeq.(xplus - xminus)
 	for (int ii = 0; ii < numEconstrs; ii++)
 	{
+		bool negative = (*beq)(ii) < 0.f;
 		tableu.block(ii, 0, 1, numOVars) = (*Aeq).row(ii);
-		tableu.block(ii, numOVars, 1, numOVars) = -(*Aeq).row(ii);
+		tableu.block(ii, numOVars, 1, numOVars) = -tableu.block(ii, 0, 1, numOVars);
+		if (negative)
+		{
+			tableu.block(ii, 0, 1, numOVars) *= -1.f;
+			tableu.block(ii, numOVars, 1, numOVars) *= -1.f;
+		}
 	}
 	// convert Ain.x to Ain.(xplus - xminus)
 	for (int ii = 0; ii < numInconstrs; ii++)
 	{
+		bool negative = (*bin)(ii) < 0.f;
 		tableu.block(numEconstrs + ii, 0, 1, numOVars) = (*Ain).row(ii);
-		tableu.block(numEconstrs + ii, numOVars, 1, numOVars) = -(*Ain).row(ii);
+		tableu.block(numEconstrs + ii, numOVars, 1, numOVars) = -tableu.block(numEconstrs + ii, 0, 1, numOVars);
+		if (negative)
+		{
+			tableu.block(numEconstrs + ii, 0, 1, numOVars) *= -1.f;
+			tableu.block(numEconstrs + ii, numOVars, 1, numOVars) *= -1.f;
+		}
 	}
 
 	int teqColIdx = numOVars * 2;
@@ -162,24 +179,41 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 	int bColIdx = tinColIdx + numInconstrs;
 	ASSERT(bColIdx == numNCols - 1);
 
-	// artifical variable teq, from Aeq.x + teq = beq
+	// artificial variable teq, from Aeq.x + teq = beq
 	tableu.block(0, teqColIdx, numEconstrs, numEconstrs).setIdentity();
 	tableu.block(0, sColIdx, numInconstrs, numInconstrs * 2).setZero();
 
 	// slack variable s, from Ain.x + s + tin = bin
-	tableu.block(numEconstrs, teqColIdx, numEconstrs, numEconstrs).setZero();
+	tableu.block(numEconstrs, teqColIdx, numInconstrs, numEconstrs).setZero();
 	tableu.block(numEconstrs, sColIdx, numInconstrs, numInconstrs).setIdentity();
-	//tableu.block(numEconstrs, sColIdx, numInconstrs, numInconstrs) *= -1.f;
+	for (int ii = 0; ii < numInconstrs; ii++)
+	{
+		bool negative = (*bin)(ii) < 0.f;
+		if (negative)
+			tableu(numEconstrs + ii, sColIdx + ii) *= -1.f;
+	}
 
-	// artifical variable tin, from Ain.x + s + tin = bin
+	// artificial variable tin, from Ain.x + s + tin = bin
 	tableu.block(numEconstrs, tinColIdx, numInconstrs, numInconstrs).setIdentity();
 
 	// beq part
 	if (beq != nullptr)
-		tableu.block(0, bColIdx, numEconstrs, 1) = *beq;
+	{
+		for (int ii = 0; ii < numEconstrs; ii++)
+		{
+			bool negative = (*beq)(ii) < 0.f;
+			tableu(ii, bColIdx) = negative ? -(*beq)(ii) : (*beq)(ii);
+		}
+	}
 	// bin part
 	if (bin != nullptr)
-		tableu.block(numEconstrs, bColIdx, numInconstrs, 1) = *bin;
+	{
+		for (int ii = 0; ii < numInconstrs; ii++)
+		{
+			bool negative = (*bin)(ii) < 0.f;
+			tableu(numEconstrs + ii, bColIdx) = negative ? -(*bin)(ii) : (*bin)(ii);
+		}
+	}
 
 	// fill the rest part
 	tableu.block(numTotalConstrs, 0, 1, numOVars * 2).setZero();
@@ -187,6 +221,10 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 	tableu.block(numTotalConstrs, sColIdx, 1, numInconstrs).setZero();
 	tableu.block(numTotalConstrs, tinColIdx, 1, numInconstrs).setOnes();
 	tableu(numNRows - 1, numNCols - 1) = 0;
+
+	for (int ii = 0; ii < numNRows; ii++)
+		for (int jj = 0; jj < numNCols; jj++)
+			ASSERT(tableu(ii, jj) != kErrorNumber);
 
 	int numNVars = numOVars * 2 + numEconstrs + numInconstrs * 2;
 	BasicVarIdx bvarIdx(numNVars);
@@ -201,7 +239,7 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 	if (res == 0)
 	{
 		float f = tableu(numNRows - 1, numNCols - 1);
-		if (fabs(f) < NDI_FLT_EPSILON)	// if initial feasible solution is found, the sum of artifical variables must be zero
+		if (fabs(f) < NDI_FLT_EPSILON)	// if initial feasible solution is found, the sum of artificial variables must be zero
 		{
 			EVector initVars(numNVars);
 			for (int ii = 0; ii < numNVars; ii++)
@@ -209,7 +247,7 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 				initVars(ii) = bvarIdx(ii) >= 0 ? tableu(bvarIdx(ii), numNCols - 1) : 0.f;
 			}
 
-			// convert from, x = y - z.
+			// convert from, x = xplus - xminus.
 			for (int ii = 0; ii < numOVars; ii++)
 				(*x0)(ii) = initVars(ii) - initVars(ii + numOVars);
 		}
