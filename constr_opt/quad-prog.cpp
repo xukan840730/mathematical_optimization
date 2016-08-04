@@ -64,13 +64,13 @@ FeasibilityRes LConstrFeasibility(const EVector& xstart, const EVector& xend, co
 
 	for (int ii = 0; ii < A.rows(); ii++)
 	{
-		float lhi = lh(ii);
-		float rhi = rh(ii);
-		ASSERT(rhi >= 0.f);
-
 		// we only care about inactive inequality constraint.
 		if (activeSet.IsBitSet(ii))
 			continue;
+
+		float lhi = lh(ii);
+		float rhi = rh(ii);
+		ASSERT(rhi >= 0.f);
 
 		LinEquation::Result lres = LinEquation::Solve(lhi, rhi, LinEquation::kLTE);
 		if (lres.returnType == LinEquation::kNever)

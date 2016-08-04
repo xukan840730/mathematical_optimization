@@ -1003,13 +1003,13 @@ int main()
 		A(1, 0) = 0; A(1, 1) = -1;
 		A(2, 0) = 1; A(2, 1) = 1;
 		
-		EVector b(3); b(0) = 0; b(1) = 0; b(2) = 5;
+		EVector b(3); b(0) = -5; b(1) = -5; b(2) = 5;
 
 		EMatrix H(2, 2);
 		H(0, 0) = 2; H(0, 1) = 0;
 		H(1, 0) = 0; H(1, 1) = 1;
 
-		EVector q(2); q(0) = -8; q(1) = -6;
+		EVector q(2); q(0) = 8; q(1) = 6;
 		
 		QuadProg(H, q, A, b);
 		printf("QP done!\n");
@@ -1107,29 +1107,7 @@ int main()
 		}
 
 	}
-
-	{
-		EMatrix tableu(3, 5);
-		tableu(0, 0) = 1; tableu(0, 1) = 1; tableu(0, 2) = 1; tableu(0, 3) = 0; tableu(0, 4) = 2;
-		tableu(1, 0) = 1; tableu(1, 1) = 0; tableu(1, 2) = 0; tableu(1, 3) = 1; tableu(1, 4) = 1;
-		tableu(2, 0) = -3; tableu(2, 1) = -1; tableu(2, 2) = 0; tableu(2, 3) = 0; tableu(2, 4) = 0;
-
-		BasicVarIdx idx(4);
-		idx(0) = -1; idx(1) = -1; idx(2) = 0; idx(3) = 1;
-
-		Simplex(tableu, idx);
-	}
-	{
-		EMatrix tableu(3, 6);
-		tableu(0, 0) = 1; tableu(0, 1) = 1; tableu(0, 2) = 1; tableu(0, 3) = 0; tableu(0, 4) = 0; tableu(0, 5) = 3;
-		tableu(1, 0) = -1; tableu(1, 1) = 1; tableu(1, 2) = 0; tableu(1, 3) = -1; tableu(1, 4) = 1; tableu(1, 5) = 1;
-		tableu(2, 0) = 0; tableu(2, 1) = 0; tableu(2, 2) = 1; tableu(2, 3) = 0; tableu(2, 4) = 1; tableu(2, 5) = 0;
-
-		BasicVarIdx idx(5);
-		idx(0) = -1; idx(1) = -1; idx(2) = 0; idx(3) = -1; idx(4) = 1;
-
-		Simplex(tableu, idx);
-	}
+	
 	{
 		EMatrix Aeq(1, 2); Aeq(0, 0) = 1; Aeq(0, 1) = 1;
 		EVector beq(1); beq(0) = 2;

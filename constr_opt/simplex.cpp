@@ -221,3 +221,20 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 
 	return res;
 }
+
+LinProgRes LinProgEq(const EVector& c, const EMatrix& Aeq, const EVector& beq)
+{
+	LinProgRes res;
+
+	EVector x0(c.rows());
+	int initFound = SolveInitFeasible(&Aeq, &beq, nullptr, nullptr, &x0);
+	if (initFound != 0)
+	{
+		res.type = 1;
+		return res;
+	}
+
+
+
+	return res;
+}
