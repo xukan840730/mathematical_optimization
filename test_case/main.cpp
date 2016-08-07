@@ -966,38 +966,38 @@ int main()
 	}
 
 	{
-		EMatrix A(3, 5); 
-		{
-			A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1; A(0, 3) = 1; A(0, 4) = 1;
-			A(1, 0) = 1; A(1, 1) = -1; A(1, 2) = 1; A(1, 3) = -1; A(1, 4) = 1;
-			A(2, 0) = 1; A(2, 1) = 1; A(2, 2) = -1; A(2, 3) = 1; A(2, 4) = 1;
-		}
-		EVector b(3); b(0) = 3; b(1) = 4; b(2) = 5;
+		EMatrix A(4, 2); EVector b(4);
+		A(0, 0) = -1; A(0, 1) = 0; b(0) = 0;
+		A(1, 0) = 0; A(1, 1) = -1; b(1) = 0;
+		A(2, 0) = 1; A(2, 1) = 1; b(2) = 3;
+		A(3, 0) = 1; A(3, 1) = -1; b(3) = -1;
 
-		EMatrix H(5, 5); 
-		for (int ii = 0; ii < 5; ii++)
-		{
-			for (int jj = 0; jj < 5; jj++)
-			{
-				if (ii == jj)
-					H(ii, jj) = 2;
-				else
-					H(ii, jj) = 1;
-			}
-		}
-		EVector q(5); q(0) = -6; q(1) = 7; q(2) = 3; q(3) = 1; q(4) = -1;
-
-		EQuadProgRes res = EQuadProg(H, q, A, b);
-
-		for (int ii = 0; ii < A.rows(); ii++)
-		{
-			float c = A.row(ii).dot(res.xstar);
-			ASSERT(abs(c - b(ii)) < 0.00001f);
-		}
-		printf("EQP done!\n");
+		EVector c(2); c(0) = 2; c(1) = -1;
+		LinProgRes res = LinProgIn(c, A, b);
+		printf("LinProgIn done!\n");
 	}
 
 	{
+		// x0 <= -1, x1 <= -1, -x1 - x2 <= 5
+		EMatrix A(3, 2);
+		A(0, 0) = 1; A(0, 1) = 0;
+		A(1, 0) = 0; A(1, 1) = 1;
+		A(2, 0) = -1; A(2, 1) = -1;
+		
+		EVector b(3); b(0) = -1; b(1) = -1; b(2) = 5;
+
+		EMatrix H(2, 2);
+		H(0, 0) = 2; H(0, 1) = 0;
+		H(1, 0) = 0; H(1, 1) = 1;
+
+		EVector q(2); q(0) = 8; q(1) = 6;
+		
+		QuadProg(H, q, A, b);
+		printf("QP1 done!\n");
+	}
+
+	{
+		// -x0 <= -5, -x1 <= -5, x0 + x1 <= 5. infeasible.
 		EMatrix A(3, 2);
 		A(0, 0) = -1; A(0, 1) = 0;
 		A(1, 0) = 0; A(1, 1) = -1;
@@ -1012,16 +1012,17 @@ int main()
 		EVector q(2); q(0) = 8; q(1) = 6;
 		
 		QuadProg(H, q, A, b);
-		printf("QP done!\n");
+		printf("QP2 done!\n");
 	}
 
 	{
+		// -x0 <= 0, -x1 <= 0, x1 + x2 <= 5. 
 		EMatrix A(3, 2);
 		A(0, 0) = -1; A(0, 1) = 0;
 		A(1, 0) = 0; A(1, 1) = -1;
 		A(2, 0) = 1; A(2, 1) = 1;
 		
-		EVector b(3); b(0) = 0; b(1) = 0; b(2) = 5;
+		EVector b(3); b(0) = 1; b(1) = 1; b(2) = 5;
 
 		EMatrix H(2, 2);
 		H(0, 0) = -2; H(0, 1) = 0;
@@ -1030,7 +1031,7 @@ int main()
 		EVector q(2); q(0) = -8; q(1) = -6;
 		
 		QuadProg(H, q, A, b);
-		printf("QP done!\n");
+		printf("QP3 done!\n");
 	}
 
 	{
@@ -1066,46 +1067,6 @@ int main()
 		
 		QuadProg(H, q, A, b);
 		printf("QP done!\n");
-	}
-
-	{
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, 0.f, LinEquation::kEq);
-			ASSERT(res1.returnType == LinEquation::kAlways);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, -0.f, LinEquation::kEq);
-			ASSERT(res1.returnType == LinEquation::kAlways);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, 1.f, LinEquation::kEq);
-			ASSERT(res1.returnType == LinEquation::kNever);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, -1.f, LinEquation::kEq);
-			ASSERT(res1.returnType == LinEquation::kNever);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, 10.f, LinEquation::kLT);
-			ASSERT(res1.returnType == LinEquation::kAlways);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, -10.f, LinEquation::kLT);
-			ASSERT(res1.returnType == LinEquation::kNever);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, -0.f, LinEquation::kLTE);
-			ASSERT(res1.returnType == LinEquation::kAlways);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, 10.f, LinEquation::kLTE);
-			ASSERT(res1.returnType == LinEquation::kAlways);
-		}
-		{
-			LinEquation::Result res1 = LinEquation::Solve(-0.f, -10.f, LinEquation::kLTE);
-			ASSERT(res1.returnType == LinEquation::kNever);
-		}
-
 	}
 	
 	{
