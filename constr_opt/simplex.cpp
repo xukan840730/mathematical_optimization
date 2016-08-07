@@ -3,6 +3,13 @@
 //-------------------------------------------------------------------------//
 void Simplex1(EMatrix& tableu, const BasicVarIdx& basicVarIdx)
 {
+	// change tableau
+	// ( Basic Variables | Nonbasic Variables | RHS )
+	// (      B          |         N          |  b  )
+	// (      cb'        |         cn'        |  0  )
+	// to 
+	// (      I          |         B^-1.N     |  B^-1.b )
+	// (      cb'        |         cn'        |  0  )
 	ASSERT(tableu.cols() == basicVarIdx.rows() + 1);
 	int numConstrs = tableu.rows() - 1;
 	int numVars = tableu.cols() - 1;
