@@ -3,6 +3,13 @@
 //-------------------------------------------------------------------------//
 void Simplex1(EMatrix& tableu, const BasicVarIdx& basicVarIdx)
 {
+	// change tableau
+	// ( Basic Variables | Nonbasic Variables | RHS )
+	// (      B          |         N          |  b  )
+	// (      cb'        |         cn'        |  0  )
+	// to 
+	// (      I          |         B^-1.N     |  B^-1.b )
+	// (      cb'        |         cn'        |  0  )
 	ASSERT(tableu.cols() == basicVarIdx.rows() + 1);
 	int numConstrs = tableu.rows() - 1;
 	int numVars = tableu.cols() - 1;
@@ -126,12 +133,12 @@ int Simplex(EMatrix& tableu, BasicVarIdx& basicVarIdx)
 	return res;
 }
 
-int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain, const EVector* bin, EVector* x0)
+int SimplexPhase1(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain, const EVector* bin, int numOVars,
+	EMatrix& outTableau, BasicVarIdx& outBvarIdx)
 {
 	if (Aeq || beq) ASSERT(Aeq && beq && Aeq->rows() == beq->rows());
 	if (Ain || bin) ASSERT(Ain && bin && Ain->rows() == bin->rows());
 
-	int numOVars = x0->rows(); // number of old variables.
 	int numEconstrs = Aeq ? (*Aeq).rows() : 0;
 	int numInconstrs = Ain ? (*Ain).rows() : 0;
 	int numTotalConstrs = numEconstrs + numInconstrs;
@@ -236,6 +243,61 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 		bvarIdx(tinColIdx + ii) = numEconstrs + ii;
 
 	int res = Simplex(tableu, bvarIdx);
+	outTableau = tableu;
+	outBvarIdx = bvarIdx;
+	return res;
+}
+
+int SimplexPhase2(const EVector& c, EMatrix& tableau, BasicVarIdx& bvarIdx, EVector* x0)
+{
+	ASSERT(c.rows() == x0->rows());
+	int numOVars = c.rows();
+
+	int numNRows = tableau.rows();
+	int numNCols = tableau.cols();
+	int numNVars = numNCols - 1;
+
+	tableau.block(numNRows - 1, 0, 1, numOVars) = c.transpose();
+	tableau.block(numNRows - 1, numOVars, 1, numOVars) = -(c.transpose());
+
+	tableau.block(numNRows - 1, numOVars * 2, 1, numNCols - numOVars * 2).setZero();
+
+	int res = Simplex(tableau, bvarIdx);
+	if (res == 0)
+	{
+		EVector initVars(numNVars);
+		for (int ii = 0; ii < numNVars; ii++)
+		{
+			initVars(ii) = bvarIdx(ii) >= 0 ? tableau(bvarIdx(ii), numNCols - 1) : 0.f;
+		}
+
+		// convert from, x = xplus - xminus.
+		for (int ii = 0; ii < numOVars; ii++)
+			(*x0)(ii) = initVars(ii) - initVars(ii + numOVars);
+	}
+
+	return res;
+}
+
+int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain, const EVector* bin, EVector* x0)
+{
+	if (Aeq || beq) ASSERT(Aeq && beq && Aeq->rows() == beq->rows());
+	if (Ain || bin) ASSERT(Ain && bin && Ain->rows() == bin->rows());
+
+	int numOVars = x0->rows();
+	int numEconstrs = Aeq ? (*Aeq).rows() : 0;
+	int numInconstrs = Ain ? (*Ain).rows() : 0;
+	int numTotalConstrs = numEconstrs + numInconstrs;
+	ASSERT(numTotalConstrs > 0);
+
+	// each old variable is converted to xplus - xminus, and xplus >= 0, xminus >= 0,
+	int numNRows = numEconstrs + numInconstrs + 1;
+	int numNVars = numOVars * 2 + numEconstrs + numInconstrs * 2;
+	int numNCols = numNVars + 1;
+
+	EMatrix tableu(1, 1); // TODO:
+	BasicVarIdx bvarIdx(1);
+	int res = SimplexPhase1(Aeq, beq, Ain, bin, numOVars, tableu, bvarIdx);
 	if (res == 0)
 	{
 		float f = tableu(numNRows - 1, numNCols - 1);
@@ -260,19 +322,42 @@ int SolveInitFeasible(const EMatrix* Aeq, const EVector* beq, const EMatrix* Ain
 	return res;
 }
 
-LinProgRes LinProgEq(const EVector& c, const EMatrix& Aeq, const EVector& beq)
+LinProgRes LinProgIn(const EVector& c, const EMatrix& Ain, const EVector& bin)
 {
 	LinProgRes res;
+	ASSERT(Ain.rows() == bin.rows());
 
-	EVector x0(c.rows());
-	int initFound = SolveInitFeasible(&Aeq, &beq, nullptr, nullptr, &x0);
-	if (initFound != 0)
+	int numOVars = c.rows();
+	int numEconstrs = 0;
+	int numInconstrs = Ain.rows();
+	int numTotalConstrs = numEconstrs + numInconstrs;
+	ASSERT(numTotalConstrs > 0);
+
+	// each old variable is converted to xplus - xminus, and xplus >= 0, xminus >= 0,
+	int numNRows = numEconstrs + numInconstrs + 1;
+	int numNVars = numOVars * 2 + numEconstrs + numInconstrs * 2;
+	int numNCols = numNVars + 1;
+
+	EMatrix tableu(1, 1); // TODO:
+	BasicVarIdx bvarIdx(1);
+	res.type = SimplexPhase1(nullptr, nullptr, &Ain, &bin, numOVars, tableu, bvarIdx);
+	if (res.type == 0)
 	{
-		res.type = 1;
-		return res;
+		ASSERT(tableu.rows() == numNRows);
+		ASSERT(tableu.cols() == numNCols);
+		float f = tableu(numNRows - 1, numNCols - 1);
+		if (fabs(f) < NDI_FLT_EPSILON)	// if initial feasible solution is found, the sum of artificial variables must be zero
+		{
+			EVector x0(c.rows());
+			res.type = SimplexPhase2(c, tableu, bvarIdx, &x0);
+			res.xstar = x0;
+			res.f = tableu(numNRows - 1, numNCols - 1);
+		}
+		else
+		{
+			res.type = -1;
+		}
 	}
-
-
 
 	return res;
 }
