@@ -1,0 +1,20 @@
+hf=figure;
+%set figure to full screen
+scnsize=get(0,'Monitorpositions');
+%if four plots, use full screen size.  Otherwise total plot size
+if nplots==2
+    scnsize(1,4)=scnsize(1,4)/2;
+elseif nplots==1
+    scnsize(1,3)=scnsize(1,3)/2;
+end
+set(hf,'Position',scnsize(1,:));
+set(hf, 'PaperPositionMode', 'auto');
+
+fontsize=15;
+
+if nplots==4
+ha=tight_subplot(2, 2, 0.02, 0.2, [0.1 0.15]);
+elseif nplots==2
+ha=tight_subplot(1, 2, 0.02, 0.2, [0.1 0.15]);   
+elseif nplots==1
+    

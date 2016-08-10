@@ -1,0 +1,22 @@
+close all
+scnsize=;
+fig1=figure;
+set(fig1,'Position',get(0,'Screensize'))
+hold on
+load non_elev_feedback
+h(1)=plot(elev,'r');
+load elev_feedback
+h(2)=plot(elev,'b');
+h(3)=plot(bed_elev,'k');
+set(h,'Linewidth',4)
+hl(1)=xlabel('Distance (km)');
+hl(2)=ylabel('Elevation (m)');
+set(hl,'Fontsize',20)
+set(gca,'Fontsize',20)
+axis tight
+ax=axis;ax(4)=2500;axis(ax);
+legend(h,'Height-mass balance feedback absent','Height-mass balance feedback present')
+hold off
+print -depsc2 elev_feedback.eps
+
+set(gcf, 'PaperPositionMode', 'auto');

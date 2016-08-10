@@ -1,0 +1,122 @@
+%% 1-D mountain glacier flow model.  
+clear all
+%% INITIALIZATION
+%set
+rho = 920.;           %g/cm^3
+g    = 9.8;              %m/s^2
+A    = 1.e-16;        %kPa^-3/yr
+n    =3.;                  %flow law exponent
+C=2.*A*(rho*g).^n/((n+2.).^n);
+
+%% set time and space dimensions
+%set total domain length
+length=60000             %m
+%set model resolution
+dx=1000                  %m
+%calculate number of grid cells needed
+nx=floor(length/dx)+1
+%set total run time
+run_length=3000 %yr
+%set timestep
+dt=1./24.;  %yr
+%calculate number of timesteps to take
+nt=floor(run_length/dt)+1
+
+%% allocate arrays
+
+%spatial arrays
+bed_elev            =zeros(nx,1);
+melt                    =zeros(nx,1);
+accum                 =zeros(nx,1);
+mass_balance    =zeros(nx,1);
+thk                     =zeros(nx,1);
+surface_elev       =zeros(nx,1);
+diff                     =zeros(nx-1,1);
+dSdx                  =zeros(nx-1,1);
+Q                        =zeros(nx-1,1);
+dHdt                   =zeros(nx,1);
+T_elev                 =zeros(nx,1);
+x                         =zeros(nx,1);
+x(1:nx)                =linspace(0,length,nx);
+%temporal arrays
+vol                       =zeros(nt,1);
+%plotting arrays
+tp                        =zeros(nx,nt,2);
+tpm1                   =zeros(nx-1,nt);
+%% Define analytical bed elevation
+%For example:
+%bed(1:nx)=0.                                       % a flat bed, at sealevel.
+%bed_elev(1:nx)=linspace(length*.1,0,nx);   % a bed sloping upwards at db/dx=0.1
+%bed_elev(1:nx)=(length*.1/(length.^2))*((x-length).^2);  %a concave bed with mean slope db/dx=0.1
+%bed_elev(1:nx)=-(length*.1/(length.^2))*((x).^2-length)+length*.1;  %a convex bed with mean slope db/dx=0.1
+%bed_elev(1:20)=linspace(4000,3000,20);
+%bed_elev(21:30)=linspace(3000,3000,10);
+%bed_elev(31:61)=linspace(3000,2000,31);
+load output bed_elev
+%% Define initial surface elevation
+%For example:
+%surface_elev=bed_elev;        %no ice (surface elevation = bed elevation)      
+load output thk
+surface_elev=bed_elev+thk
+%% ITERATIVE LOOP
+for tt=1:nt;
+    %if (tt==1)
+      %calculate elevated surface temperature
+       lapse_rate=.004;          %C/m
+       PDD_factor=-4;          %m/yr/C
+       T_sealev=14;              %annual average sealevel temperature
+       T_var=0;                 % imposed seasonal variance amplitude (C)
+       T_elev=T_sealev+sin(tt*dt)*T_var-surface_elev.*lapse_rate;  %elevated air temp C
+      %generate a new mass balance field as a function of surface temperature       
+       accum(:)=4;  %accumulation rate (m/yr ice)       
+       melt(:)=0.;
+       i=find(T_elev>0);
+       melt(i)=(T_elev(i).*PDD_factor);  %melt rate (m/yr ice)
+       mass_balance=accum+melt; %net mass balance rate (m/yr ice)
+    %end
+    %calculate surface slope at midpoints between surface height values
+    surface_elev=thk+bed_elev;
+    dSdx=(surface_elev(2:nx)-surface_elev(1:nx-1))/dx;   
+     %calculate diffusion
+    diff=abs(C.*((thk(2:nx)+thk(1:nx-1))/2.).^(n+2).*dSdx.^(n-1));
+    %calculate flux of ice at midpoint between surface height values
+    %note: negative flux flows to origin, corresponding to a positive slope
+    Q=-diff.*dSdx;
+    %calculate change in surface height, given flux on either side and
+    %surface mass balance
+    dHdt(2:nx-1)=(Q(1:nx-2)-Q(2:nx-1))/dx + mass_balance(2:nx-1)*dt;
+    %Do a forward Euler timestep
+    thk=thk+dHdt;
+    %limit ice thickness to positive values
+    i=find(thk<0.);
+    thk(i)=0.;
+    thk(1)=0.;
+    thk(nx)=0.;
+    %calculate total ice volume
+    vol(tt)=sum(thk);
+    %Diagnostics
+    tp(:,tt,1)=surface_elev; 
+    tp(:,tt,2)=bed_elev;     
+    tpm1(:,tt)=Q;
+end
+
+%%
+close all; figure
+for tt=2:6:nt;
+  hold on
+   plot(tp(:,tt,1),'b','Linewidth',2);
+   plot(tp(:,tt,2),'k','Linewidth',2)  
+  %axis([0 60 0 350])
+  %plot(tpm1(:,tt))
+  M=getframe;
+  clf
+end
+hold off
+%%
+figure
+plot(vol)
+figure
+plot(surface_elev)
+
+%% 
+%save output thk bed_elev

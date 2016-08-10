@@ -1,0 +1,26 @@
+%%
+clear all
+% %% Get dynamic ice AIS ice thickness
+%  !ssh jer@mare.seos.uvic.ca '/usr/bin/ncrcat -v h,hs,hb PhD_output/blow_away_shelves2/dynamic_ice/Antarctica_restart* PhD_output/blow_away_shelves2/AIScat.nc'
+%  !scp jer@mare.seos.uvic.ca:PhD_output/blow_away_shelves2/AIScat.nc .
+% %% load data, remove .nc file if it exists
+% hs=rnc('AIScat.nc','hs',0,1);
+% h= rnc('AIScat.nc','h',0,1);
+% version=getversion
+% if version==7.4
+%   hs=permute(hs,[2 3 1]);
+%   hs=flipdim(hs,2);
+%   hs=flipdim(hs,1);
+%   h=permute(h,[2 3 1]);
+%   h=flipdim(h,2);
+%   h=flipdim(h,1);
+% end
+% %once data loaded, save to .mat file for future.
+% save AIS_evol h hs
+%!rm AIScat.nc
+%% load pre-downloaded data
+load AIScat.mat
+%%
+fname='WAIS_loss.mpg';
+animate_ice(h,hs,fname);
+

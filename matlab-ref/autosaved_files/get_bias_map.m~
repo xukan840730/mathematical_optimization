@@ -1,0 +1,37 @@
+%%
+close all
+clear all
+directory{1}='data_driven_spinup_only_therm/';
+directory{2}='data_driven_spinup_both_fluxes_and_therm/';
+
+outdirectory{1}='dyn_ice_w_only_therm/data';
+outdirectory{2}='dyn_ice_w_both_fluxes_and_therm_bias/data';
+for n=1:2
+  mounted_directory=...
+  strcat('/Volumes/Mare/playground/UVic_bias_double_check/',directory{n});
+  mounted_out_director
+  %% Load UVic SLAT generated from a run forced with
+  %preindustrial observed SLAT (generated using file 
+  %"generate_preindustrial_observed_SAT.m"
+  rlapse =0.005;
+  eoffset=23889.6700493175;
+  escale=0.911981932490997;   
+  geoadj=9.81287;
+  obselev=interp2uvic(rot90(max(0,rnc('era40geopotential.nc','z',escale,eoffset)/geoadj)));
+  obssat=rnc('obs1800sat.nc','sat');
+  modsat=rnc(strcat(mounted_directory,'tavg.01000.02.01.nc'),'A_slat')-273.15;
+  for mon=1:12
+    obssat(:,:,mon)=obssat(:,:,mon)';
+    modsat(:,:,mon)=modsat(:,:,mon)';
+    %% Generate monthly anomalies: UVic-ERA
+    uvic_m_obs_sat{n}(:,:,mon)=(modsat(:,:,mon)-(rlapse.*obselev)) - obssat(:,:,mon);  
+  end
+  wnc(uvic_m_obs_sat{n},strcat(mounted_directory,'data/uvic_bias.nc'),'uvic_sat_bias','C');
+end
+
+biasdiff=uvic_m_obs_sat{2}-uvic_m_obs_sat{1};
+for mon=1:12
+    subplot(3,4,mon)
+    pcolor(biasdiff(:,:,mon)),shading flat,colorbar,title(num2str(mon))  
+end
+

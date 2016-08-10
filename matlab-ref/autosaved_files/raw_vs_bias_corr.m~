@@ -1,0 +1,146 @@
+%%
+clear all
+cd /Users/jer/School/Manuscripts/GMD_mod_dev/raw_vs_bias_corr
+addpath /usr/bin
+
+%%
+mroot='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/sensitivity_runs/refreeze/';
+%Set ice sheet names and index values
+is={'ais','gis'};
+islong={'Antarctica','Greenland'};
+numsheets=length(islong);
+for n=1:numsheets
+  clear command
+  command=strcat('i',is{n},'=',num2str(n),';');
+  eval(command);
+end
+
+%Set time period names and index values
+tslice={'eemian','lgm','preind'};
+tslicelong={'Eemian','LGM','Late Holocene'};
+numtslices=length(tslice);
+for n=1:numtslices
+  clear command
+  command=strcat('i',tslice{n},'=',num2str(n),';');
+  eval(command);
+end
+
+%Set experiment names and index values
+expname={'bias_ref','bias_no_ref','no_bias_ref','bias_ref_c_alb'};
+expnamelong={'control','NMRR','NBC','CA'};
+numexps=length(expname);
+for n=1:numexps
+  clear command
+  command=strcat('i',expname{n},'=',num2str(n),';');
+  eval(command);
+end
+
+%Set ice sheet array indexes explicitly
+ih=1;
+ihb=2;
+ihs=3;
+
+coloraxis={[0 4500],[0 3500]};
+
+%%
+for i=1:numsheets;
+   for j=1:numtslices;
+      for k=1:numexps;
+         %Get latest ice sheet restarts from model directories.
+         getloc=strcat(mroot,tslice{j},'/',expname{k},'/data/',islong{i},'_restart.nc');
+         putloc=strcat(is{i},tslice{j},expname{k},'.nc');
+         exists=exist(putloc,'file');
+         if (exists==0)
+            clear command
+            command=sprintf('scp %s %s',getloc,putloc)
+            system(command);
+         end
+      end
+    end
+end
+
+%% Extract fields
+
+%extract fields from netcdf files and store in matlab structure (kinda like
+%fortran DDTs)
+
+for i=1:numsheets;
+  ncload(strcat(islong{i},'_darea.nc'),islong{i});
+  s=strcat('isn(i).darea=',islong{i});
+  eval(s)
+  for j=1:numtslices;
+     for k=1:numexps;
+        ncload(strcat(is{i},tslice{j},expname{k},'.nc'),'h','hb','hs');
+        isn(i).tslice(j).expname(k).array{ih(:,:)}=h(:,:);
+        isn(i).tslice(j).expname(k).array{ihb(:,:)}=hb(:,:);
+        isn(i).tslice(j).expname(k).array{ihs(:,:)}=hs(:,:);  
+        clear h hb hs
+     end
+   end
+end
+
+%% Get ice volumes for each experiment (km^3)
+ for i=1:numsheets;
+    for j=1:numtslices;
+      for k=1:numexps;
+       ice_volume(i,j,k)=sum(sum(isn(i).tslice(j).expname(k).array{ih}.*isn(i).darea));
+       ice_volume(i,j,k)=ice_volume(i,j,k)/1000000000.;%m^3 to km^3
+       ice_volume(i,j,k)=ice_volume(i,j,k)/1000000;%km^3 to km^3x10^6
+      end
+    end
+ end
+ %generate latex tables of ice volume
+ for i=1:numsheets
+   temp(:,:)=ice_volume(i,:,:);
+   vlines=[0,1,2,3,4,nan];
+   pathname=strcat('/Users/jer/Dropbox/Manuscripts/GMD/figures/',is{i},'ice_volume_table.tex');
+   latextable(temp,'Horiz',expnamelong,'Vert',tslicelong,'Vline',vlines,'format','%3.3g','name',pathname);
+ end
+ 
+  for i=1:numsheets;
+    for j=1:numtslices;
+      for k=1:numexps;
+        ind=find(isn(i).tslice(j).expname(k).array{ih}>0.00001);
+        ice_area(i,j,k)=sum(sum(isn(i).darea(ind)));
+        ice_area(i,j,k)=ice_area(i,j,k)/1000000.;%m^2 to km^2
+        ice_area(i,j,k)=ice_area(i,j,k)/1000000.;%km^2 to km^2x10^6    
+       end
+    end
+ end      
+  %generate latex tables of ice area
+ for i=1:numsheets
+   temp(:,:)=ice_area(i,:,:);
+   vlines=[0,1,2,3,4,nan];
+   pathname=strcat('/Users/jer/Dropbox/Manuscripts/GMD/figures/',is{i},'ice_area_table.tex');
+   latextable(temp,'Horiz',expnamelong,'Vert',tslicelong,'Vline',vlines,'format','%3.3g','name',pathname);
+ end
+ clear temp
+ 
+%% Plot 
+%close all
+ for i=1:numsheets;
+    for j=1:numtslices;
+      for k=1:numexps;
+      %for each ice sheet, each timeslice and each case (raw/bias corrected/obs), plot hs, where
+      %ice thickness is greater than 0, superimposed over a different-colored
+      %plot of bare land elevation, where it is greater than sealevel   
+       hs=isn(i).tslice(j).expname(k).array{ihs};
+       ind=find(isn(i).tslice(j).expname(k).array{ih}<0.00001);
+       hs(ind)=0.;
+       ind=find(isn(i).tslice(j).expname(k).array{ihs}<0.00001 & isn(i).tslice(j).expname(k).array{ihb}<-130.);
+       hs(ind)=nan;
+       figure
+       hold on
+       surface(hs), shading interp
+       set(gca,'Visible','off'); axis equal tight
+       caxis(coloraxis{i});
+       colormap(jet(10000));cmap=colormap;cmap(1,:,:)=[153/255 102/255 0/255];colormap(cmap)
+       colorbar
+       pathname=strcat('/Users/jer/Dropbox/Manuscripts/GMD/figures/',strcat(is{i},'_',tslice{j},'_',expname{k}),'_h');
+       print('-depsc',pathname);
+       hold off
+       clear hs
+       close all  
+     end
+  end
+end

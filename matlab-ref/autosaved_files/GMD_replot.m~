@@ -1,0 +1,32 @@
+%%
+close all 
+clear all
+fig_format
+
+%% 
+isn={'ais','gis'};
+tn={'eemian','lgm','preind'};
+en={'bias_ref','bias_no_ref','no_bias_ref','bias_ref_c_alb'};
+
+root='/Users/jer/School/Manuscripts/GMD_mod_dev/raw_vs_bias_corr/';
+cx=[4500 3500];
+for ii=1:length(isn);
+    
+  n=0;
+  hf=figure;
+  for jj=1:length(tn);
+     for kk=1:length(en);
+        fname=strcat(isn{ii},tn{jj},en{kk});
+        i(ii).t(jj).e(kk).hs=rnc(strcat(root,fname,'.nc'),'hs')';
+        i(ii).t(jj).e(kk).hs(i(ii).t(jj).e(kk).hs==0)=nan;
+        n=n+1;
+        contourf(i(ii).t(jj).e(kk).hs,10),shading flat
+        caxis([0 cx(ii)]);
+        colorbar
+        axis off
+        axis equal tight
+        exportfig(hf,fname)
+        clf
+     end
+   end
+end

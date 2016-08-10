@@ -1,0 +1,32 @@
+%%
+close all
+clear all
+% Load shapefile data
+files=dir(fullfile('RGIV1_latest/*.shp'));
+%set regions to read
+minreg=1;
+maxreg=19;
+maxreg=min(maxreg,19); %no higher than 19!
+
+get_info = 1;
+get_data = 0;
+
+%% Inquire about/load data
+for r=minreg:maxreg;
+    
+    if get_info
+        info(r)=shapeinfo(fullfile('RGIV1_20120409/',files(r).name));
+    end
+    if get_data
+        reg(r).glc=shaperead(fullfile('RGIV1_20120409/',files(r).name));
+        
+        %get region names from file headers
+        txt=regexp(files(r).name,'_','split');
+        rn{r}=txt{1};
+        
+        %save shapefile info to individual .mat files
+        clear glc fn;
+        glc=reg(r).glc;
+        save(strcat(rn{r},'_RGI_outlines'),'glc');
+    end
+end

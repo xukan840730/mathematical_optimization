@@ -1,0 +1,247 @@
+%%
+close all
+clear all
+
+%set some constants
+lapse=0.005;
+
+%% Determine which observational dataset to use and over which period from
+% input given on the command line, if not given below.  Open dataset and
+% unpack SAT values.
+dataset='era40';
+ystrt=1970;
+yend=2001;
+
+%If dataset not give, request dataset, and assign dataset-specific metadata.
+
+exists=exist('dataset','var');
+if (exists==0.);
+  dataset=input('Enter observational dataset (ncep/era40) to use:  ','s');
+end
+ds=0;
+ds=strcmp(dataset,'ncep');
+if ds==1;
+  display(dataset)
+  Tfname='ncep.nc';
+  Tvname='air';
+  Efname='nceptopography.nc';
+  Evname= 'hgt'; 
+  data_yr_strt=1948;
+  data_yr_end=2009;
+  toffset=0.;
+  tscale_factor=1.;
+  eoffset=31565.;
+  escale_factor=1.;
+  geoadj=1.;
+end
+ds=0;
+ds=strcmp(dataset,'era40');
+if ds==1;  
+  display(dataset)    
+  Tfname='era40.nc';
+  Tvname='t2m';
+  Efname='era40geopotential.nc';
+  Evname='z';
+  data_yr_strt=1958;
+  data_yr_end=2001;
+  toffset=256.072882619393-273.15;
+  tscale_factor=0.00175574730583973;
+  eoffset=23889.6700493175;
+  escale_factor=0.911981932490997;   
+  geoadj=9.81287;
+end
+
+%open appropriate file and load SAT.
+ncid=netcdf.open(Tfname,'WRITE');
+varid = netcdf.inqVarID(ncid,Tvname);
+sat=netcdf.getVar(ncid,varid);
+netcdf.close(ncid)
+%convert sat into double precision array (and unpack if packed as short
+%integers), and convert to C
+sat=double(sat);
+sat=toffset+(sat*tscale_factor);
+
+%load elevation data
+ncid=netcdf.open(Efname,'WRITE');
+varid = netcdf.inqVarID(ncid,Evname);
+obelev=netcdf.getVar(ncid,varid);
+netcdf.close(ncid) 
+
+%convert obelev into double precision array and convert to elev if
+%necessary
+obelev=double(obelev);
+obelev=eoffset+(obelev*escale_factor);
+obelev=obelev/geoadj;
+i=find(obelev<0.);
+obelev(i)=0.;
+
+%%
+%request start and end years for long-term period average,
+exists=exist('ystrt','var');
+if (exists==0.) 
+  s1='Enter longterm mean start year (must be >= ';
+  s2='Enter longterm mean end year (must be <= ';
+  s3='):  ';
+  ystrt=input(strcat(s1,num2str(data_yr_strt),s3));
+  yend =input(strcat(s2,num2str(data_yr_end),s3));
+end
+
+%convert years so data year 0=data_yr_strt
+dystrt=ystrt-data_yr_strt;
+dyend=yend-data_yr_strt;
+
+%for each month accumulate surface air temperature values.  
+satltm = zeros(size(sat,1),size(sat,2),12);
+count=0;
+for nm=1:12
+  for ny=dystrt:dyend
+    %if January, bump year-count up by one.
+    if nm==1
+      count=count+1;
+    end
+    %accumulate monthly temperature sum (to be dividing by # of accums below)
+    n=(ny*12)+nm;
+    satltm(:,:,nm)=satltm(:,:,nm)+(sat(:,:,n));
+  end
+end
+%divide each accumulation to obtain long-term observed means over specified period
+satltm(:,:,:)=satltm(:,:,:)/count;
+
+% Interpolate long-term observed means to UVic grid
+obs_satltm_on_uvic_grid=zeros(100,100,12);
+clear temp
+for n=1:12
+   temp(:,:)=interp2uvic(satltm(:,:,n));
+   obs_satltm_on_uvic_grid(:,:,n)=fliplr(temp);    
+end
+
+% Interpolate data elevations to UVic grid.  If necessary convert from
+% geopotential to elevation.
+obs_elev_on_uvic_grid=zeros(100,100);
+temp(:,:)=interp2uvic(obelev);
+obs_elev_on_uvic_grid(:,:)=fliplr(temp); 
+
+%%  Get UVic dataset
+
+% Load UVic transient surface air temperatures.
+ncid=netcdf.open('uvic_mon_sat.nc','WRITE');
+varid = netcdf.inqVarID(ncid,'A_sat');
+sat=netcdf.getVar(ncid,varid);
+netcdf.close(ncid)
+sat=double(sat);
+sat=sat-273.15;
+
+% Load UVic elevation from same run used to generate surface air
+% temperature.
+ncid=netcdf.open('modelev.nc','WRITE');
+varid = netcdf.inqVarID(ncid,'modelev');
+modelev=netcdf.getVar(ncid,varid);
+netcdf.close(ncid)
+modelev=double(modelev)/100.;
+
+%convert years so model year 0=model_yr_strt
+model_yr_strt=1950;
+mystrt=ystrt-model_yr_strt;
+myend=yend-model_yr_strt;
+
+%for each month accumulate surface air temperature values.  
+uvic_satltm = zeros(size(sat,1),size(sat,2),12);
+count=0.;
+for nm=1:12
+  for ny=mystrt:myend
+      %if January, bump year-count up by one.
+      if nm==1
+      count=count+1;
+      end
+    %accumulate monthly temperature sum (to be dividing by # of accums below)
+    n=(ny*12)+nm;
+    uvic_satltm(:,:,nm)=uvic_satltm(:,:,nm)+(sat(:,:,n));
+  end
+end
+%divide each accumulation to obtain long-term means over specified period
+uvic_satltm(:,:,:)=uvic_satltm(:,:,:)/count;
+
+%% generate a 'preindustrial NCEP' by subtracting UVic dT from NCEP.
+ebybias
+
+%% Generate monthly anomalies: UVic-NCEP
+%First, adjust observed temperatures to the UVic elevation using a constant
+%lapse rate (should be same as used in climate model run)
+
+%positive elevdiff means UVic is lower (ergo, warmer) than observed.
+%Adjust observed temp upward to mimic lower elevation.  Vice versa for
+%negative elevdiff.
+elevdiff=(obs_elev_on_uvic_grid-modelev)*lapse;
+for n=1:12
+  obs_satltm_on_uvic_grid(:,:,n)=obs_satltm_on_uvic_grid(:,:,n);%+elevdiff(:,:);
+end
+figure
+pcolor(elevdiff),shading flat, colorbar
+
+%Anomalies are created such that if UVic is colder than NCEP, anomaly will
+%be negative.  If UVic is warmer anomaly will be positive.
+uvic_m_obs_satltm=uvic_satltm - obs_satltm_on_uvic_grid;
+
+%% Write to netcdf file
+ncid = netcdf.create(strcat(dataset,'_bias.nc'), 'CLOBBER');
+imtdim = netcdf.defDim(ncid,'xt',100);
+jmtdim = netcdf.defDim(ncid,'yt',100);
+timedim = netcdf.defDim(ncid,'month',12);
+varid = netcdf.defVar(ncid,'uvic_sat_bias','double',[imtdim,jmtdim,timedim]);
+netcdf.endDef(ncid)
+netcdf.putVar(ncid,varid,uvic_m_obs_satltm)
+netcdf.reDef(ncid)
+netcdf.putAtt(ncid,varid,'units','dT')
+netcdf.close(ncid)
+
+%% Look at monthly longterm means for both observed and modelled SAT
+close all
+ figure
+ hold on
+for n=1:12
+  temp(:,:)=(uvic_satltm(:,:,n)-uvic_m_obs_satltm(:,:,n));
+  temp(:,:)=rot90(fliplr(temp));  
+  subplot(2,6,n),pcolor(temp),shading flat
+  title(n);
+  caxis([-1 1]);
+end
+hold off
+%figure
+% hold on
+% for n=1:12
+%   temp(:,:)=obs_satltm_on_uvic_grid(:,:,n)-uvic_satltm(:,:,n);
+%   temp(:,:)=rot90(fliplr(temp));
+%   subplot(2,6,n),pcolor(temp),shading flat
+%   title(n);
+%   caxis([-1 1]);
+% end
+%hold off
+% figure
+% hold on
+% for n=1:12
+%   temp(:,:)=uvic_m_obs_satltm(:,:,n);
+%   i=find(abs(temp)>15);
+%   temp(i)=nan;
+%   subplot(2,6,n),pcolor(temp),shading flat
+%   title(n);
+%   adjtmp(:,:,n)=uvic_satltm(:,:,n)-uvic_m_obs_satltm(:,:,n);
+% end
+% colorbar
+% figure
+% for j=1:18;
+%   for i=1:100;
+%      if modelev(i,j)>0.;
+%       tempval(1:12)=adjtmp(i,j,:);
+%       hold on
+%       plot(tempval,'b')
+%       tempval(1:12)=uvic_satltm(i,j,:);
+%       plot(tempval,'r')
+%       hold off
+%     end
+%   end
+% end
+%hold off
+
+%% send to linux cluster
+ !scp *bias.nc *1800sat.nc mare.seos.uvic.ca:~jer/playground/bias_tests
+ !rm *bias.nc *1800sat.nc

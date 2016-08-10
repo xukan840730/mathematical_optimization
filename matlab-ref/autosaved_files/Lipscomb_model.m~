@@ -1,0 +1,136 @@
+close all
+clear all
+
+%% Load initial hypsometric conditions (a,ebins)
+
+regionname='Iceland'
+
+load(fullfile('data',strcat(regionname,'_hypsometry.mat')))
+
+%%
+
+cmin = 1;
+cmax = length(a);
+carray=cmin:cmax;
+
+gemin=1.e20; 
+gemax=-1.e20;
+emin=zeros(size(carray));
+emax=zeros(size(carray));
+amax=0.;
+for c=carray;
+    %find min/max elevations for each glacier, and global ice minimum and
+    %maximum elevations
+    ebins{c}=ebins{c}./1000.; %convert to km
+    emin(c)=min(ebins{c});
+    gemin=min(gemin,emin(c));
+    emax(c)=max(ebins{c});
+    gemax=max(gemax,emax(c));
+    amax=max(amax,sum(a{c}));
+end
+%Extract vertical resolution (get this from an arbitrary ebins, assume that
+%resolution is the same for all bins, and at all elevations)
+vres=ebins{1}(2)-ebins{1}(1);
+gebins=0:vres:gemax+vres;
+
+%Set area/number bin resolution to maximum area divided by some resolution.
+da=1000.;
+ares=ceil(amax/da);
+abin=0:ares:amax+ares;
+
+%Initialize array which holds total hypsometry in each area bin
+total_hyps_in_bin=zeros(length(abin),length(gebins));
+%Initialize array which holds average hypsometry in each area bin
+average_hyps=zeros(length(abin),length(gebins));
+
+total_hyps_in_region=zeros(length(gebins));
+
+A=zeros(size(abin));
+N=zeros(size(abin));
+V=zeros(size(abin));
+dV=zeros(size(abin));
+n0=zeros(size(abin));
+n1=zeros(size(abin));
+
+Bahrc=0.033;
+Bahry=1.36;
+
+for c=1:length(a); 
+    %for all glaciers in each size bin...
+    %Fill area distribution and number distribution arrays
+    abini=find(abin>=sum(a{c}),1);
+    A(abini)=A(abini)+sum(a{c});
+    N(abini)=N(abini)+1;
+    V(abini)=V(abini)+Bahrc.*(sum(a{c}).^Bahry);
+    
+    %Accumulate characteristic hypsometry for each area array.
+    buf=vres./1.e2;
+    emini=find(gebins>=emin(c)-buf&gebins<=emin(c)+buf);
+    emaxi=find(gebins>=emax(c)-buf&gebins<=emax(c)+buf)-1;
+    total_hyps_in_bin(abini,emini:emaxi)=total_hyps_in_bin(abini,emini:emaxi)+a{c}';
+    total_hyps_in_region(emini:emaxi)=total_hyps_in_region(emini:emaxi)+a{c}';
+end
+%%
+figure
+plot(total_hyps_in_region)
+
+byp1=Bahry+1.;
+byp2=Bahry+2.;
+
+for ab=2:length(abin);
+    abar=(abin(ab)+abin(ab-1))./2;
+    n0=N(ab)./ares;
+    n1=12.*(A(ab)-N(ab).*abar)./ares^3;
+    t1= (n0-(n1.*abar))./byp1 .* ( abin(ab).^byp1 - abin(ab-1).^byp1 ) ;
+    t2= n1./byp2 .* (abin(ab).^byp2 - abin(ab-1).^byp2) ;
+    V_new(ab)= Bahrc .* ( t1 + t2 ) ;
+end
+
+%% Generate average hypsometric profile for each size array
+for ab=2:length(abin);
+    average_hyps(ab,:)=total_hyps_in_bin(ab,:)./N(ab);
+end
+
+%% Generate an idealized initial mass balance profile
+smb0=-5.8; %m/yr
+dsmbdz=0.005; %m/yr/m
+smb_profile=min(gebins.*1000..*dsmbdz + smb0,2)/1000.;
+
+for t=2:2
+    
+    %% Evolve model 
+    for ab=2:length(abin);
+        %Calculate change in area due to area-weighted SMB
+        dV(ab)=sum(smb_profile.*total_hyps_in_bin(ab,:)); %(km^3) %wrong??
+        
+        %Generate new volume of all ice in this size class
+        Vp=V(ab)+dV(ab)
+        
+        %Recalculate n0, n1
+        n0=N(ab)./ares;
+        
+        abar=(abin(ab)+abin(ab-1))./2;
+        t1= Vp/Bahrc - N(ab) .* (abin(ab).^byp1 - abin(ab-1).^byp1) ./ ( ares .* Bahry ) ;
+        t2= (abin(ab).^byp2 - abin(ab-1).^byp2)/byp2 ;
+        t3= abar.*(abin(ab).^byp1 - abin(ab-1).^byp1)./byp1;
+        n1= t1./(t2.*t3);
+    end
+end
+
+%% Plotting
+figure
+hold on
+for a=1:20
+   %plot area-normalized hypsometry
+   plot(gebins,average_hyps(a,:)./sum(average_hyps(a,:)))  
+end
+hold off
+figure
+plot(V_new),axis tight
+figure
+pchange=dV./V.*100.;
+pchange(isnan(pchange))=[];
+plot(pchange),axis tight
+
+
+

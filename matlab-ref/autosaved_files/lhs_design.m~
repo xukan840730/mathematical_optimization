@@ -1,0 +1,71 @@
+%% Generate parameter set for ice sheet optimization runs
+close all
+clear all
+
+%Set upper and lower bounds for parameters
+nparam= 0 ;
+nparam=nparam+1 ; ipolamp = nparam ;   lb(nparam) = 0.0;        ub(nparam) = 0.05 ;  % polar amp: higher = more heat trans to poles
+nparam=nparam+1 ; isens   = nparam ;   lb(nparam) = -1147. ;    ub(nparam) = 387.  ;  % sensitivity: higher: greater warming for given CO2 increase
+
+%Set number of parameter sets
+nsample = 40 ;
+
+disp(['Generating Latin Hypercube with ' num2str(nsample) ' samples...'])
+
+%Generate latin hypercube array that is [nsample nparams] big (values in xn are between 0 and 1)
+xn = lhsdesign(nsample,nparam,'criterion','maximin');
+%Scale LHS array to lower and upper bounds of parameters
+p = bsxfun(@plus,lb,bsxfun(@times,xn,(ub-lb)));
+
+for mod = [17 16 43 100 23]
+  %cd to model setup directory
+  cd(num2str(mod))
+  %get control.in from spinup directory
+  copyfile(strcat('/Volumes/Westgrid/LHS_GIS_deglac_sens_to_polamp_and_alb/spinup/ensemble/',num2str(mod),'/control.in'),'.')
+  %rename control.in to template.
+  !mv control.in template.control.in
+  %prepare for LHS variable replacement
+  !sed -i "" "s/adiff=0\.03/adiff=XXX, vcsfac=XXX, vcsref=14.32/g" template.control.in
+  %pre-set some experimental other setups in template
+  !sed -i "" "s/co2ccn=[0-9]*/co2ccn=840/g" template.control.in
+  !sed -i "" "s/runlen=[0-9]*/runlen=1460000/g" template.control.in
+  !sed -i "" "s/runstep=[0-9]*/runstep=182500/g" template.control.in  
+  !rm input_control_files/*
+  dlmwrite('input_control_files/model_parameters.txt',p)
+  for n = 1:nsample
+    %open template control.in file
+    fid = fopen('template.control.in');
+    %scan all lines of control.in file into cell array s.
+    s = textscan(fid,'%s','Delimiter','\n');
+    %extract out s from cell array container for clarity
+    s = s{1};
+    %open a new control.in file in prep for writing.  This will be control.in file for experiment N and is labelled control.in.[N]
+    fid2=fopen(strcat('input_control_files/',num2str(n),'.control.in'),'w');
+    %for each line of s, search and replace parts any strings that match the parameters you want to change.  
+    %Varin: string that contains LHS-derived value
+    for l=1:length(s)
+      %replace geoflux value
+      varin=strcat('adiff=',num2str(p(n,ipolamp)));
+      s{l}=regexprep(s{l},'adiff=XXX',varin);
+      %replace enhancesheet value
+      varin=strcat('vcsfac=',num2str(p(n,isens)));
+      s{l}=regexprep(s{l},'vcsfac=XXX',varin);
+  
+      %print string (possible altered through regexes above) to control.in file
+      fprintf(fid2,'%s\n',s{l});
+        
+    end
+    %close constructed control.in file and template file
+    fclose(fid);
+    fclose(fid2);
+    
+  end
+  %automatically move input files to remote model run directory...
+  targetdir=strcat('/Volumes/Bugaboo/LHS_GIS_deglac_sens_to_polamp_and_alb/future/ensemble_v2/',num2str(mod));
+  mkdir(targetdir)
+  copyfile('input_control_files',targetdir);
+  !rm input_control_files.tar
+  cd ..
+end
+
+

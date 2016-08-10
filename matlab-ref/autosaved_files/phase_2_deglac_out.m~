@@ -1,0 +1,73 @@
+close all
+
+reload=                                     0;
+if reload
+    clear all
+    reload=1
+end
+
+SMB_and_vol_evol = 1;
+
+mounted_directory='/Volumes/Mare/GIS_inception_sens_to_resolution/phase_2_deglaciation/';
+
+if SMB_and_vol_evol
+    
+    %load data
+    res={'5' '10' '20'};
+    res_line={'-' '--' '-.'};
+    co2={'560' '840' '1120'};
+    co2_line={'b' 'y' 'r'};
+    for nres=1:length(res);
+        for nco2=1:length(co2);
+            if reload
+                tsi_file_root=char(strcat(mounted_directory,co2{nco2},'/',res{nres},'/'));
+                tsi_files=dir(strcat(tsi_file_root,'tsi.*'));
+                smb{nres,nco2}=[];
+                vol{nres,nco2}=[];
+                for nfiles=1:length(tsi_files);
+                    fname=strcat(tsi_file_root,tsi_files(nfiles).name);
+                    smb{nres,nco2}=[smb{nres,nco2} rnc(fname,'L_icesmbN')'];
+                    vol{nres,nco2}=[vol{nres,nco2} rnc(fname,'L_icevolN')'];
+                end
+            end
+        end
+    end
+    
+    %plot data
+    yr = 0:20:5000;
+    hf=figure;
+    subplot(1,2,1)
+    hold on
+    nleg=0;
+    for nres=1:length(res);
+        for nco2=1:length(co2);
+            var=vol{nres,nco2};
+            linetype=strcat(char(co2_line{nco2}',char(res_line{nres})'));
+            h(nres,nco2)=plot(yr(1:length(var)),var,linetype);
+        end
+    end
+    hold off
+    title('GIS volume (m^3/yr)')
+    axis tight
+    
+    subplot(1,2,2)
+    hold on
+    nleg=0;
+    for nres=1:length(res);
+        for nco2=1:length(co2);
+            var=smb{nres,nco2};
+            linetype=strcat(char(co2_line{nco2}',char(res_line{nres})'));
+            plot(yr(1:length(var)),var,linetype)
+            nleg=nleg+1;
+            leg{nleg}=strcat('Resolution=',char(res{nres}),', CO_2=',char(co2{nco2}));
+        end
+    end
+    hold off
+    title('SMB (kg/yr)')
+    axis tight
+    legend(leg)
+    
+end
+
+
+

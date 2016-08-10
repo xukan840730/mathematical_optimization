@@ -1,0 +1,159 @@
+clear all
+close all
+
+global percent_complete
+
+update_glacier_tiles =             0;
+process_masks_and_topog =   1;
+output_files =                          0;
+
+f=dir('all10/*10g');
+
+%% Set elevation bin boundaries for elevation-glacier mask
+
+%generate fractional glacial areas at 100m intervals in CESM grid cell,
+%based on GLOBE topography and glacier mask data.
+binres=100.;
+ebinmin=0;
+ebinmax=7000;
+numbins=ebinmax./binres;
+binedges=linspace(ebinmin,ebinmax,numbins+1);
+%increase bin/edge count by one to acount for ice above top bin
+%elevation
+numbins=numbins+1;
+binedges(end+1)=1.e6;
+
+%% Load topography data
+
+%Notes on e array:
+%-10800 in lon, 4800/6000 in lat
+%indexing starts from northwest corner
+%row == longitude == first index
+%column == latitude == second index
+
+scalefac=6.; %6x reduction in resolution (from 30" to 3' in this case)
+
+%set lon/lat grid size, arrays for GLOBE array
+
+GLOBEtopo=zeros(4800+6000+6000+4800,10800.*4,'uint16'); 
+GLOBEis=1;
+GLOBEjs=1;
+GLOBEnlon=repmat(10800,1,16);
+GLOBEnlat=[repmat(4800,1,4) repmat(6000,1,8) repmat(4800,1,8)];
+GLOBEoffset=1./60./60.*30./2;
+GLOBElat=linspace(-90+GLOBEoffset,90-GLOBEoffset,size(GLOBEtopo,1));
+GLOBElon=linspace(0+GLOBEoffset,360-GLOBEoffset,size(GLOBEtopo,2));
+
+%set lon/lat grid size, arrays for CESM array
+CESMtopo=zeros(size(GLOBEtopo)/scalefac,'uint16');
+CESMlsmsk=zeros(size(GLOBEtopo)/scalefac,'single');
+CESMpctglc=zeros(size(CESMtopo,1),size(CESMtopo,2),numbins,'single');
+CESMis=1;
+CESMjs=1;
+CESMnlon=GLOBEnlon./scalefac;
+CESMnlat=GLOBEnlat./scalefac;
+CESMoffset=GLOBEoffset.*scalefac;
+CESMlat=linspace(-90+CESMoffset,90-CESMoffset,size(CESMtopo,1));
+CESMlon=linspace(0+CESMoffset,360-CESMoffset,size(CESMtopo,2));
+
+latrange(1,:)=[repmat(50.,1,4) repmat(0.,1,4) repmat(-50.,1,4) repmat(-90.,1,4)]; %set latitude ranges for each tile
+latrange(2,:)=[repmat(90.,1,4) repmat(50.,1,4) repmat(0.,1,4) repmat(-50.,1,4)];
+
+clear GLOBEtopo
+
+f=dir('all10/*10g');
+
+%% if update to glacier tiles needed, reload and recreated tiled version of Gardner data.
+
+if update_glacier_tiles
+    update_glacier_mask_tiles(f,GLOBEnlon,GLOBEnlat,GLOBEis,GLOBEjs);
+end
+
+%% Process data
+if process_masks_and_topog
+    
+     percent_complete=squeeze(zeros(16,1));
+    
+    for t=1:16;
+        
+        [CESMtopotile,CESMlsmsktile,CESMpctglctile] = process_topography_and_glacier_mask(t,f(t).name,latrange(:,t),[GLOBEnlon(t) GLOBEnlon(t)],scalefac,GLOBEoffset,numbins,binedges);
+        
+        %GLOBEtopo(GLOBEis:GLOBEis+GLOBEnlat(t)-1,GLOBEjs:GLOBEjs+GLOBEnlon(t)-1) = GLOBEtopotile;
+        CESMtopo(CESMis:CESMis+CESMnlat(t)-1,CESMjs:CESMjs+CESMnlon(t)-1) = CESMtopotile;
+        CESMlsmsk(CESMis:CESMis+CESMnlat(t)-1,CESMjs:CESMjs+CESMnlon(t)-1) = CESMlsmsktile;
+        CESMpctglc( CESMis:CESMis+CESMnlat(t)-1 , CESMjs:CESMjs+CESMnlon(t)-1 , : ) = CESMpctglctile;
+        
+        %shift GLOBE/CESM indices along row to new tile location
+        [GLOBEis,GLOBEjs] = shift_tiles(t,GLOBEis,GLOBEjs,GLOBEnlat(t),GLOBEnlon(t));
+        [CESMis,CESMjs] = shift_tiles(t,CESMis,CESMjs,CESMnlat(t),CESMnlon(t));
+
+    end
+    
+    disp('Done loading data.')
+    
+    CESM_land_mask=zeros(size(CESMtopo),'uint8');
+    CESM_land_mask(~isnan(CESMtopo))=1;
+    
+end
+
+%% Checks
+
+%figure,imagesc(CESMtopo),caxis([0 6000]),colorbar%,print('-dpng','CESMtopo')
+%figure,imagesc(CESMlsmsk)
+%figure,imagesc(GLOBEtopo),caxis([0 6000]),colorbar,print('-dpng','GLOBEtopo')
+%close all
+
+% er=georasterref('Latlim',[-90 90]...
+%     ,'Lonlim',[0 360]...
+%     ,'Rastersize',size(topo)...
+%     ,'ColumnsStartFrom','north'...
+%     ,'RowsStartFrom','west');
+%
+% grid2image(topo,er), axis equal tight
+
+%% Output files
+if output_files
+    
+    !rm CESM_topography.nc
+    nccreate('CESM_topography.nc','Topog',...
+        'Format','classic',...
+        'Dimensions',{'Longitude',size(CESMtopo,2),'Latitude',size(CESMtopo,1)},...
+        'Datatype','int16')
+    nccreate('CESM_topography.nc','Land_sea_mask',...
+        'Format','classic',...
+        'Dimensions',{'Longitude',size(CESMtopo,2),'Latitude',size(CESMtopo,1)},...
+        'Datatype','int16')
+    nccreate('CESM_topography.nc','Latitude',...
+        'Format','classic',...
+        'Dimensions',{'Latitude',length(CESMlat)},...
+        'Datatype','double')
+    nccreate('CESM_topography.nc','Longitude',...
+        'Format','classic',...
+        'Dimensions',{'Longitude',length(CESMlon)},...
+        'Datatype','double')
+    
+    ncwrite('CESM_topography.nc','Topog',fliplr((int16(CESMtopo))'),[1 1])
+    ncwrite('CESM_topography.nc','Land_sea_mask',fliplr((int16(CESMlsmsk))'),[1 1])
+    ncwrite('CESM_topography.nc','Latitude',CESMlat,1)
+    ncwrite('CESM_topography.nc','Longitude',CESMlon,1)
+    
+    % !rm GLOBE_topography.nc
+    % nccreate('GLOBE_topography.nc','Topog',...
+    %     'Format','classic',...
+    %     'Dimensions',{'Longitude',size(GLOBEtopo,2),'Latitude',size(GLOBEtopo,1)},...
+    %     'Datatype','int16')
+    % nccreate('GLOBE_topography.nc','Latitude',...
+    %     'Format','classic',...
+    %     'Dimensions',{'Latitude',length(GLOBElat)},...
+    %     'Datatype','double')
+    % nccreate('GLOBE_topography.nc','Longitude',...
+    %     'Format','classic',...
+    %     'Dimensions',{'Longitude',length(GLOBElon)},...
+    %     'Datatype','double')
+    %
+    % ncwrite('GLOBE_topography.nc','Topog',fliplr((int16(GLOBEtopo))'),[1 1])
+    % ncwrite('GLOBE_topography.nc','Latitude',GLOBElat,1)
+    % ncwrite('GLOBE_topography.nc','Longitude',GLOBElon,1)
+    
+end
+

@@ -1,0 +1,19 @@
+close all
+clear all
+
+thk=ncread('Greenland_5km_v1.1_SacksRev_c110629.nc','thk');
+topg=ncread('Greenland_5km_v1.1_SacksRev_c110629.nc','topg');
+
+mask=ones(size(topg));
+mask(topg<=0.)=0.;
+
+newgrid=encodem(mask,[1,1,2]);
+
+thk_trimmed=thk;
+thk_trimmed(newgrid==2)=0;
+
+subplot(1,2,1)
+contourf(newgrid'), axis tight equal
+title('Red: )
+subplot(1,2,2)
+contourf(thk_trimmed'-thk',40), axis equal tight

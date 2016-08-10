@@ -1,0 +1,20 @@
+function [] = update_glacier_mask_tiles(f,nlon,nlat,is,js)
+
+%% Read in Gardner glacier masks, convert to tiles, write to .mat files with names corresponding to corresponding globe files
+
+f=dir('all10/*10g');
+
+maskname={'glacier'}
+
+
+
+for i=1:length(maskname)
+    mask=ncread(strcat('Gardner_ice_masks/ASG_',maskname{i},'_0.0083.nc',maskname{i});  
+    for t=1:16;
+        msk=mask(is:is+nlat(t)-1,js:js+nlon(t)-1);
+        save(strcat('Gardner_ice_masks/',strcat(maskname{i}))
+        [is,js] = shift_tiles(t,is,js,nlat(t),nlon(t));
+        
+    end
+    
+end

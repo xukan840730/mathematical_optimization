@@ -1,0 +1,22 @@
+close all 
+clear all
+
+load aluminum_history.mat
+
+%% calculate historical depletion of reserve: need:
+%1. sum of historical reserves (since 1950?)
+%2. remaining reserves (from IIB data)
+%Calculate: 
+%1. total reserves (past+future)
+%Plot: circle graph, %of total reserve used
+
+
+tot_res_init=sum(al_hist)+al_fut_res;
+future_production(1:al_dep_date)=al_fut_res./al_dep_date;
+total_production=[al_hist' future_production]
+
+tot_res_rem(1)=tot_res_init;
+for n=2:length(total_production);
+  tot_res_rem(n)=tot_res_rem(n-1)-total_production(n);
+end
+plot(tot_res_rem)

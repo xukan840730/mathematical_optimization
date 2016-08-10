@@ -1,0 +1,12 @@
+close all
+clear all
+
+load GRIP_T_Profile
+Tmod=ncread('/Volumes/Bluefire/ptmp/BG_spinup_ensemble_stage_3/run/BG_spinup_ensemble_stage_3.cism_0081.r.9501-01-01-00000.nc','temp');
+Dmod=ncread('/Volumes/Bluefire/ptmp/BG_spinup_ensemble_stage_3/run/BG_spinup_ensemble_stage_3.cism_0081.r.9501-01-01-00000.nc','level');
+Dmod=Dmod*max(depth);
+%Tmod: 1=E-W, 2=N-S
+hold on
+plot(depth,T)
+plot(Dmod,squeeze(Tmod(161,304,:)))
+hold off

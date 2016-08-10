@@ -1,0 +1,89 @@
+close all
+clear all
+
+ninterp=200;
+maxsize=10;
+
+region=dir('RGI_data/*_RGI_outlines.mat');
+
+MeanHypsometry=zeros(length(region),ninterp);
+StandardDeviation=zeros(length(region),ninterp);
+
+for r=1:length(region)
+    txt=regexp(region(r).name,'_','split');
+    regionname{r}=txt{1};
+    
+    %allocate arrays to extra-large values (larger than largest number of glaciers in a region
+    u=zeros(32000,1);
+    v=zeros(32000,1);
+    asp=zeros(32000,1);
+    lat=zeros(32000,1);
+    lon=zeros(32000,1);
+    stdev=zeros(32000,1);
+    relief=zeros(32000,1);
+    hyps=zeros(32000,ninterp);
+    
+    nn=0;
+    nfile=1;
+    fname=strcat('RGI_topographies_masks_and_hypsometries/',regionname{r},num2str(nfile),'.mat');
+    while exist(fname,'file')
+        load(fname,'RGIDataStructure');
+        if RGIDataStructure.AREA > maxsize
+            load(fname,'MeanLongitude','MeanLatitude','MeanAspect','Hypsometry','ElevationBins');
+            if min(Hypsometry)>=0 & length(ElevationBins) > 5. %capture submerged/flat glaciers
+                nn=nn+1;
+                %[u(nn),v(nn)]=pol2cart(MeanAspect,0.1);
+                relief(nn)=range(ElevationBins);
+                lat(nn)=MeanLatitude;
+                lon(nn)=MeanLongitude;
+                hyps(nn,:)=interp1(ElevationBins(1:end-1),Hypsometry,linspace(ElevationBins(1),ElevationBins(end-1),200));
+                hyps(nn,:)=hyps(nn,:)./nansum(hyps(nn,:)); %normalize hypsometry so area sums to one.
+            end
+        end
+        %set next file name to search for
+        nfile=nfile+1;
+        fname=strcat('RGI_topographies_masks_and_hypsometries/',regionname{r},num2str(nfile),'.mat');
+    end
+
+    relief(nn+1:end)=[];
+    lat(nn+1:end)=[];
+    lon(nn+1:end)=[];
+    hyps(nn+1:end,:)=[];
+
+    %%
+    close all
+    % buf=1.;
+    % worldmap([min(lat)-buf max(lat)+buf],[min(lon)-buf max(lon)+buf])
+    % scatterm(lat,lon,[],relief,'filled')
+    % scaleruler
+    % load coast
+    % geoshow(lat, long)
+    mn=mean(hyps,1);
+    sd=std(hyps,1,1);
+    MeanHypsometry(r,:)=mean(hyps,1);
+    StandardDeviation(r,:)=std(hyps,1,1);
+    xax=linspace(0,1,ninterp);
+    hold on
+    plot(xax,hyps','b','linewidth',1)
+    plot(xax,mn,'r','linewidth',4)
+    plot(xax,mn+sd,'k','linewidth',2)
+    plot(xax,mn-sd,'k','linewidth',2)
+    ax=axis;ax(4)=0.03;ax(3)=0.;axis(ax);
+    hold off
+    xlabel('Normalized elevation')
+    ylabel('Normalized hypsometry')
+    title(strcat(regionname{r},'_hypsometry'))
+    print('-dpng',strcat('figs/',regionname{r},'_hypsometry'))
+end
+%%
+
+close all
+GlobalMeanHypsometry=MeanHypsometry;
+GlobalMeanHypsometry(2,:)=[]; %remove Antarctic
+plot(xax,
+h=plot(xax,MeanHypsometry')
+legend(h,regionname)
+xlabel('Normalized elevation')
+ylabel('Normalized hypsometry')
+title('mean_regional_hypsometries')
+print('-dpng',strcat('figs/mean_regional_hypsometries'))

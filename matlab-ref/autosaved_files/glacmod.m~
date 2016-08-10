@@ -1,0 +1,97 @@
+%% 1-D mountain glacier flow model  
+%% set time and space dimensions
+%set total domain length
+dlength=60000;             %m
+%set model resolution
+dx=1000;                  %m
+%calculate number of grid cells needed
+nx=floor(dlength/dx)+1;
+%set total run time
+run_length=4000; %yr
+%set timestep
+dt=1./24.;  %yr
+%calculate number of timesteps to take
+nt=floor(run_length/dt)+1;
+
+%% allocate arrays
+melt                    =zeros(nx,1);
+accum                 =zeros(nx,1);
+smb                   =zeros(nx,1);
+bed_elev            =zeros(nx,1);
+thk                     =zeros(nx,1);
+elev                    =zeros(nx,1);
+T_elev                 =zeros(nx,1);
+vol                       =zeros(nt,1);
+tp                        =zeros(nx,nt,2);
+tpm1                   =zeros(nx-1,nt);
+
+%% Define analytical bed elevation
+%For example:
+%bed(1:nx)=dlength*0.1                                       % a flat elevated bed.
+bed_elev(1:nx/2)=linspace(2000,2600,nx/2);   % a bed sloping upwards
+bed_elev(nx/2:nx)=linspace(2600,2000,nx/2+1);   % a bed sloping upwards
+%x=linspace(0,dlength,nx);
+%bed_elev(1:nx)=(dlength*.1/(dlength.^2))*((x-dlength).^2);  %a concave bed with mean slope db/dx=0.1
+%bed_elev(1:nx)=-(dlength*.1/(dlength.^2))*((x).^2-dlength)+dlength*.1;  %a convex bed with mean slope db/dx=0.1
+%bed_elev(1:20)=linspace(4000,3000,20);
+%bed_elev(21:30)=linspace(3000,3000,10);
+%bed_elev(31:61)=linspace(3000,2000,31);
+%% Define initial surface elevation
+%For example:
+%surface_elev=bed_elev;        %no ice (surface elevation = bed elevation)
+elev=bed_elev+thk;
+
+%% Define linearly decreasing sealevel temperature
+T_sealev(1:nt)=linspace(1,-1,nt);
+%T_sealev(nt/2+1:nt)=-2.;
+
+%% Iterative loop.
+for tt=1:nt;
+   %calculate elevated surface temperature
+    lapse_rate=.006;          %C/m
+    PDD_factor=-4;          %m/yr/C
+    T_var=20.;                 % imposed seasonal variance amplitude (C)   
+    ssr=sin(tt*dt*2*pi);   %sin of season, in radians
+
+%%%Choose one of the following ways to calculate the temperature used in the PDD calculation   
+%     %temperature at bed, no seasonal variation
+%     T_elev=T_sealev-bed_elev.*lapse_rate;   
+%     %temperature at surface ice elevation, no seasonal variation
+%     T_elev=T_sealev-elev.*lapse_rate;
+    %temperature at surface ice elevation, plus seasonal variation
+    T_elev=T_sealev(tt)+ssr*T_var-elev.*lapse_rate;  %elevated air temp C
+
+    %generate a new mass balance field as a function of surface temperature       
+    accum(:)=3;  %accumulation rate (m/yr ice)       
+    melt(:)=0.;
+    i=find(T_elev>0);
+    melt(i)=(T_elev(i).*PDD_factor);  %melt rate (m/yr ice)
+    smb=accum+melt; %net mass balance rate (m/yr ice)
+    %Run ice evolution timestep
+    [thk,vol(tt),elev]=evolve_ice(thk,bed_elev,elev,smb,nx,dx,dlength,dt);
+    
+    %plot some output
+    if (mod(tt*dt,20)==0.)
+      cla
+      subplot(3,1,1)
+      hold on
+        plot(elev,'b','LineWidth',2)
+        plot(bed_elev,'k','LineWidth',2)
+        axis([0 nx min(bed_elev) max(bed_elev+1000)]);
+        text(0,0,strcat('time=',num2str(tt*dt,2)))
+      hold off
+      subplot(3,1,2)
+      plot(vol(1:tt))
+      axis([0 nt 0 4.3e7]);
+      subplot(3,1,3)
+      plot(T_sealev(1:tt));
+      axis([0 nt min(T_sealev) max(T_sealev)]);      
+      M=getframe;
+    end
+end
+%% plot diagnostics
+figure
+plot(vol);
+
+%% save ice sheet state
+save restart.mat thk bed_elev elev

@@ -1,0 +1,47 @@
+close all
+clear all
+
+%initialize CESM topography and land mask arrays
+scalefac=6.; %6 reduction in resolution (from 30" to 3 MINUTES in this case).
+%set lon/lat grid size, arrays for CESM array
+CESMlatres=[800 1000 1000 800]; %set # of latitudes for the GLOBE tiles.  Note uneven spacing.
+CESMlonres=[1800 1800 1800 1800];%set # of longitudes for the GLOBE tiles.
+
+CESMnlon=[ repmat(CESMlonres(1),1,4) repmat(CESMlonres(2),1,4) repmat(CESMlonres(3),1,4) repmat(CESMlonres(4),1,4) ];
+CESMnlat=[ repmat(CESMlatres(1),1,4) repmat(CESMlatres(2),1,4) repmat(CESMlatres(3),1,4) repmat(CESMlatres(4),1,4) ];
+
+CESMis=1;
+CESMjs=1;
+
+latitude_glacier_frac=zeros(3600,61);
+%%
+
+for nlev=1:61
+    nlev
+    plane_slice=ncread('output/PCT_GLC_GIC.nc','PCT_GLC_GIC',[1 1 nlev],[7200,3600,1])./100.;
+    latitude_glacier_frac(:,nlev)=sum(plane_slice,1);
+end
+
+%%
+
+ElevBins=ncread('output/PCT_GLC_GIC.nc','BIN_CENTERS');
+BIN_CENTERS=BIN_CENTERS(1:61)
+
+for lat=1:3600;
+  hypsometry(lat)=latitude_glacier_frac(lat,:).*BIN_CENTERS(;
+  mean_ice_elevation=
+
+
+
+% TileID={'a' 'b' 'c' 'd' 'e' 'f' 'g' 'h' 'i' 'j' 'k' 'l' 'm' 'n' 'o' 'p'};
+%
+% for t=1:TileID;
+%
+%     load(strcat('tile_storage/',TileID{t},)
+%
+%     %shift GLOBE/CESM indices along row to new tile location
+%     [CESMis,CESMjs] = shift_tiles(t,CESMis,CESMjs,CESMnlat(t),CESMnlon(t));
+%
+% end
+%
+% disp('Done processing data.')

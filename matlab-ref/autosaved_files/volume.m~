@@ -1,0 +1,29 @@
+function [dVdt , pop] = volume( t , y , CT, Cpc , Cpop , P0 , C0)
+   	
+% DVdt = T - D
+%      = CT - pop(t)*Cpc(t)
+
+% Population growth and per capita demand are being setup as linear functions here, but could easily be changed.
+
+  pop = ( Cpop .* t + P0 );
+  
+  dVdt = CT .* t -  ( Cpop .* t + P0 ).* ( Cpc .* t + C0 ) ;
+
+  
+function [value,isterminal,direction] = equal_ff_re_price(t,V)
+      
+P_renew = 1050. + CTrr*t;
+
+P_ff = 1.4 ./V + 1000;
+
+P_renew = 1.4 ./ V + 1000.
+
+(P_renew-1000.)*V = 1.4/
+  
+  value =  (P_renew-1000.) ./ 1.4; 
+  
+  isterminal = 1; %stop integration if crossing is found
+  
+  direction = 0; %stop if crossing is hit in either direction
+  
+  

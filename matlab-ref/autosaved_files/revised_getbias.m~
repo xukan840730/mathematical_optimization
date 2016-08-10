@@ -1,0 +1,44 @@
+%%
+close all
+clear all
+
+%load era40 2-m SAT and geopotential (using offsets, scales, and
+%conversion of geopotential to elevation)
+obs_yr_strt=1958;
+obs_yr_end=2001;
+toffset=256.072882619393-273.15;
+tscale=0.00175574730583973;
+eoffset=23889.6700493175;
+escale=0.911981932490997;   
+geoadj=9.81287;
+obssat=rnc('era40.nc','t2m',tscale,toffset);
+obselev=interp2uvic(rot90(max(0,rnc('era40geopotential.nc','z',escale,eoffset)/geoadj)));
+
+%load uvic SAT and elevation
+mod_yr_strt=1950;
+modsat=rnc('uvic_mon_sat.nc','A_sat')-273.15;
+modelev=rnc('modelev.nc','modelev')/100.;
+%%
+ystrt=1970;
+yend=2001;
+obsystrt=ystrt-obs_yr_strt
+obsyend=yend-obs_yr_strt
+modystrt=ystrt-mod_yr_strt
+modyend=yend-mod_yr_strt
+for mon=1:12
+  ms=obsystrt*12+mon;
+  me=obsyend*12+mon;
+  monvec=ms:12:me;
+  obssatltm(:,:,mon)=interp2uvic(rot90(mean(obssat(:,:,monvec),3)));
+  ms=modystrt*12+mon;
+  me=modyend*12+mon;  
+  monvec=ms:12:me;
+  modsatltm(:,:,mon)=mean(modsat(:,:,monvec),3)';
+end
+
+
+
+
+
+
+

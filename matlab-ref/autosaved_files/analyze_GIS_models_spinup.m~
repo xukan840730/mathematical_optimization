@@ -1,0 +1,742 @@
+close all
+
+load_fresh_data = 0;
+if load_fresh_data;
+    clear all
+    load_fresh_data = 1;
+end
+load_saved_data = 1;
+if load_saved_data;
+    clear all
+    load_saved_data = 1;
+    load_fresh_data = 0;
+end
+%% Plotting options
+calc_diags = 1;
+plot_individual_run_states = 0;
+plot_timeseries = 0;
+plot_diagnostic_distribution_histogram = 0;
+plot_ranking_bar = 1;
+plot_diagnostics_vs_parameters = 0;
+plot_average_elevation_difference = 0;
+plot_initial_SMB = 0;
+plot_sensitivity_to_ranking_method = 1;
+plot_distribution_of_final_volumes_and_rates_of_change = 0;
+plot_velocities = 0;
+fs=30;
+
+Jclim_figure_path='~/Projects/SeaRise_CESM_special_issue/JClim_manuscript/JClimate2012/figures/';
+
+nmin=  1;
+nmax=  100;
+nm=100;
+
+%% Obtain preindustrial GIS model output from multiple runs, compare each run against observed using various diagnostics, and rank the results based on these diagnostics
+
+
+res=5.; % km
+ua=res^2;
+mt=1.; %minimum thickness, above which ice is counted (100m is GLIMMER standard)
+
+
+%% Get observed data
+
+othk = ncread('Greenland_observed.nc','thk');
+osrf = ncread('Greenland_observed.nc','usrf');
+oare = length(othk(othk>mt)).*ua;
+oare = oare + 87810.; %additional area from peripheral ice caps (calculated from Randolph dataset)
+ovol = sum(othk(othk>mt)./1000.).*ua;
+ovol = ovol + 33851.; %additional volume from peripheral ice caps (calculated from Randolph dataset and Bahr area-volume scaling)
+
+osrfnan=osrf;
+osrfnan(osrf==0.)=nan;
+obed=osrf-othk;
+obed(osrf-obed~=0)=nan;
+obed(obed==0.)=nan;
+
+%set base path to links to user's directories
+rp='/Volumes/Yellowstone/work/JClim_paper/link_to_hist_files/';
+lhsp='/Volumes/Yellowstone/work/JClim_paper/CISM_validation/LHS_parameter_files/';
+
+if load_fresh_data
+    if exist('/Volumes/Yellowstone','dir')
+        %     %paths to run output
+        %     rd{1}='/Volumes/Bluefire/ptmp_link/archive/';
+        %     rd{2}='/glc/hist/';
+        %     rd{3}='/glc/logs/';
+        %     %path to setup directory containing LHS parameter file
+        
+    else
+        error('Gotta Macfusion to Yellowstone')
+    end
+    
+    %hard-code full size of ensemble - fix this later for generality?
+    
+    %initialize some file-related things
+    rd=cell(nm,8);
+    min_com_time = 1.e10;
+    
+    for m=nmin:nmax;
+        rd{m,1}=fullfile(rp,strcat('GIS_spinup_w_BG_forcing_',num2str(m)),'glc/hist');
+        rd{m,2}=fullfile(rp,strcat('GIS_spinup_w_BG_forcing_',num2str(m)),'glc/logs');
+        rd{m,3}=fullfile(rp,strcat('GIS_spinup_w_BG_forcing_',num2str(m),'_stage_2'),'glc/hist');
+        rd{m,4}=fullfile(rp,strcat('GIS_spinup_w_BG_forcing_',num2str(m),'_stage_2'),'glc/logs');
+        rd{m,5}=fullfile(rp,'BG_spinup_ensemble_stage_1/glc/hist');
+        rd{m,6}=fullfile(rp,'BG_spinup_ensemble_stage_1/glc/logs');
+        rd{m,7}=fullfile(rp,'BG_spinup_ensemble_stage_2/glc/hist');
+        rd{m,8}=fullfile(rp,'BG_spinup_ensemble_stage_2/glc/logs');
+        rd{m,9}=fullfile(rp,'BG_spinup_ensemble_stage_3/glc/hist');
+        rd{m,10}=fullfile(rp,'BG_spinup_ensemble_stage_3/glc/logs');
+        min_com_time=min(min_com_time,length(dir(fullfile(rd{m,9},sprintf('*cism_%04d*',m))))); %get minimum output time, so all runs are compared against common time.
+    end
+    
+    min_com_time;
+    
+    %% Load model output
+    
+    for m=nmin:nmax; %for all available arrays with output
+        disp(['Loading history for model ' num2str(m)])
+        f=dir(fullfile(rd{m,9},sprintf('*cism_%04d*',m)))
+        file=fullfile(rd{m,9},f(min_com_time).name)
+        mthk{m}=ncread(file,'thk');
+        mthksav=mthk{m};
+        save(fullfile('downloaded_data',num2str(m)),'mthksav');
+        msrf{m}=ncread(file,'usurf');
+        msrfsav=msrf{m};
+        save(fullfile('downloaded_data',num2str(m)),'msrfsav','-append');
+        msrfnan{m}=msrf{m};
+        msrfnan{m}(msrf{m}==0)=nan;
+        mbed{m}=msrf{m}-mthk{m};
+        mbed{m}(msrf{m}-mbed{m}~=0)=nan;
+        mbed{m}(mbed{m}==0.)=nan;
+    end
+    
+    for m=nmin:nmax;
+        disp(['Loading log for model ' num2str(m)])
+        %extract area/volume timeseries from log files
+        
+        %from stage 1 (longer timestep)
+        logs=dir(fullfile(rd{m,2},'glc.log*'));
+        for f = 1:length(logs)
+            gunzip(fullfile(rd{m,2},logs(f).name),'log_storage');
+        end
+        %from stage 2 (shorter timestep)
+        logs=dir(fullfile(rd{m,4},'glc.log*'));
+        for f = 1:length(logs)
+            gunzip(fullfile(rd{m,4},logs(f).name),'log_storage');
+        end
+        %from stage 3 (ensemble, corrected ntem)
+        logs=dir(fullfile(rd{m,6},sprintf('glc_%04d.log*',m))); %get log files from ensemble folder
+        for f = 1:length(logs)
+            gunzip(fullfile(rd{m,6},logs(f).name),'log_storage');
+        end
+        %from stage 4 (ensemble, corrected ntem continued spinup)
+        logs=dir(fullfile(rd{m,8},sprintf('glc_%04d.log*',m))); %get log files from ensemble folder
+        for f = 1:length(logs)
+            [pathstr, name, ext] = fileparts(logs(f).name);
+            if strcmp(ext,'.gz')
+                gunzip(fullfile(rd{m,8},logs(f).name),'log_storage');
+            else
+                [SUCCESS,MESSAGE,MESSAGEID]=copyfile(fullfile(rd{m,8},logs(f).name),'log_storage');
+            end
+        end
+        %from stage 5 (ensemble, continued corrected ntem continued spinup)
+        logs=dir(fullfile(rd{m,10},sprintf('glc_%04d.log*',m))); %get log files from ensemble folder
+        for f = 1:length(logs)
+            [pathstr, name, ext] = fileparts(logs(f).name);
+            if strcmp(ext,'.gz')
+                gunzip(fullfile(rd{m,10},logs(f).name),'log_storage');
+            else
+                [SUCCESS,MESSAGE,MESSAGEID]=copyfile(fullfile(rd{m,8},logs(f).name),'log_storage');
+            end
+        end
+        %catenate all log files to one local file
+        !cat log_storage/glc*log.* > log_storage/logcat
+        %extract all ice area lines to file 'alog', remove text, load areas
+        !grep "Total ice area" log_storage/logcat > log_storage/alog
+        !sed -i "" s/"* Total ice area (km^2)"//g log_storage/alog
+        a{m} = load('log_storage/alog');
+        %same for volume
+        !grep "Total ice volume" log_storage/logcat > log_storage/vlog
+        !sed -i "" s/"* Total ice volume (km^3)"//g log_storage/vlog
+        v{m} = load('log_storage/vlog');
+        %same for time
+        !grep "Global diagnostic output, time" log_storage/logcat > log_storage/tlog
+        !sed -i "" s/"  \* Global diagnostic output, time =  "//g log_storage/tlog
+        t{m} = load('log_storage/tlog');
+        %same for energy
+        !grep "Total ice energy" log_storage/logcat > log_storage/elog
+        !sed -i "" s/"  \* Total ice energy (J)     "//g log_storage/elog
+        e{m} = load('log_storage/elog');
+        %remove temporary files
+        !rm -r log_storage
+        asav=a{m};
+        save(fullfile('downloaded_data',num2str(m)),'asav','-append');
+        vsav=v{m};
+        save(fullfile('downloaded_data',num2str(m)),'vsav','-append');
+        tsav=t{m};
+        save(fullfile('downloaded_data',num2str(m)),'tsav','-append');
+        esav=e{m};
+        save(fullfile('downloaded_data',num2str(m)),'esav','-append');
+    end
+    
+elseif load_saved_data
+    for m=nmin:nmax;
+        disp(['Loading history for model ' num2str(m)])
+        file=fullfile('downloaded_data',num2str(m));
+        load(file,'mthksav');
+        mthk{m}=mthksav;
+        load(file,'msrfsav');
+        msrf{m}=msrfsav;
+        load(file,'asav');
+        a{m}=asav;
+        load(file,'vsav');
+        v{m}=vsav;
+        v_eq(m)=v{m}(end);
+        load(file,'tsav');
+        t{m}=tsav;
+        load(file,'esav');
+        e{m}=esav;
+        load(file,'mthksav');
+        mthk{m}=mthksav;
+    end
+    
+end
+
+if load_saved_data || load_fresh_data
+    
+    %% Get LHS parameters
+    for m=nmin:nmax;
+sprintf('grep "geothermal" %s/cism.buildnml.csh%s > textfind.tmp',lhsp,num2str(m))
+        system(sprintf('grep "geothermal" %s/cism.buildnml.csh%s > textfind.tmp',lhsp,num2str(m)));
+        !sed -i "" "s/geothermal = //g" textfind.tmp
+        LHSp(m,1)=load('textfind.tmp');
+        system(sprintf('grep "flow_factor" %s/cism.buildnml.csh%s > textfind.tmp',lhsp,num2str(m)));
+        !sed -i "" "s/flow_factor = //g" textfind.tmp
+        LHSp(m,2)=load('textfind.tmp');
+        system(sprintf('grep "basal_tract" %s/cism.buildnml.csh%s > textfind.tmp',lhsp,num2str(m)));
+        !sed -i "" "s/basal_tract = //g" textfind.tmp
+        !sed -i "" "s/ 10 10 0 1//g" textfind.tmp
+        LHSp(m,3)=load('textfind.tmp');
+        !rm textfind.tmp
+    end
+    %get # of parameters varied
+    np=size(LHSp,2);
+    %hardcode parameter names
+    p_name={'G','f','B'};
+    
+end
+
+
+%% Calculate diagnostics
+if calc_diags
+    for m=nmin:nmax;
+        
+        nd=0; %initialize diagnostics counter
+        
+        %nd=nd+1;d_name{nd}='dA (%)';
+        %mare=length(mthk{m}(mthk{m}>mt)).*ua;
+        %d(nd,m)=(mare-oare)./oare.*100.;
+        
+        nd=nd+1;d_name{nd}='dV (%)';
+        mvol=sum(mthk{m}(mthk{m}>mt)./1000.).*ua;
+        d(nd,m)=(mvol-ovol)./ovol.*100.;
+        
+        %nd=nd+1;d_name{nd}='H RMSE (m)';
+        %d(nd,m)=gfit2(othk,mthk{m},'3');
+        
+        %calculate difference in max ice elevation, and offset of max ice
+        %elevation
+        %[maxm,id_name]=max(msrf{m}(:));
+        %[xm,ym]=ind2sub(size(msrf{m}),id_name);
+        %[maxo,id_name]=max(osrf(:));
+        %[xo,yo]=ind2sub(size(osrf),id_name);
+        
+        %nd=nd+1;d_name{nd}='dHS_{max{_k}} (m)';
+        %d(nd,m)=maxm-maxo;
+        
+        %nd=nd+1;d_name{nd}='dHS_{max_{ij}} (km)';
+        %d(nd,m)=sqrt((xo-xm)^2+(yo-ym)^2).*res;
+    end
+end
+
+%% Plot average ice elevation difference from observed
+
+if plot_average_elevation_difference
+    avgmsrf=zeros(size(msrf{1}));
+    n=0;
+    lonsect=zeros(nm,3,size(avgmsrf,1));
+    
+    %set up latitudinal section
+    clear latsect
+    ylat=[size(avgmsrf,2)-size(avgmsrf,1) size(avgmsrf,2)];
+    ylon=[170];
+    
+    %get average surface height (and set up longitudinal sections)
+    xlat=[150 300 450];
+    for m=nmin:nmax;
+        mbed=msrf{m}-mthk{m};
+        avgmsrf=avgmsrf+msrf{m};
+        lonsect(m,1,:)=squeeze(msrf{m}(:,xlat(1))); %southernmost x-section
+        lonsect(m,2,:)=squeeze(msrf{m}(:,xlat(2)));
+        lonsect(m,3,:)=squeeze(msrf{m}(:,xlat(3))); %northermmost x-section
+        xsectb(m,1,:)=squeeze(mbed(:,xlat(1))); %southernmost x-section
+        xsectb(m,2,:)=squeeze(mbed(:,xlat(2)));
+        xsectb(m,3,:)=squeeze(mbed(:,xlat(3))); %northermmost x-section
+        
+        latsect(m,:)=squeeze(msrf{m}(ylon,ylat(1):ylat(2)));
+        n=n+1;
+    end
+    avgmsrf=avgmsrf./n;
+    temp=avgmsrf'-osrf';temp(temp==0.)=nan;
+    
+    
+    
+    subplot(4,2,[1 3 5 7])
+    hold on
+    
+    %plot average surface difference
+    pcolor(double(temp)), colormap(rbcbar(min(temp(:)),max(temp(:)))),
+    hc=colorbar;
+    ylabel(hc,'Mean model-observed elevation difference (m)')
+    shading flat, axis equal tight
+    set(gca,'Xtick',[],'Ytick',[])
+    
+    %plot margin and shoreline contours
+    contour(othk',[0.0 0.0],'linecolor',[0 0 1],'linewidth',2)
+    contour(osrf',[0.0 0.0],'linecolor',[160 82 45]./255,'linewidth',2);
+    for n=nmin:nmax
+        contour(mthk{n}',[0.0 0.0],'linecolor',[0.5 0.5 0.5]);
+    end
+    
+    %plot longitude X-section line locations
+    textl{1}={'c' 'b' 'a'};
+    textl{2}={'c`' 'b`' 'a`'};
+    for n=1:length(xlat);
+        line([0 size(avgmsrf,1)],[xlat(n) xlat(n)],'color',[0 0 0],'linewidth',2);
+        text(3,xlat(n)+12,textl{1}{n},'fontsize',fs)
+        text(size(avgmsrf,1)-15,xlat(n)+12,textl{2}{n},'fontsize',fs)
+    end
+    %plot latitude X-section line locations
+    line([ylon ylon],[ylat(1) ylat(2)],'color',[0 0 0],'linewidth',2);
+    text(ylon,ylat(1),'d','fontsize',fs)
+    text(ylon,ylat(2),'d`','fontsize',fs)
+    hold off
+    
+    %plot sections
+    for n=1:length(xlat);
+        subplot(4,2,(3-n+1).*2),hold on
+        plot(squeeze(lonsect(:,n,:))','color',[0.6 0.6 0.6],'linewidth',1)
+        plot(squeeze(osrfnan(:,xlat(n))),'color',[0 0 1],'linewidth',4)
+        plot(squeeze(obed(:,xlat(n))),'color',[160 82 45]./255,'linewidth',4)
+        axis tight
+        ax=axis;ax(4)=3600;axis(ax);
+        set(gca,'Xtick',[1 size(avgmsrf,1)],'xticklabel',{textl{1}{n} textl{2}{n}})
+        ylabel('Elevation (m)')
+        hold off
+    end
+    
+    subplot(4,2,8),hold on
+    plot(squeeze(latsect'),'color',[0.6 0.6 0.6],'linewidth',1)
+    plot(squeeze(osrfnan(ylon,ylat(1):ylat(2))),'color',[0 0 1],'linewidth',4)
+    plot(squeeze(obed(ylon,ylat(1):ylat(2))),'color',[160 82 45]./255,'linewidth',4)
+    axis tight
+    ax=axis;ax(4)=3600;axis(ax);
+    set(gca,'Xtick',[1 size(avgmsrf,1)],'xticklabel',{'d' 'd`'})
+    ylabel('Elevation (m)')
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2',strcat('figs/','average_usurf_diff'))
+    print('-depsc2',fullfile(Jclim_figure_path,'average_usurf_diff'))
+    
+end
+
+%%
+
+if plot_initial_SMB
+    
+    acab=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/short_term_GIS_spinup_w_BG_forcing_1/glc/hist/average_initial_conditions.nc','acab');
+    thk=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/short_term_GIS_spinup_w_BG_forcing_1/glc/hist/average_initial_conditions.nc','thk');
+    msk=zeros(size(acab));
+    msk(acab>0.)=1;
+    msk(acab==0.)=nan;
+    hold on
+    pcolor(double(acab')),shading flat,colormap(rbcbar(min(acab(:)),max(acab(:))))
+    hc=colorbar;ylabel(hc,'SMB (m/yr)')
+    contour(othk',[0.0 0.0],'linecolor',[0 0 1],'linewidth',2)
+    contour(osrf',[0.0 0.0],'linecolor',[160 82 45]./255,'linewidth',2);
+    set(gca,'Xtick',[],'Ytick',[])
+    axis equal tight
+    hold off
+    
+    set(gcf, 'Renderer', 'painters')
+    %print('-depsc2',strcat('figs/','initial_SMB_pattern'))
+    %print('-depsc2',fullfile(Jclim_figure_path,'initial_SMB_pattern'))
+    
+end
+
+%% Plot area/volume timeseries
+if plot_timeseries
+    
+    figure;
+    
+    subplot(1,3,1)
+    hold on
+    for m=nmin:nmax;
+        disp(['m=' num2str(m) 'length=' num2str(length(e{m}))])
+        plot(e{m},'linewidth',1);
+    end
+    ax=axis; ax(4)=0;axis(ax)
+    ylabel('Ice energy (J)','Fontsize',fs);
+    hold off
+    
+    subplot(1,3,2)
+    hold on
+    for m=nmin:nmax;
+        plot(a{m},'linewidth',1);
+    end
+    ax=axis; ax(3)=0;axis(ax)
+    ylabel('Ice area (km^2)','Fontsize',fs);
+    hold off
+    
+    subplot(1,3,3)
+    hold on
+    for m=nmin:nmax;
+        plot(v{m},'linewidth',1);
+    end
+    ax=axis; ax(3)=0;axis(ax)
+    xlabel('Time (yr)','Fontsize',fs);
+    ylabel('Ice volume (km^3)','Fontsize',fs);
+    hold off
+    
+    print('-dpng',strcat('figs/','timeseries_evolution'))
+end
+
+%% Plot distribution of diagnostics
+
+if plot_diagnostic_distribution_histogram
+    for dd=1:nd
+        subplot(1,nd,dd);
+        hold on
+        hist(d(dd,:),5)
+        hold off
+    end
+end
+
+%% Plot equilibrium distribution of volume
+
+if plot_distribution_of_final_volumes_and_rates_of_change
+    for m=nmin:nmax
+        eqvol(m)=v{m}(end);
+        time=1:500;
+        P(m,:)=polyfit(time',v{m}(end-500+1:end)./mean(v{m}(end-500+1:end)),1).*100..*1000.;
+    end
+    
+    subplot(1,2,1)
+    cdfplot(P(:,1))
+    xlabel('Volume change per kyr (%)')
+    ylabel('Cumulative probability')
+    title('')
+    text(-.135,0.9,'a)','fontsize',fs)
+    
+    subplot(1,2,2)
+    cdfplot(eqvol)
+    xlabel('Ice volume (km^3)')
+    ylabel('')
+    line([2.96e6 2.96e6],[0 1],'color','r')
+    text(3.e6,0.5,'observed ice volume','color','r','rotation',90,'fontsize',fs,'HorizontalAlignment','center')
+    text(3.3e6,0.5,'modelled ice volumes','color','b','rotation',75,'fontsize',fs,'HorizontalAlignment','center')
+    text(2.84e6,0.9,'b)','fontsize',fs)
+    title('')
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2','figs/spinup_vol_rate')
+    print('-depsc2',fullfile(Jclim_figure_path,'spinup_vol_rate'))
+    
+end
+
+%% Plot ranked model output
+if plot_ranking_bar
+    
+    clear absd I
+    absd=abs(d);
+    
+    figure
+    
+    for dd=1:nd
+        %sort absolute ranking into index I
+        [junk,I(dd,:)]=sort(absd(dd,:));
+        %make temporary plotting array with original diagnostic data, sorted by
+        %absolute values
+        dplot=d(dd,I(dd,:));
+        
+        subplot(1,nd,dd);
+        hold on;
+        h=bar(dplot);
+        shading flat
+        axis tight
+        buf=(max(dplot)-min(dplot)).*0.05;
+        ax=axis;ax(3)=min(dplot)-buf;ax(4)=max(dplot)+buf;axis(ax);
+        %ax=axis;ax(3)=max(0.,min(dplot)-0.1.*(max(Y)-min(Y)));axis(ax);
+        set(gca,'Xtick',[],'Xticklabel',I(dd,:),'fontsize',fs)
+        %xlabel('Simulation #')
+        ylabel(d_name{dd})
+        
+        %         ch = get(h,'Children');
+        %         fvd = get(ch,'Faces');
+        %         fvcd = get(ch,'FaceVertexCData');
+        %         [zs, izs] = sort(d);
+        %         for i = 1:length(izs)
+        %             row = izs(i);
+        %             fvcd(fvd(row,:)) = i;
+        %         end
+        %         set(ch,'FaceVertexCData',fvcd)
+        
+        
+        hold off
+    end
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2','figs/ranked_models')
+    print('-depsc2',fullfile(Jclim_figure_path,'ranked_models'))
+    
+    top_seed = 5;
+    
+    clear iworst ibest worst_rank best_rank
+    for m=nmin:nmax;
+        clear ranking
+        for dd=1:nd
+            ranking(dd)=find(squeeze(I(dd,:)==m)); %for each diagnostic, get ranking of model
+        end
+        ranking
+        [worst_rank(m),iworst(m)]=max(ranking);
+        [best_rank(m),ibest(m)]=min(ranking);
+    end
+    
+    [worst_rank,modnum]=sort(worst_rank); %rank models by their worst-performing diagnostic
+    %resort indices that record which diagnostic was best/worst for each
+    %model
+    iworst=iworst(modnum);
+    ibest=ibest(modnum);
+    for n=1:top_seed
+        %for n=100-top_seed:100
+        disp(['Model ' num2str(modnum(n)) ' is better than ' num2str(worst_rank(n)) 'th place in all diagnostics.'])
+        disp(['It does worst at ' d_name{iworst(n)} '(' num2str(worst_rank(n)) 'th)'])
+        disp(['It does best at ' d_name{ibest(n)} '(' num2str(best_rank(n)) 'th)'])
+        disp('****')
+    end
+    
+end
+
+%% Plot GIS geometries
+if plot_individual_run_states
+    
+    f=figure;
+    scnsizetmp=get(0,'Monitorpositions');
+    scnsizetmp(1,3)=scnsizetmp(1,3).*0.6;
+    set(f,'Position', scnsizetmp(1,:));
+    letter={'a)' 'b)' 'c)' 'd)' 'e)' 'f)'}
+    n=1;
+    ha=tight_subplot(2,3,0.05,0.05,[0.05 0.1]);
+    for m=1:top_seed
+        %for m=100-top_seed+1:100
+        
+        axes(ha(n))
+        hold on
+        temp=msrf{modnum(m)}';temp(temp==0.)=nan;caxis([0 3500]);
+        contourf(temp,15);
+        shading flat, axis equal tight, box off
+        set(gca,'Xtick',[],'Ytick',[])
+        set(gca,'Fontsize',15);
+        text(10,520,letter{n},'fontsize',fs)
+        ylabel(sprintf('G=%s, A=%s, B=10^{%s}',num2str(LHSp(modnum(m),1)),num2str(LHSp(modnum(m),2)),num2str(LHSp(modnum(m),3))));
+        hold off
+        %         subplot(2,5,n+5);
+        %         hold on
+        %         temp=msrf{modnum(m)}'-osrf';temp(temp==0.)=nan;caxis([-1000 1000]),colorbar;
+        %         contourf(temp,10);
+        %         shading flat, axis equal tight
+        %         box off
+        %         set(gca,'Xtick',[],'Ytick',[])
+        %         set(gca,'Fontsize',15);
+        %         ylabel(sprintf('Geo=%s, FF=%s, BT=10^{%s}',num2str(LHSp(modnum(m),1)),num2str(LHSp(modnum(m),2)),num2str(LHSp(modnum(m),3))));
+        %         hold off
+        n=n+1;
+    end
+    hold on
+    axes(ha(n))
+    temp=osrf';
+    temp(temp==0)=nan;
+    contourf(temp,15)
+    shading flat, axis equal tight,caxis([0 3500])
+    set(gca,'Xtick',[],'Ytick',[])
+    axpos=get(gca,'Position');
+    cb=colorbar;
+    ylabel(cb,'m asl')
+    set(gca,'Position',axpos)
+    box off
+    text(10,520,letter{n},'fontsize',fs)
+    ylabel('Observed topography')
+    hold off
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2',strcat('figs/','best_ranked'))
+    print('-depsc2',fullfile(Jclim_figure_path,'best_ranked'))
+end
+
+%%
+
+if plot_sensitivity_to_ranking_method
+    warning('off')
+    figure
+    subplot(1,2,1)
+    temp=msrf{81}';temp(temp==0.)=nan;
+    contourf(temp,20),shading flat
+    caxis([0 3600])
+    axis equal tight
+    text(10,520,'a)','fontsize',fs)
+    ylabel('best model, all diagnostics used')
+    set(gca,'Xtick',[],'Ytick',[])
+    colorbar
+    subplot(1,2,2)
+    temp=msrf{99}';temp(temp==0.)=nan;
+    contourf(temp,20),shading flat
+    caxis([0 3400])
+    axis  equal tight
+    text(10,520,'b)','fontsize',fs)
+    ylabel('best model, only dV diagnostic used')
+    set(gca,'Xtick',[],'Ytick',[])
+    colorbar
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2',strcat('figs/','ranking_sensitivity'))
+    print('-depsc2',fullfile(Jclim_figure_path,'ranking_sensitivity'))
+    warning('on')
+end
+
+%% Plot diagnostics vs. parameter
+if plot_diagnostics_vs_parameters
+    
+    figure
+    n=0;
+    for dd=1:nd
+        for pp=1:np
+            n=n+1;
+            subplot(nd,np,n)
+            hold on
+            plot(squeeze(LHSp(1:nm,pp)),squeeze(d(dd,1:nm)),'.','Markersize',20)
+            
+            axis([min(LHSp(1:nm,pp)) max(LHSp(1:nm,pp)) min(d(dd,1:nm)) max(d(dd,1:nm))]);
+            plot(squeeze(LHSp(modnum(1:top_seed),pp)),squeeze(d(dd,modnum(1:top_seed))),'.r','Markersize',30)
+            %plot(squeeze(LHSp(modnum(100-top_seed+1:100),pp)),squeeze(d(dd,modnum(100-top_seed+1:100))),'.r','Markersize',30)
+            
+            hold off
+            if pp==3;
+                set(gca,'XScale', 'log');
+                %lsline
+            else
+                %lsline
+            end
+            if dd==nd;
+                xlabel(p_name{pp})
+            else
+                set(gca,'Xticklabel','')
+            end
+            if pp==1;
+                ylabel(d_name{dd})
+            else
+                set(gca,'Yticklabel','')
+            end
+            
+        end
+    end
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2','figs/params_vs_diagnostics')
+    print('-depsc2',fullfile(Jclim_figure_path,'params_vs_diagnostics'));
+    
+end
+
+if plot_velocities
+    
+    clear vauvel vavvel mvelmag
+    
+    n=0;
+    for m=[1];
+        n=n+1;
+        
+        clear vauvelaccum vavvelaccum muvel mvvel thk mbed
+        
+        load gis_5km.searise.balvels.mat
+        load gis_5km.searise.geom.mat
+        
+        muvel=ncread(sprintf('%sBG_spinup_ensemble_stage_3.cism_%04d.h.9001-01-01-00000.nc',rp,modnum(m)),'uvel');
+        mvvel=ncread(sprintf('%sBG_spinup_ensemble_stage_3.cism_%04d.h.9001-01-01-00000.nc',rp,modnum(m)),'vvel');
+        mthk =ncread(sprintf('%sBG_spinup_ensemble_stage_3.cism_%04d.h.9001-01-01-00000.nc',rp,modnum(m)),'thk');
+        mbed=ncread(strcat(rp,'Greenland_5km_v1.1_SacksRev_c110629.nc'),'topg');
+        
+        siglevels=[0.00 0.15 0.30 0.45 0.60 0.75 0.83 0.90 0.95 0.98 1.00];
+        wgt=diff(siglevels);
+        wgt=wgt./sum(wgt);%already sums to one, but normalize anyways
+
+        for nlev=1:length(wgt);
+            vauvelaccum(:,:,nlev)=muvel(:,:,nlev).*wgt(nlev);
+            vavvelaccum(:,:,nlev)=mvvel(:,:,nlev).*wgt(nlev);
+        end
+        
+        vauvel=squeeze(sum(vauvelaccum,3));
+        vavvel=squeeze(sum(vavvelaccum,3));
+        
+        mthk=mthk(2:end,2:end);
+        mbed=mbed(2:end,2:end);
+        
+        mvel_temp=squeeze( sqrt(vauvel.^2 + vavvel.^2) );
+        
+        mvel_temp( mthk<10 & mbed>0 )=1;
+        mvel_temp( mthk<10 & mbed<0 )=nan;
+        
+        mvelmag(:,:,n) = mvel_temp;
+        ovelmag = squeeze( sqrt( vx.^2 + vy.^2 ) );
+
+        figure
+        
+        subplot(1,2,1)
+        contourf( log10(ovelmag+0.01), 30 ), shading flat
+        axis equal, axis tight,
+        set(gca,'Xtick',[],'Ytick',[])
+        h=colorbar; caxis( [ 0 3 ] );
+        ylabel(h,'Log_{10} balance velocity (m/yr)')
+        text(10,520,'a)','fontsize',fs)
+        
+        subplot(1,2,2)
+        contourf( log10(mvelmag(:,:,1)'+0.01), 30 ), shading flat
+        axis equal, axis tight,
+        set(gca,'Xtick',[],'Ytick',[])
+        h=colorbar; caxis( [ 0 3 ] );
+        ylabel(h,'Log_{10} modelled velocity (m/yr)')
+        text(10,520,'b)','fontsize',fs)
+
+        set(gcf, 'Renderer', 'painters')
+        print('-depsc2','figs/velocity_comparison')
+        print('-depsc2',fullfile(Jclim_figure_path,'velocity_comparison'));
+
+    end
+
+    mvelrange_good=range(mvelmag(:,:,1:5),3);
+    mvelrange_bad=range(mvelmag(:,:,6:10),3);
+    subplot(1,2,1)
+    pcolor(log10(mvelrange_good)'),shading flat, axis equal tight, h=colorbar
+    
+    title('Range of depth-averaged velocities: best 5')
+    ylabel(h,'Log_{10} modelled velocity range (m/yr)')
+    subplot(1,2,2)
+    pcolor(log10(mvelrange_bad)'),shading flat, axis equal tight, h=colorbar
+    title('Range of depth-averaged velocities: worst 5')
+    
+    ylabel(h,'Log_{10} modelled velocity range (m/yr)')
+    
+    print('-depsc2','figs/modelled_velocity_ranges')
+    
+
+    
+end

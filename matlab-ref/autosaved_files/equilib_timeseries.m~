@@ -1,0 +1,149 @@
+%%
+clear all
+version=getversion;
+if version == 7.8   
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropbox/Manuscripts/GIS_future/equilib
+else
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future/equilib
+end
+%% Get default catted timeseries files of Greenland data
+% !rm -r storage
+% !ssh jer@mare.seos.uvic.ca sh "PhD_output/future_equilib/catscript"
+% !scp jer@mare.seos.uvic.ca:PhD_output/future_equilib/tsicat.tar .
+% !tar -xvf tsicat.tar
+% !rm tsicat.tar
+
+%% Load timeseries
+
+en=7;
+for n=1:en
+  timeseries(n).smb=rnc(strcat('storage/',num2str(n),'.nc'),'L_icesmbN',0,1);
+  timeseries(n).smb_low=rnc(strcat('storage/',num2str(n),'_low.nc'),'L_icesmbN',0,1);  
+  timeseries(n).smb_high=rnc(strcat('storage/',num2str(n),'_high.nc'),'L_icesmbN',0,1);
+  timeseries(n).vol=rnc(strcat('storage/',num2str(n),'.nc'),'L_icevolN',0,1);  
+  timeseries(n).vol_low=rnc(strcat('storage/',num2str(n),'_low.nc'),'L_icevolN',0,1);   
+  timeseries(n).vol_high=rnc(strcat('storage/',num2str(n),'_high.nc'),'L_icevolN',0,1); 
+end
+kyr=linspace(0,40,40000);
+%% Check default tail files
+% !ssh jer@mare.seos.uvic.ca "tail -n 3 PhD_output/future_equilib/*/pr>PhD_output/future_equilib/tail.txt"
+% !ssh jer@hermes.westgrid.ca "tail -n 3 future_equilib/bracket_runs/*/pr>future_equilib/tail.txt"
+% !scp jer@mare.seos.uvic.ca:PhD_output/future_equilib/tail.txt ./defaulttail.txt
+% !scp jer@hermes.westgrid.ca:future_equilib/tail.txt ./brackettail.txt
+% edit defaulttail.txt
+
+%% Plot timeseries
+
+%ice volume
+scnsize=get(0,'Screensize');
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize*.75)
+
+R=linspace(0,1,en);
+B=linspace(1,0,en);
+maxY=timeseries(1).vol(1);
+hold on
+
+for n=1:en-1
+  len=min(length(timeseries(n).vol),25000);
+  len_low=min(length(timeseries(n).vol_low),25000);
+  co2{n}=strcat(num2str(n),'X PAL CO_2');
+  h(n)=plot(kyr(1:len),timeseries(n).vol(1:len),'Color',[R(n),0,B(n)],'LineWidth',2,'Linestyle','-');
+  plot(kyr(1:len_low),timeseries(n).vol_low(1:len_low),'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--');  
+  X=kyr(len)+0.3;
+  Y=timeseries(n).vol(len)
+  text(X,Y,co2{n},'Color',[R(n),0,B(n)])
+  %plot default efolding times
+  dv_e=(timeseries(n).vol(1)-timeseries(n).vol(end))*(1-(1/exp(1)));
+  v_e=timeseries(n).vol(1)-dv_e;
+  t=1;
+  while timeseries(n).vol(t)>v_e
+   t=t+1;
+  end
+  t_def=t;
+  h_e=plot(kyr(t),timeseries(n).vol(t));
+  set(h_e,'Marker','o','MarkerEdgeColor',[0 0 0],'MarkerFaceColor',[0 0 0],'Markersize',10);
+  %plot lower bracket efolding times
+  dv_e=(timeseries(n).vol_low(1)-timeseries(n).vol_low(end))*(1-(1/exp(1)));
+  v_e=timeseries(n).vol_low(1)-dv_e;
+  t=1;
+  while timeseries(n).vol_low(t)>v_e
+   t=t+1;
+  end
+  t_low=t;
+  ratio(n)=t_low/t_def;
+  h_e=plot(kyr(t),timeseries(n).vol_low(t));
+  set(h_e,'Marker','o','MarkerEdgeColor',[0,0,0],'MarkerFaceColor','none','Markersize',10);
+end
+mean_ratio=mean(ratio(2:en-1))
+xlabel('Time (kyr)','Fontsize',20);
+ylabel('GIS volume (% preindustrial volume)','Fontsize',20);
+set(gca,'Fontsize',20);
+axis tight
+ax=axis;ax(3)=400,axis(ax);
+set(gca,'XTick',linspace(0,25,6));
+set(gca,'YTick',linspace(0,maxY,5),'YTickLabel',linspace(0,100,5))
+%legend(h(:),co2{:});
+hTitle=title('Equilibrium simulations of GIS ice volume evolution','FontSize', 20);
+box on
+%increase vertical axis slightly
+ax=axis;ax(4)=maxY*1.01;axis(ax);
+grid on
+hold off
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 equilib_volevol.eps
+%%
+%smb
+% scnsize=get(0,'Screensize');
+% fig1=figure;
+% position = get(fig1,'Position');
+% set(fig1,'Position',scnsize*.75);
+% R=linspace(0,1,en);
+% B=linspace(1,0,en);
+% 
+% hold on
+% for n=1:en
+%   co2{n}=strcat(num2str(n*280.),' ppmv');
+%   h(n)=plot(timeseries(n).smb,'Color',[R(n),0,B(n)],'LineWidth',2,'Linestyle','-');
+%   plot(timeseries(n).smb_high,'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--');  
+%   plot(timeseries(n).smb_low,'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--'); 
+% end
+% xlabel('Year' );
+% ylabel('kg');
+% hTitle=title('Equilibrium suite GIS ice SMB (kg/yr)','FontName' , 'AvantGarde','FontSize', 15, 'FontWeight' , 'bold');
+% legend(h(:),co2{:},'FontSize',10);
+% axis tight
+% grid on
+% hold off
+% 
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 equilib_smbevol.eps
+
+% %% Fit exponential curve to each ice volume timeseries
+% %ice volume
+% scnsize=get(0,'Screensize');
+% fig1=figure;
+% position = get(fig1,'Position');
+% set(fig1,'Position',scnsize*.75)
+% for n=1:en
+%   %fit exponential curve
+%   clear tstrt tend ln xdata ydata c1 c2 fg yfit  
+%   tstrt=1;
+%   tend =length(timeseries(n).vol);
+%   ln=tend-tstrt+1;
+%   xdata=linspace(tstrt,tend,ln);
+%   ydata=timeseries(n).vol(tstrt:tend)';
+%   c1=ydata(tstrt);
+%   c2=ydata(ln);
+%   fg=2000.;
+%   x(n)=lsqcurvefit(@(x,xdata) exp_fit(x,xdata,c1,c2),fg,xdata,ydata);
+%   hold on 
+%   plot(ydata,'Color',[R(n),0,B(n)],'LineWidth',2);
+%   yfit=exp_fit(x(n),xdata,c1,c2);
+%   plot(yfit,'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--');
+%   hold off  
+% end
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 fit.eps

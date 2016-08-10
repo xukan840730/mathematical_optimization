@@ -1,0 +1,21 @@
+close all
+clear all
+
+smb(1,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice01'),3);
+smb(2,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice02'),3);
+smb(3,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice03'),3);
+smb(4,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice04'),3);
+smb(5,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice05'),3);
+smb(6,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice06'),3);
+smb(7,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice07'),3);
+smb(8,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice08'),3);
+smb(9,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice09'),3);
+smb(10,:,:)=mean(ncread('data/CESM_SMB.nc','s2x_Fgss_qice10'),3);
+
+%%
+
+test(:,:)=smb(5,:,:);
+test(test>1.e10) = nan;
+pcolor(test'),shading flat
+
+plot(smb(:,

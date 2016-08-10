@@ -1,0 +1,37 @@
+function [varout] = rnc(fname,vname,varargin)
+%% Load data from netCDF file to workspace
+%Syntax:
+%varout=rnc(fname,vname)
+%varout=rnc(fname,vname,scale,offset)
+%Inputs:
+%fname: netCDF file name (in quotes, i.e. 'example.nc')
+%vname: variable name (also in quotes)
+%scale (optional): scalar data multiplier
+%offset (optional): scalar data offset
+
+%% Sort optional arguments
+scale=1.;
+offset=0.;
+optargsize=size(varargin);
+if optargsize == 2
+  scale=varargin{1};
+  offset=varargin{2};
+elseif optargsize == 1
+  display('Warning: supply both scale and offset values, or neither.')
+end
+
+%% Evaluate whether file exists
+if exist(fname) ~= 2; 
+  display(strcat(fname,' DOES NOT SEEM TO EXIST!!!'));
+else
+  ncid=netcdf.open(fname,'NC_NOWRITE'); %open file
+  [ndims,nvars,ngatts,unlimdimid] = netcdf.inq(ncid);
+  for n=1:nvars;
+    [varname, xtype, dimids, numatts] = netcdf.inqVar(ncid,n)
+  end
+  varid = netcdf.inqVarID(ncid,vname); %get variable ID (note, you need to know the variable name to do this; you can get this with a call to netcdf.inqVar)
+  varout=netcdf.getVar(ncid,varid); %get the variable identified by the variable id varid, from the file identified by ncid.
+  netcdf.close(ncid) %close your file
+  varout=double(varout); %make sure the variable you've obtained is double-precision
+  varout=offset+(varout*scale); %apply optional offset and scaling to data
+end

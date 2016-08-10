@@ -1,0 +1,7 @@
+close all
+clear all
+
+for m=nmin:nmax;
+   load(strcat('downloaded_files/',num2str(m)),'','','','') 
+end
+        

@@ -1,0 +1,29 @@
+%%
+clear all
+version=getversion;
+if version == 7.8   
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropboqx/Manuscripts/GIS_future/hysteresis
+else
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future/hysteresis
+end
+
+%% Get catted timeseries files of Greenland data
+!rm -r animate_storage
+!ssh jer@mare.seos.uvic.ca sh "PhD_output/future_hysteresis/animate_catscript"
+!scp jer@mare.seos.uvic.ca:PhD_output/future_equilib/animate_cat.tar .
+!tar -xvf animate_cat.tar
+!rm animate_cat.tar
+
+%% Load h,hs array
+run={'20' '40' '60' '80' '90' '100'};
+en=length(run);
+
+for n=1:en
+  animate(n).h=rnc(strcat('animate_storage/',run{n},'.nc'),'h',0,1); 
+  animate(n).hs=rnc(strcat('animate_storage/',run{n},'.nc'),'hs',0,1);  
+end
+
+%% Animate hs field
+for n=1:en
+  animate_ice(animate(n).h,animate(n).hs,run{n});
+end

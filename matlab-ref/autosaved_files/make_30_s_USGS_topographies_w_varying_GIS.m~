@@ -1,0 +1,90 @@
+close all
+clear all
+
+%% load portion of USGS topography that is over Greenland
+
+LonStart=10800*3+1;
+LonCount=10800;
+LatStart=21600-4800+1;
+LatCount=4800;
+disp('Loading USGS htopo.')
+USGS_GIS_Slab=ncread('usgs-rawdata.nc','htopo',[LonStart LatStart],[LonCount LatCount]);
+disp('Loading USGS landfract.')
+USGS_GIS_Mask=ncread('usgs-rawdata.nc','landfract',[LonStart LatStart],[LonCount LatCount]);
+
+GISState={'0' '20' '40' '60' '80' '100'}
+
+for n=1:6
+
+    disp(['Processing ' GISState{n} ' ice loss topography.'])
+
+    close all
+
+    UVicInFile=strcat('../UVic_ESCM_topography/bamber_30sec_',GISState{n},'.nc');
+    disp('Loading UVic topog.')
+    UVic_GIS_Slab=fliplr(int32(ncread(UVicInFile,'usrf')));
+    disp('Loading UVic landmask.')
+    UVic_GIS_Mask=fliplr(int32(ncread(UVicInFile,'landmask')));
+    
+    %% modify UVic landmask to be one where UVic elevation is > 0
+    
+    UVic_GIS_Mask(UVic_GIS_Slab>0) = 1;
+    
+    %% Plot differences between masks prior to replacing USGS with UVic
+    
+    MaskDifference=zeros(size(USGS_GIS_Mask),'int32');
+    MaskDifference(USGS_GIS_Mask==UVic_GIS_Mask)=2;
+    MaskDifference(USGS_GIS_Mask>UVic_GIS_Mask)=3;
+    MaskDifference(USGS_GIS_Mask<UVic_GIS_Mask)=4;
+    ElevDifference=zeros(size(USGS_GIS_Mask),'int32');
+    ElevDifference(UVic_GIS_Mask>0)=USGS_GIS_Slab(UVic_GIS_Mask>0)-UVic_GIS_Slab(UVic_GIS_Mask>0);
+    
+    figure
+    
+    subplot(1,2,1)
+    imagesc(rot90(MaskDifference,1)); axis square tight
+    text(500,200,'blue: masks equal values ','Fontsize',15,'backgroundcolor',[1 1 1])
+    text(500,350,'red: USGS land, but UVic ocean ','Fontsize',15,'backgroundcolor',[1 1 1])
+    text(500,500,'green (around GIS coastline): USGS ocean, but UVic land ','Fontsize',15,'backgroundcolor',[1 1 1])
+    text(500,650,'green (other landmasses): original USGS landmask ','Fontsize',15,'backgroundcolor',[1 1 1])
+    title('Mask difference')
+    
+    subplot(1,2,2)
+    imagesc(rot90(ElevDifference,1)); axis square tight
+    axpos=get(gca,'Position');
+    h=colorbar;
+    ylabel(h,'meters')
+    set(gca,'Position',axpos)
+    title('Elevation difference')
+    
+    print('-dpng','figs/Mask_and_Topography_Difference')
+    
+    %% modify USGS topography/landmask to UVic values, where applicable
+    USGS_GIS_Slab_ALTERED=USGS_GIS_Slab;
+    USGS_GIS_Mask_ALTERED=USGS_GIS_Slab;
+    i=find(UVic_GIS_Mask>0);
+    USGS_GIS_Slab_ALTERED(i)=UVic_GIS_Slab(i);
+    USGS_GIS_Mask_ALTERED(i)=UVic_GIS_Mask(i);
+    
+    %% re-write this hyperslab to the USGS topography
+    USGSOutFile=strcat('usgs-rawdata-',GISState{n},'-percent-GIS-ice_loss.nc.nc')
+    disp('Writing altered USGS htopo.')
+    ncwrite(USGSOutFile,'htopo',USGS_GIS_Slab_ALTERED,[LonStart LatStart]);
+    disp('Writing altered USGS landfract.')
+    ncwrite(USGSOutFile,'landfract',USGS_GIS_Mask_ALTERED,[LonStart LatStart]);
+    
+    %%
+    
+    figure
+    
+    subplot(1,2,1)
+    imagesc(rot90(USGS_GIS_Mask)); axis square tight
+    title('Altered GIS-area USGS land mask')
+    
+    subplot(1,2,2)
+    imagesc(rot90(USGS_GIS_Slab)); axis square tight
+    title('Altered GIS-area USGS topography')
+    
+    print('-dpng','figs/Altered_Mask_and_Topography')
+    
+end

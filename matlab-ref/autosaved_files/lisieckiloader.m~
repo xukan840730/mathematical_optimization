@@ -1,0 +1,13 @@
+%%
+cd ~/School/Lisieki_curve/
+close all
+clear all
+
+%%
+load LR04stack.txt
+t=LR04stack(:,1);
+iso=LR04stack(:,2);
+clear LR04stack;
+h(1)=xlabel(Time (kyr)),'FontSize',30)
+ylabel('benthic ^{18}O','FontSize',30)
+plot(-t,iso)

@@ -1,0 +1,17 @@
+clear all
+close all
+ncload('etopo5.nc','topo');
+dimsize=size(topo)
+mask=zeros(dimsize(1),dimsize(2));
+mask(topo>0.)=1.;
+land_percent=zeros(dimsize(1),1);
+lat=linspace(-90,90,dimsize(1));
+for n=1:dimsize(1);
+  land_percent(n)=sum(mask(n,:))/dimsize(2);
+end
+plot(lat,land_percent,'Linewidth',2)
+title('Zonal average percent land coverage','Linewidth',20)
+xlabel('Latitude','Linewidth',20)
+
+axis tight
+  

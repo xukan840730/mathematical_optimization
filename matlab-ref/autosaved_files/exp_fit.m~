@@ -1,0 +1,2 @@
+function F = exp_fit(Vo,lifetime,Vequil)
+F=Vo*exp(-(tt/lifetime))+Vequil;

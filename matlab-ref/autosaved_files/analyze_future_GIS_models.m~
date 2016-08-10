@@ -1,0 +1,145 @@
+close all
+
+load_data = 0;
+if load_data
+    clear all
+    load_data = 1;
+end
+
+load_parameters = 1;
+plot_volume_evolution = 1;
+plot_volume_distribution = 1;
+plot_diagnostics_vs_parameters = 1;
+sp='/Volumes/Bugaboo/LHS_GIS_deglac_sens_to_polamp_and_alb/future/ensemble';
+
+%% Load data
+
+enumbers=[16 17 43];
+if load_data
+    v=cell(3,50);
+    for e=1:3;
+        en=enumbers(e);
+        for mn=1:50;
+            disp(['Loading data from [en,mn]: ' num2str(en) ', ' num2str(mn)])
+            path=fullfile(sp,num2str(en),num2str(mn),'*.tsi');
+            files=dir(fullfile(sp,num2str(en),num2str(mn),'tsi.*'));
+            v{e,mn}=[];
+            for nf=1:length(files)
+                v{e,mn}=[v{e,mn} ncread(fullfile(sp,num2str(en),num2str(mn),files(nf).name),'L_icevol')'];
+            end
+        end
+    end
+    
+end
+
+
+%%
+%sed 's/\([a-z]*\).*/\1/'
+if load_parameters
+    
+    for ee=1:3; %even though all LHS param
+        en=enumbers(e);
+        for mn=1:50;
+            system(sprintf('grep "adiff" %s/%s/%s/control.in > textfind.tmp',sp,num2str(en),num2str(mn)));
+            !sed -i "" "s/.*adiff=\([0-9]*\.[0-9]*\).*/\1/g" textfind.tmp
+            LHSp(ee,mn,1)=load('textfind.tmp');
+            'hello'
+            system(sprintf('grep "vcsfac" %s/%s/%s/control.in > textfind.tmp',sp,num2str(en),num2str(mn)));
+            !sed -i "" "s/.*vcsfac=\([-]*[0-9]*\.[0-9]*\).*/\1/g" textfind.tmp
+            LHSp(ee,mn,2)=load('textfind.tmp');            
+            
+        end
+    end
+    
+end
+
+
+%% Plot output
+
+if plot_volume_evolution
+    
+    figure
+    
+    cl={'r' 'g' 'b'};
+    clextrap={'r--' 'g--' 'b--'};
+    hold on
+    for e=[1 3];
+        for mn=1:50;
+            t=10:10:length(v{e,mn})*10;
+            plot(t,v{e,mn},cl{e})
+            slope=(v{e,mn}(end)-v{e,mn}(end-1))/10.;
+            b=v{e,mn}(end)-slope*t(end);
+            tend=-b/slope;
+            plot([t(end) tend],[v{e,mn}(end) 0],clextrap{e}) %%uncomment if you want extrapolated trends 
+        end
+    end
+    
+    ax=axis
+    ax(3)=0.;
+    ax(2)=10000.;
+    axis(ax)
+    
+    hold off
+    
+end
+
+if plot_volume_distribution
+    
+    figure
+    clear v_end
+    tmin=1.e20;
+    for e=1:3;
+        for mn=1:50;
+            tmin=min(tmin,length(v{e,mn}));
+        end
+    end
+    n=1;
+    for e=1:1;
+        for mn=1:50;
+            if length(v{e,mn})==400
+                v_end(n)=v{e,mn}(end);
+                n=n+1;
+            end
+        end
+    end
+    v_end=double(v_end);
+    hist(v_end,10);
+    
+end
+
+if plot_diagnostics_vs_parameters
+    
+    n=1
+    for e=1:1;
+        for mn=1:50;
+            if length(v{e,mn})==400
+                v_end(n)=v{e,mn}(end);
+                polamp(n)=pamp(mn)
+                ECS(n)=sens(mn)
+                n=n+1;
+            end
+        end
+    end   
+    
+    scatter(ECS,polamp)
+    
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

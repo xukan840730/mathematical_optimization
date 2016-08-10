@@ -1,0 +1,6 @@
+H_snow      =5. %m
+T_snow      =-15.%C
+spec_h_cap=2.054%J/(gK)
+lat_h_cap   =334%J/g
+
+H_refreeze =

@@ -1,0 +1,84 @@
+<()ReorderingLabel
+>()Reordering
+<()ScalingLabel
+>()Scaling
+<()NoneLabel
+>()None
+<()AutoLabel
+>()Auto
+<()LeastToMostSelectiveSection
+>()Least selective section to most selective section
+<()MostToLeastSelectiveSection
+>()Most selective section to least selective section
+<()CustomReordering
+>()Custom reordering
+<()NumeratorOrder
+>()Numerator Order
+<()DenominatorOrder
+>()Denominator Order
+<()UseNumeratorOrder
+>()Use Numerator Order
+<()SpecifyLabel
+>()Specify:
+<()ScaleValuesOrder
+>()Scale Values Order
+<()ScaleLabel
+>()Scale
+<()LessOverflow
+>()Less Overflow
+<()HighestSNR
+>()Highest SNR
+<()MaximumNumerator
+>()Maximum Numerator
+<()NumeratorConstraint
+>()Numerator Constraint
+<()OverflowMode
+>()Overflow Mode
+<()ScaleValueConstraint
+>()Scale Value Constraint
+<()MaxScaleValue
+>()Max Scale Value:
+<()RevertToOriginalFilter
+>()Revert to Original Filter
+<()ScaleNone
+>()None
+<()ScaleUnit
+>()Unit
+<()ScaleNormalize
+>()Normalize
+<()ScalePowersOfTwo
+>()Powers of Two
+<()OverflowWrap
+>()Wrap
+<()OverflowSaturate
+>()Saturate
+<()SOSReorderDlgTitle
+>()Reordering and Scaling of Second-Order Sections
+<()XilinxCoreGenCoeefFile
+>()XILINX CORE Generator coefficient file(*.coe)
+<()ExpQuantizedCoeffsToCOEFile
+>()Export quantized coefficients to .COE file
+<()XilinxCoreGenDistributedArithFIRCoeffFile
+>()XILINX CORE Generator(tm)Distributed Arithmetic FIR filter coefficient (.COE) File
+<()EpassEstopLessThanZeroError
+>()Estop and Epass should be positive numbers strictly less than 1
+<()EpassGreaterThanEstopError
+>()Epass should be greater than Estop
+<()AstopLessThanApassError
+>()Astop should be greater than Apass
+<()ApassAstopLessThanZeroError
+>()Apass and Astop should be positive numbers
+<()MagText6dB_1
+>()The attenuation at cutoff frequency(ies) is fixed at 6 dB
+<()MagText6dB_2
+>()(half the passband gain).
+<()MagText3dB_1
+>()The attenuation at cutoff frequency(ies) is fixed at 3 dB
+<()MagText3dB_2
+>()(half the passband power).
+<()DecimalEntry
+>()Decimal
+<()HexadecimalEntry
+>()Hexadecimal
+<()BinaryEntry
+>()Binary

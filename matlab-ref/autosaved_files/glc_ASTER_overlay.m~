@@ -1,0 +1,89 @@
+clear all
+close all
+
+load data/Iceland.mat;
+[y,i]=max([glc.Area_km2]);
+
+%% Load topography data
+
+cmin = 1;
+cmax = length(glc);
+cc=[]
+for c=cmin:cmax;
+    if isShapeMultipart(glc(c).X,glc(c).Y)
+        cc=[cc c];
+    end
+end
+kmPerCell = 30. ./ 1000.; %Aster resolution (30m)
+radiusInKM = 6378.137;
+mincellsize = km2deg(kmPerCell, radiusInKM);
+maxarraysize = 8192; % Matlab-specified max raster size
+
+layers = wmsfind('nasa.network*elev','SearchField', 'serverurl');
+layers= wmsupdate(layers);
+aster = layers.refine('EarthAsterElevations30m', 'SearchField', 'any');
+
+%%
+
+for c=10:10;
+    
+    
+    c
+    
+    
+    %if max(glc(c).Y) - min(glc(c).Y) > cellSize &&  max(glc(c).X) - min(glc(c).X) > cellSize;
+    
+    latlim =[ min([glc(c).Y])-mincellsize max([glc(c).Y])+mincellsize ]; %pad by two cellsizes, to avoid dying on very small g
+    lonlim =[ min([glc(c).X])-mincellsize max([glc(c).X])+mincellsize ];
+    dlat=latlim(2)-latlim(1);
+    dlon=lonlim(2)-lonlim(1);
+    cellsize = max([mincellsize dlat/maxarraysize dlon/maxarraysize]); %request highest resolution possible: either default ASTER resolution, or a resolution that doesn't go over Matlab limits on array size (see wmsread documentation)
+    
+    % Get Aster elevation grid
+    [ae,er] = wmsread(aster, 'Latlim', latlim,...
+        'Lonlim', lonlim,...
+        'CellSize', cellsize.*3,...
+        'RelTolCellSize',1.); %???
+    
+    %Should filter these elevations (Alex Gardner suggestion)
+    
+    %Get rasterized glacier grid
+    [gg,gr] = vec2mtx(glc(c).Y,glc(c).X,zeros(size(ae)),er,'filled');
+    
+    %Get glacierized elevations
+    ge=nan(size(ae));
+    ge(gg==0.)=ae(gg==0.);
+    
+    
+    
+    % extract glacier elevation hypsometry
+    
+    bres=50.;
+    %get range of bins encompassing glacier elevation
+    emin=max(0.,floor(min(ge(:))./bres).*bres);
+    emax=ceil(max(ge(:))./bres).*bres;
+    
+    ebins{c}=emin:bres:emax;
+    a{c}=squeeze(zeros(length(ebins{c})-1,1)); %area bins are bounded by elevation bin limits
+    for e=1:length(a{c});
+        a{c}(e)=areamat( ((ge<ebins{c}(e+1))&(ge>=ebins{c}(e))) , er , wgs84Ellipsoid('kilometers') );
+    end
+    atot{c}=sum(a{c});
+    
+    %end
+    
+    figure
+    h=geoshow(ge,gr,'DisplayType','texturemap'),axis tight
+    x=get(h,'X
+    
+end
+hold off
+%%
+figure
+hold on
+for c=10:10;
+    bar(ebins{c}(2:end),a{c}./atot{c})
+end
+hold off
+
+

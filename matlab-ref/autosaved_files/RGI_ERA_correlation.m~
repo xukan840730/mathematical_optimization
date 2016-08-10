@@ -1,0 +1,121 @@
+close all
+clear all
+
+reprocess_Gridded_RGI = 0;
+
+InputDir='ERAInterim_data';
+ERALong=ncread(fullfile(InputDir,'ERA_Interim_elev.nc'),'longitude');
+ERALat=ncread(fullfile(InputDir,'ERA_Interim_elev.nc'),'latitude');
+dLong=ERALong(2)-ERALong(1);
+dLat=ERALat(1)-ERALat(2);
+
+%Era data are defined exactly at each lat/lon point.  So: generate cell edges such
+%that the cell centers are defined at these exact points.
+LonEdges=(ERALong(1)-(0.5*dLong)):dLong:(ERALong(end)+(0.5*dLong));
+LatEdges=(ERALat(end)-(0.5*dLat)):dLat:(ERALat(1)+(0.5*dLat));
+LonEdges=double(LonEdges);
+LatEdges=double(LatEdges);
+
+
+%%
+
+if reprocess_Gridded_RGI
+    [GriddedGlacierCount,...
+        GriddedMeanElevation,...
+        GriddedHypsometry,...
+        GriddedElevationBins...
+        GriddedSTD...
+        TotalArea...
+        GriddedCoverage...
+        GriddedMinElevation...
+        GriddedMaxElevation...
+        GriddedBahrELA] = sort_RGI_glaciers_onto_regular_grid(LonEdges,LatEdges);
+else
+    load('Gridded_RGI_data/RGIGriddedData.mat'...
+        ,'GriddedMeanElevation'...
+        ,'GriddedSTD'...
+        ,'GriddedMinElevation'...
+        ,'GriddedMaxElevation'...
+        ,'GriddedCoverage')
+end
+
+
+%%
+close all
+LapseRate=0.007; %C/km
+ERASAT=ncread(fullfile(InputDir,'ERA_Interim_2m_SAT.nc'),'t2m');
+ERASAT=flipdim(permute(ERASAT,[2 1 3]),1);
+ERAElev=flipud(ncread(fullfile(InputDir,'ERA_Interim_elev.nc'),'z')')./9.80665;
+%lapse-adjust ERASAT to mean glacier elevation
+ERASAT=bsxfun(@plus,ERASAT,(ERAElev-GriddedMeanElevation).*LapseRate); %adjust ERA SATs to mean glacier elevation
+ERASAT(:,:,end-6:end)=[]; %remove last few months of this yearERA
+nyears=size(ERASAT,3)./12;
+if mod(floor(nyears),nyears) ~= 0
+    error('Not full years')
+end
+
+%Aggregate ERASAT into climatological monthly means (of daily means)
+ERASATClimatologicalMean=zeros(size(ERASAT,1),size(ERASAT,2),12);
+for nmon=1:12
+    MonthSlab=ERASAT(:,:,nmon:12:nyears*12);
+    ERASATClimatologicalMean(:,:,nmon)=mean(MonthSlab,3);
+end
+
+%Sum days above zero.  
+PDDAtMeanElevation=zeros(size(ERASATClimatologicalMean));
+i=find(ERASATClimatologicalMean>0.);
+PDDAtMeanElevation(i)=ERASATClimatologicalMean(i);
+PDDAtMeanElevation=squeeze(sum(PDDAtMeanElevation,3));
+PDDAtMeanElevation(PDDAtMeanElevation==0)=nan;
+
+%% Load ERA precipitation
+ERAPrecip=ncread(fullfile(InputDir,'ERAInterim_precip.nc'),'tp');
+ERAPrecip=flipdim(permute(ERAPrecip,[2 1 3]),1);
+% accumulate two synoptic mean accumulations to get monthly mean accumulation (right?, see http://www.ecmwf.int/products/data/archive/data_faq.html#eraintmeans)
+ERAPrecip=ERAPrecip(:,:,2:2:end)+ERAPrecip(:,:,1:2:end-1);
+ERAPrecip(:,:,end-6:end)=[]; %remove last few months of this year's ERA
+%Aggregate ERASAT into annual accumulations (of daily means)
+ERAPrecipClimatologicalMean=zeros(size(ERAPrecip,1),size(ERAPrecip,2));
+for nmon=1:12
+    MonthSlab=ERAPrecip(:,:,nmon:12:nyears*12);
+    ERAPrecipClimatologicalMean=ERAPrecipClimatologicalMean+sum(MonthSlab,3);
+end
+% remove points where no glaciers occur
+ERAPrecipClimatologicalMean(isnan(PDDAtMeanElevation))=nan;
+
+%% Do some plotting
+subplot(1,2,1)
+pcolor(PDDAtMeanElevation),shading flat, colorbar
+title('PDDs')
+subplot(1,2,2)
+pcolor(ERAPrecipClimatologicalMean),shading flat, colorbar
+title('Precip')
+
+figure
+subplot(2,1,1)
+plot(PDDAtMeanElevation,ERAPrecipClimatologicalMean,'r.')
+ax=axis;ax(1)=2900;ax(2)=3300;ax(4)=3.;axis(ax);
+title('PDD vs. Precip')
+
+subplot(2,1,2)
+plot(ERAPrecipClimatologicalMean,ElevRange,'r.')
+title('Precip vs. elevationrange')
+
+
+
+%% Do some correlations
+PDDcorr=PDDAtMeanElevation(~isnan(PDDAtMeanElevation));
+Precipcorr=ERAPrecipClimatologicalMean(~isnan(PDDAtMeanElevation));
+Elevcorr=ElevRange(~isnan(PDDAtMeanElevation));
+
+corrcoef(PDDcorr,Precipcorr)
+
+corrcoef(PDDcorr,Elevcorr)
+
+
+
+
+
+
+
+

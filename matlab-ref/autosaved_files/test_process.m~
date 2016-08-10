@@ -1,0 +1,36 @@
+function
+f=dir('all10/*10g');
+
+disp(['Loading GLOBE tile ' f(1).name])
+fid=fopen(fullfile('all10',f(1).name));
+topo=fread(fid,[10800 4800],'*uint16','l')';
+topo(topo>20000)=0.;
+fclose(fid)
+
+%% Generate latitude weighting
+offset=1./60./60.*30./2; %this gives half the distance of a 30-second grid spacing (i.e. 15-second distance)
+coslat=cos ( deg2rad(linspace(90-offset,50+offset,size(topo,1))) )'; %lat(1) = north pole ( - offset )
+coslat=repmat(coslat,1,size(topo,2));
+
+%% Aggregate to coarse grid
+CESMtopo=zeros(size(topo)./6);
+
+tic
+for i=1:size(CESMtopo,1);
+    disp(['Processing done (%): ' num2str(i/size(CESMtopo,1))])
+    for j=1:size(CESMtopo,2);
+        is=(i-1).*6 + 1;
+        ie = is + 5;
+        js=(j-1).*6 + 1;
+        je = js + 5;
+        subtopoarr=single(topo( is:ie , js:je ));
+        subcoslatarr=coslat( is:ie , js:je );
+        CESMtopo(i,j)=sum(subtopoarr(:).*subcoslatarr(:)) ./ sum(subcoslatarr(:)); %area-weight data by latitude
+    end
+end
+toc
+
+%% plot
+
+figure,imagesc(topo),caxis([0 6000]),colorbar
+figure,imagesc(CESMtopo),caxis([0 6000]),colorbar

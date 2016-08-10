@@ -1,0 +1,56 @@
+
+close all
+clear all
+ts_div=2;
+dt=3.154e7/ts_div; %tenth-year timesteps
+Cp=1.05e7;
+c(1)=350;
+T(1)=0;
+la=1.3;
+
+for t=2:100*ts_div
+  c(t)=c(t-1)*(1.+0.01/ts_div);
+end
+
+%Forward-Euler solution to 2f, using T(t) as base point.
+for t=2:1:70*ts_div;
+  dQ=5.77*log(c(t)/c(1));
+  T(t)=dt/Cp*(dQ-la*T(t-1))+T(t-1);
+end
+
+figure
+subplot(1,2,1)
+plot(T+280)
+axis tight
+title('Temperature evolution')
+xlabel('time')
+ylabel('K')
+subplot(1,2,2)
+plot(c)
+axis tight
+title('CO2 concentration')
+xlabel('time')
+ylabel('ppmv')
+
+%Forward-Euler solution to 2f, using T(t+1) as base point.
+
+
+for t=2:1:70*ts_div;
+  dQ=5.77*log(c(t+1)/c(1));
+  T(t)=(Cp/dt*T(t-1)+dQ)*(1/(Cp/dt+la));
+end
+figure
+subplot(1,2,1)
+plot(T+280)
+axis tight
+title('Temperature evolution')
+xlabel('time')
+ylabel('K')
+subplot(1,2,2)
+plot(c)
+axis tight
+title('CO2 concentration')
+xlabel('time')
+ylabel('ppmv')
+
+  

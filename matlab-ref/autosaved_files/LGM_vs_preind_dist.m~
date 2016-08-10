@@ -1,0 +1,41 @@
+%%
+clear all
+close
+version=getversion;
+if version == 7.8   
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropbox/Manuscripts/GIS_future/incept
+else
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future/incept
+end
+
+%% Load LGM and preind. ice thicknesses from hysteresis directories
+lgm=rnc(strcat('animate_storage/lgm.nc'),'h',0,1);  
+preind=rnc(strcat('animate_storage/1.nc'),'h',0,1); 
+slice=30;
+if version == 7.8
+  lgmsl=lgm(:,:,slice);
+  preindsl=preind(:,:,slice);    
+else
+  lgm=permute(lgm,[3 2 1]);
+  preind=permute(preind,[3 2 1]);
+  h{1}=lgm(:,:,slice)';
+  h{2}=preind(:,:,slice)';  
+end
+maxval=max(max(lgm(:,:,slice)));
+scnsize=get(0,'Screensize');
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize);
+ha=tight_subplot(1,2,[0.1 0.01],[0.02 0.1],[0.1 0.05]);
+labels={'a' 'b'}
+for n=1:2
+  axes(ha(n));contourf(preindsl);
+  caxis([0 maxval]);axis equal tight off
+  text(-40,140,labels{n});
+end
+cb=colorbar
+set(cb,'FontSize',20)
+ylabel(cb,'meters','FontSize',20)
+text(-75,145,'Supplementary Figure 1: Ice growth at 180 ppmv CO_2 and 280 ppmv CO_2','FontSize',20)
+set(gcf, 'PaperPositionMode', 'auto')
+print -depsc2 lgm_vs_preind.eps

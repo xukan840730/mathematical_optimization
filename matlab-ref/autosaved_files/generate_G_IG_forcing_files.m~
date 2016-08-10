@@ -1,0 +1,119 @@
+close all
+clear all
+
+%% generate a long time-series of forcing files for a tg run.
+% the forcing files are interpolated end-member climatologies from the lgm, mid-holocene, and preindustrial.
+% the initial forcing will be from a mid-holocene simulation
+%do 200 climate snapshots, where climate is constant for 600 years.
+
+%model time starts at t=0 at 122 ka.
+
+%load  isotope data.  data is to year 2000.  so, to end at 1850, omit loading first 150 years (8 indices).
+load ngrip_o18.m %http://www.iceandclimate.nbi.ku.dk/data/2010-11-19_gicc05modelext_for_ngrip.txt/
+paleotime=-flipud(ngrip_o18(8:end,1)); %paleo-time = years before 2000.  Flipped so running from oldest to youngest.
+o18=flipud(ngrip_o18(8:end,3));
+clear ngrip_o18
+
+% if (range(diff(paleotime))~=0.) 
+%     error('Error: code cannot deal with unequal time spacing in isotope record.')
+% else
+
+%find  time series indices corresponding to lgm and mid-holocene.
+dtime=600; %range of time to take average d18 values over and assume constant climate 
+if mod(dtime,30) ~= 0
+  error('dtime must divide into 30, so that 30-year climatologies can be evening slotted into this longer snapshot period.')
+end
+lgmtime=-21000;
+mhtime=-6000;
+
+ilgm=find(paleotime>lgmtime,1,'first'); %find discrete lgm point
+imh=find(paleotime>mhtime,1,'first'); %find discrete mid-holocene point
+lgmo18=mean(o18(paleotime>lgmtime-dtime/2 & paleotime<lgmtime+dtime/2));
+mho18=mean(o18(paleotime>mhtime-dtime/2 & paleotime<mhtime+dtime/2));
+do18=lgmo18-mho18;
+
+o18(018>mho18)=mho18;
+o18(018<lgmo18)=lgmo18;
+
+% hold on
+% plot(paleotime,o18,'linewidth',1)
+% plot(paleotime(ilgm),lgmo18,'r*')
+% plot(paleotime(imh),mho18,'r*')
+% hold off
+
+%% load end members
+
+nyr=30;
+nlev=36;
+smb=cell(2,nyr,nlev);
+tsurf=cell(2,nyr,nlev);
+for yr=1:nyr
+    disp(['loading end-member years: ' num2str(yr)])
+    for vlev=1:nlev
+        smb{1,yr,vlev}=sparse(ncread(strcat('G_IG_forcing/LGM_climatology/lgm_spinup.cpl.hs2x.',sprintf('%4.4d',yr),'-01-01.nc'),sprintf('s2x_Fgss_qice%2.2d',vlev)));
+        smb{2,yr,vlev}=sparse(ncread(strcat('G_IG_forcing/MH_climatology/mid_holocene_spinup.cpl.hs2x.',sprintf('%4.4d',yr),'-01-01.nc'),sprintf('s2x_Fgss_qice%2.2d',vlev)));
+        tsurf{1,yr,vlev}=sparse(ncread(strcat('G_IG_forcing/LGM_climatology/lgm_spinup.cpl.hs2x.',sprintf('%4.4d',yr),'-01-01.nc'),sprintf('s2x_Ss_tsrf%2.2d',vlev)));
+        tsurf{2,yr,vlev}=sparse(ncread(strcat('G_IG_forcing/MH_climatology/mid_holocene_spinup.cpl.hs2x.',sprintf('%4.4d',yr),'-01-01.nc'),sprintf('s2x_Ss_tsrf%2.2d',vlev)));
+    end
+end
+
+%%
+
+is=1;
+ts=paleotime(is);
+
+RunStepOffset=1;
+if ~exist(strcat('RunDir',num2str(RunStepOffset)));
+    mkdir(strcat('RunDir',num2str(RunStepOffset)))
+end
+
+while ts < paleotime(imh)
+
+    %Generate interpolated climate states
+
+    ie=find(paleotime > paleotime(is)+dtime, 1 , 'first' );
+    meano18=mean(o18(is:ie));
+    w(1)=(meano18-mho18)/do18;
+    w(1)=max(0,min(w(1),1));
+    w(2)=1-w(1);
+    smbinterp=zeros(288,192,nlev);
+    tsurfinterp=zeros(288,192,nlev);
+
+%     for yr=1:nyr %loop that goes 1:30
+%         %Forcing year always goes back to 0.  
+%         %If forcing year reaches 9000, make a new directory, for a new run (given 10000 year limit).
+%         %Also, reset ForcingYear to 1.
+%         ForcingYear=paleotime(is) - min(paleotime) + yr - (RunStepOffset-1)*9000;
+%         if ForcingYear>9000
+%             RunStepOffset=RunStepOffset+1;
+%             if ~exist(strcat('RunDir',num2str(RunStepOffset)));
+%                [SUCCESS,MESSAGE,MESSAGEID] = mkdir(strcat('RunDir',num2str(RunStepOffset)));
+%             end
+%         end
+%         fname=sprintf('processed_forcing_files/G_IG_forcing.cpl.hs2x.%6.6d-01-01.nc',ForcingYear);
+%         delete(fname);
+%         for vlev=1:nlev
+%             smbinterp = smb{1,yr,vlev}.*w(1) + smb{2,yr,vlev}.*w(2);
+%             tsurfinterp = tsurf{1,yr,vlev}.*w(1) + tsurf{2,yr,vlev}.*w(2);
+%             vname=sprintf('s2x_Ss_qice%2.2d',vlev);
+%             nccreate(fname,vname,'Format','64bit','Dimensions',{'s2x_nx',288,'s2x_ny',192,'time',1},'Datatype','single')
+%             ncwrite(fname,vname,full(smbinterp),[1 1 1]);
+%         end
+%         %copy each forcing year to a series of links, fill out the dtime forcing period with looped climate forcing.
+%         for lyr = ForcingYear+nyr : nyr : ForcingYear-1+dtime;
+%             linkfname=sprintf('processed_forcing_files/G_IG_forcing.cpl.hs2x.%6.6d-01-01.nc',lyr);
+%             command=sprintf('ln -s -f %s %s',fname,linkfname);
+%             system(command);
+%         end
+% 
+%    
+% 
+%     end
+
+    for yr=1:dtime
+    
+
+    is=ie+1;
+    ts=paleotime(is);
+
+end

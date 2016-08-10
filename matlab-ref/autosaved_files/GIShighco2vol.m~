@@ -1,0 +1,23 @@
+clear all
+
+%%
+getloc='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/highco2_GISonly/allhs.nc';
+putloc='allhs.nc';
+exists=exist(putloc,'file');
+if (exists==0)
+  clear command
+  command=sprintf('scp %s %s',getloc,putloc)
+  system(command);
+end
+
+%%
+ncload('allhs.nc');
+
+%%
+close all
+for n=1:4
+  temp(:,:)=hs(n,:,:);
+  subplot(4,n,1),pcolor(temp),shai
+  axis equal tight; box off;set(gca,'Visible','off')
+end
+print('-djpeg',strcat('hs',int2str(n)))

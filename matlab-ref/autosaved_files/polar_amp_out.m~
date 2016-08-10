@@ -1,0 +1,298 @@
+%% Figure generation m-file for GIS polar amplification runs
+close all
+clear all
+
+%% Set figures to print to 1, and update data to 1 (if wanting to update)  
+GIS_deglac_volume_evol=                     1; 
+GIS_SMB_evolution=                          0;
+  default_evol=                                0;
+  default_p_amp_evol=                          1;
+  default_p_alb_evol=                          0;
+GIS_geom_evolution=                         0;
+
+n=default_evol+default_p_amp_evol+default_p_alb_evol;
+if n > 1
+  error('Cannot have all cookies at once','ID',n)
+end
+%% Set default figures parameters (font sizes, linewidths, exportfig, etc.)
+fig_format
+%%
+mounted_directory='/Volumes/Mare/playground/polar_amp/';
+
+if default_evol
+    runpath= {'' '_amp/' ''};
+elseif default_p_amp_evol
+    runpath= {'_no_amp/' '_amp/' '_high_amp/' '_amp_high_alb/' '_amp_low_alb/'}
+elseif default_p_alb_evol
+    runpath= {'_amp_high_alb/' '_amp/' '_amp_low_alb/'};
+end 
+i_low_run=1;i_def_run=2;i_high_run=3; i_high_alb=4; i_low_alb=5;
+if default_evol
+  runs=[i_def_run];  
+elseif default_p_alb_evol
+  runs=[i_low_run i_def_run i_high_run];  
+elseif default_p_amp_evol
+  runs=[i_low_run i_def_run i_high_run i_high_alb i_low_alb];   
+end
+%%
+
+dt=10.;
+co2min=2;
+co2max=5;
+cmap(i_low_run,:)=[0 0 1];
+cmap(i_def_run,:)=[0 0 0];
+cmap(i_high_run,:)=[1 0 0];
+
+%%
+if GIS_deglac_volume_evol
+    hf=figure;
+
+    vname='L_icevolN';
+    %get total number of panes needed (after removing odd pane if needed)
+    panes=co2max-co2min+1;
+    panes=panes-mod(panes,2);
+    %set up subplot handles
+    ha=tight_subplot(2,panes/2,0.1,0.1,0.1);
+
+    time=dt:dt:100000.;
+    n=0;
+    !rm tailfile
+    for co2=co2min:co2max;
+        %get appropriate pane handle
+        n=n+1;
+        axes(ha(n))
+ 
+        for namp=runs;
+            minlen=1.e20;
+            tsi_file_root=strcat(mounted_directory,num2str(co2),runpath{namp})
+            tsi_files=dir(strcat(tsi_file_root,'tsi.*'))
+            tsi_files.name
+            var{namp}=[];
+            for nfiles=1:length(tsi_files);
+                fname=strcat(tsi_file_root,tsi_files(nfiles).name)
+                var{namp}=[var{namp} rnc(fname,vname)'];
+            end          
+            
+            %convert ice volume to % of original volume
+            var{namp}=var{namp}/var{namp}(1)*100.;
+        end
+                 
+        hold on
+        
+        %First plot polar amp sensitivity
+        if default_p_amp_evol || default_p_alb_evol
+          
+          %plot spread: no_amp to _amp.  First set remainder of high-amp run to 0, if bottomed and shorter
+          %than amp run
+          if var{i_def_run}(end)<0.5;
+             len=max(length(var{i_def_run}),length(var{i_low_run}));
+             var{i_def_run}(end:len)=0.;
+          end
+          len=min(length(var{i_low_run}),length(var{i_def_run}));
+          [ph(1),msg]=jbfill(time(1:len)...
+                         ,var{i_low_run}(1:len)...
+                         ,var{i_def_run}(1:len)...
+                         ,[0 0 1],[0 0 0],0,1);
+
+          %plot spread: amp to high_amp.  First set remainder of high-amp run to 0, if bottomed and shorter
+          %than amp run
+          if var{i_high_run}(end)<0.5;
+             len=max(length(var{i_def_run}),length(var{i_high_run}));
+             var{i_high_run}(end:len)=0.;
+          end
+          len=min(length(var{i_def_run}),length(var{i_high_run}));
+          [ph(2),msg]=jbfill(time(1:len)...
+                         ,var{i_high_run}(1:len)...
+                         ,var{i_def_run}(1:len)...
+                         ,[1 0 0],[0 0 0],0,1);
+        end
+        if default_p_amp_evol
+            %overlay albedo runs
+         
+                      %plot spread: no_amp to _amp.  First set remainder of high-amp run to 0, if bottomed and shorter
+          %than amp run
+          len=min(length(var{i_low_alb}),length(var{i_def_run}));
+          [ph(1),msg]=jbfill(time(1:len)...
+                         ,var{i_low_run}(1:len)...
+                         ,var{i_def_run}(1:len)...
+                         ,[0 0 1],[0 0 0],0,0.5);
+
+          %plot spread: amp to high_amp.  First set remainder of high-amp run to 0, if bottomed and shorter
+          %than amp run
+          if var{i_high_alb}(end)<0.5;
+             len=max(length(var{i_def_run}),length(var{i_high_run}));
+             var{i_high_run}(end:len)=0.;
+          end
+          len=min(length(var{i_def_run}),length(var{i_high_run}));
+          [ph(2),msg]=jbfill(time(1:len)...
+                         ,var{i_high_run}(1:len)...
+                         ,var{i_def_run}(1:len)...
+                         ,[1 0 0],[0 0 0],0,0.5);
+            
+        end
+        
+        
+        %Plot main run
+        t=length(var{i_def_run});
+        h=plot(time(1:t),var{i_def_run},'k','LineWidth',2);
+
+        %set axis, labels, etc
+        xmin=0 ;
+        xmax=5000;
+        xint=1000;
+        ymin=0;
+        ymax=100;
+        yint=20;
+        axis([xmin xmax ymin ymax]);
+        if n > panes/2
+          XLabel('time (yr)');
+        end
+        if n == 1 || n == panes/2+1
+          YLabel('GIS volume (%)');
+        end 
+        set(gca,...
+            'XTick',0:xint:xmax,...
+            'XTicklabel',0:xint:xmax,...
+            'YTick',0:yint:ymax,...
+            'YTicklabel',0:yint:ymax)
+        title(strcat('CO2=',num2str(co2*280),' ppmv'))
+        hold off
+    end
+    if default_p_amp_evol
+      fname='polar_amp_figs_storage/default_p_amp_evol'
+    elseif default_p_alb_evol
+      fname='polar_amp_figs_storage/default_p_alb_evol'  
+    elseif default_evol
+      fname='polar_amp_figs_storage/default_evol'
+    end
+    exportfig(hf,fname)
+
+%Plot maximum rate of ice loss as a function of CO2
+if default_evol && GIS_deglac_volume_evol
+    hf=figure 
+	hf=plot([1:5]*280,[0 dVdCO2max],'-*');
+    axis tight
+    title('d(dV/dT)/d[CO_2]');
+	exportfig(hf,'polar_amp_figs_storage/dVdCO2')
+end
+    
+end
+%%
+if GIS_SMB_evolution
+    hf=figure;
+
+    vname='L_icesmbN';
+    %get total number of panes needed (after removing odd pane if needed)
+    panes=co2max-co2min+1;
+    panes=panes-mod(panes,2);
+    %set up subplot handles
+    ha=tight_subplot(2,panes/2,0.1,0.1,0.1);
+
+    time=dt:dt:100000.;
+    n=0;
+    !rm tailfile
+    for co2=co2min:co2max;
+        %get appropriate pane handle
+        n=n+1;
+        axes(ha(n))
+ 
+        for namp=runs;
+            minlen=1.e20;
+            tsi_file_root=strcat(mounted_directory,num2str(co2),runpath{namp});
+            command=sprintf('echo "Tail of run %s":>> tailfile; tail -n 1 %spr>>tailfile',tsi_file_root,tsi_file_root);
+            system(command);
+            tsi_files=dir(strcat(tsi_file_root,'tsi.*'));
+            var{namp}=[];
+            for nfiles=1:length(tsi_files);
+                fname=strcat(tsi_file_root,tsi_files(nfiles).name);
+                var{namp}=[var{namp} rnc(fname,vname)'];
+            end
+        end
+        hold on
+
+        if default_p_amp_evol || default_p_alb_evol
+          t=length(var{i_low_run});   
+          h=plot(time(1:t),var{i_low_run},'k','LineWidth',1); 
+          t=length(var{i_high_run});
+          h=plot(time(1:t),var{i_high_run},'k','LineWidth',1);
+        end
+        %Plot main run
+        t=length(var{i_def_run});
+        h=plot(time(1:t),var{i_def_run},'k','LineWidth',2);
+        
+        %set axis, labels, etc
+        xmin=0 ;
+        xmax=5000;
+        xint=1000;
+        ymin=-2e15;
+        yint=5e14;
+        ymax=1e15;
+        axis([xmin xmax ymin ymax]);
+        if n > panes/2
+          XLabel('time (yr)');
+        end
+        if n == 1 || n == panes/2+1
+          YLabel('GIS smb (%)');
+        end 
+        set(gca,...
+            'XTick',0:xint:xmax,...
+            'XTicklabel',0:xint:xmax,...
+            'YTick',0:yint:ymax,...
+            'YTicklabel',0:yint:ymax)
+        title(strcat('CO2=',num2str(co2*280),' ppmv'))
+        hold off
+    end
+    if default_p_amp_evol
+      fname='polar_amp_figs_storage/default_p_amp_smb_evol'
+    elseif default_p_alb_evol
+      fname='polar_amp_figs_storage/default_p_alb_smb_evol'  
+    elseif default_evol
+      fname='polar_amp_figs_storage/default_smb_evol'
+    end
+    exportfig(hf,fname)
+end
+
+%%
+if GIS_geom_evolution
+    vname='hs';
+    for co2=5:5;
+        for namp=i_def_run:i_def_run;
+            
+            hf=figure;
+            
+            file_root=strcat(mounted_directory,num2str(co2),amp{namp});
+            files=dir(strcat(file_root,'Greenland_restart*'));
+            
+            fmsk=1;
+            n=length(files)-mod(length(files),2);%remove last file from list, for even 2-by-x plot
+            ha = tight_subplot(2, n/2, 0.01, 0.01, 0.1);
+            hold on
+            for nfile=1:n; 
+                fname=strcat(file_root,files(nfile).name)
+                var=rnc(fname,vname)';
+                if fmsk
+                    msk=zeros(size(var));
+                    msk(var==0)=1;
+                    fmsk=0;
+                end
+                var(msk==1)=nan;
+                axes(ha(nfile));
+                contourf(var,20),shading flat
+                caxis([0 3500])
+                axis off
+                axis equal tight
+                title(strcat('t=',num2str(nfile*200)));
+            end   
+            hold off
+            exportfig(hf,'polar_amp_figs_storage/GIS_geometry_evolution')
+        end
+    end
+    
+
+end
+            
+            
+            
+            
+            
+            

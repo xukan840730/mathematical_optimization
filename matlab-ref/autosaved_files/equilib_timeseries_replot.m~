@@ -1,0 +1,74 @@
+%%
+close all
+clear all
+
+root='/Users/jer/Dropbox/Projects/GIS_future/equilib/storage/';
+
+%% Load timeseries
+
+en=6;
+for n=1:en
+  v{n}=rnc(strcat(root,num2str(n),'.nc'),'L_icevolN');  
+  v_low{n}=rnc(root,strcat(num2str(n),'_low.nc'),'L_icevolN',0,1);   
+  v_high{n}=rnc(root,strcat(num2str(n),'_high.nc'),'L_icevolN',0,1); 
+end
+kyr=linspace(0,40,25000);
+
+%% Plot timeseries
+
+fig_format
+
+R=linspace(0,1,en);
+B=linspace(1,0,en);
+maxY=timeseries(1).vol(1);
+hold on
+
+for n=1:en
+  co2{n}=strcat(num2str(n),'X PAL CO_2');  
+
+  l=min(length(v{n}),25000);  
+  h(n)=plot(kyr(1:l),v{n}(1:l),'Color',[R(n),0,B(n)],'Linestyle','-');
+  l=min(length(v_low{n}),25000);
+  plot(kyr(1:l),v_low{n}(1:l),'Color',[R(n),0,B(n)],'Linestyle','--');  
+  X=kyr(len)+0.3;
+  Y=v{n}
+  text(X,Y,co2{n},'Color',[R(n),0,B(n)])
+  %plot default efolding times
+  dv_e=(v{n}(1)-v{n}(end))*(1-(1/exp(1)));
+  v_e=v{n}(1)-dv_e;
+  t=1;
+  while vol{n}(t)>v_e
+   t=t+1;
+  end
+  t_def=t;
+  h_e=plot(kyr(t),vol{n}(t));
+  set(h_e,'Marker','o'...
+         ,'MarkerEdgeColor',[0 0 0]...
+         ,'MarkerFaceColor',[0 0 0]...
+         ,'Markersize',10);
+  %plot lower bracket efolding times
+  dv_e=(v_low{n}(1)-v_low{n}(end))*(1-(1/exp(1)));
+  v_e=v_low{n}(1)-dv_e;
+  t=1;
+  while v_low{n}(t)>v_e
+   t=t+1;
+  end
+  t_low=t;
+  ratio(n)=t_low/t_def;
+  h_e=plot(kyr(t),v_low(t));
+  set(h_e,'Marker','o',...
+          'MarkerEdgeColor',[0,0,0],...
+          'MarkerFaceColor','none',...
+          'Markersize',10);
+end
+mean_ratio=mean(ratio(2:en-1))
+xlabel('Time (kyr)');
+ylabel('GIS volume (% preindustrial volume)');
+%increase vertical axis slightly
+axis tight
+ax=axis;ax(4)=maxY*1.01;axis(ax);
+set(gca,'XTick',linspace(0,25,6));
+set(gca,'YTick',linspace(0,maxY,5),'YTickLabel',linspace(0,100,5))
+box on
+grid on
+hold off

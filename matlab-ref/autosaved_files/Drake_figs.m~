@@ -1,0 +1,271 @@
+%% Figure generation m-file for Drake Passage manuscript
+close all
+clear all
+%% Set figures to print to 1, and update data to 1 (if wanting to update)  
+CAS_SAT_effect_on_Drake_closed=1;
+CAS_SAT_effect_on_Drake_opening=0;
+CAS_DIC_response_to_Drake_opening=0;
+CAS_land_carbon_response_to_Drake_opening=0;
+spinup_equilibrium_test=0;
+
+update_tavg_data=0;
+update_tsi_data=0;
+%% Set default figures parameters (font sizes, linewidths, exportfig, etc.)
+fontsize=20;
+font='Sanserif';
+%set(0,'defaultaxesfontsize',fontsize);
+%set(0,'defaulttextfontsize',fontsize);
+set(0,'DefaultAxesFontName', font);
+set(0,'DefaulttextFontName', font);
+set(0,'defaultlinelinewidth',2);
+opts=struct( ...
+           'Bounds','tight'...
+           ,'Width',8.5 ...
+           ,'Format','eps'...
+           ,'Color','rgb'...
+           ,'Renderer','painters'...
+           ,'FontMode','scaled'...
+           ,'FontSize',1 ...   
+           );
+rmpref('exportfig');
+setpref('exportfig','defaults',opts);
+%% Set path names
+pas={'PoDo','PoDc','PcDo','PcDc'};
+iPoDo=1;iPoDc=2;iPcDo=3;iPcDc=4;
+%% Update data
+if update_tavg_data ;  
+  %Run remote script that gets latest tavg file
+  !ssh jer@mare.seos.uvic.ca sh "/net/mare/home1/jer/PhD_output/Drake/Panama_Drake_cc_long_spinup_no_ice/tavg_files/analysis_script"
+  %Update local copy of files to match those just re-made above
+  !rsync -rav mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/Drake/Panama_Drake_cc_long_spinup_no_ice/tavg_files/ ./tavg_files
+end
+if update_tsi_data  ;  
+  %Run remote script that concatenates tsi data to files
+  !ssh jer@mare.seos.uvic.ca sh "/net/mare/home1/jer/PhD_output/Drake/Panama_Drake_cc_long_spinup_no_ice/tsi_files/analysis_script"
+  %Update local copy of files to match those just re-made above
+  !rsync -rav mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/Drake/Panama_Drake_cc_long_spinup_no_ice/tsi_files/ ./tsi_files
+end
+%% Plot pre-Drake-opening surface air temperature difference, as function of CAS 
+if CAS_SAT_effect_on_Drake_closed
+  co2min=2;
+  co2max=5;
+  gatemin=1;
+  gatemax=4;
+  %load data
+  for gate=gatemin:gatemax;
+    for co2=co2min:co2max;
+      fname=strcat('tavg_files/',num2str(co2),pas{gate},'_tavg.nc');
+      vname='A_sat';
+      SAT{co2,gate}=rnc(fname,vname);
+      SAT{co2,gate}=SAT{co2,gate}';
+    end
+    vname='G_kmt';
+    kmt{gate}=rnc(fname,vname);
+    kmt{gate}(kmt{gate}>1)=1;
+    kmt{gate}=kmt{gate}';     
+  end 
+  
+  %plot PoDc vs PcDc: difference Panama makes to global temperature with
+  %Drake closed
+  for co2=co2min:co2max;
+    pv=SAT{co2,iPoDc}-SAT{co2,iPcDc};
+    h=figure;
+    hold on
+    pcolor(pv);shading flat;
+    cb=colorbar;colormap(rbcbar(-1,1));caxis([-1 1]);
+    ylabel(cb,'Temperature difference ({^\circ}C)');
+    contour(kmt{iPoDc},[0.5 0.5],'Linecolor','k'),shading flat
+    axis tight
+    axis_labels
+    title(strcat(num2str(co2),'x PAL CO_2, DP CAS open, DP open minus closed'));
+    exportfig(h,strcat('PoDc_m_PcDc_SAT_at_',num2str(co2),'CO2'))
+    hold off
+  end 
+end
+%% Plot pre/post-Drake-opening surface air temperature differences, as function of CAS 
+if CAS_SAT_effect_on_Drake_opening
+  co2min=2;
+  co2max=5;
+  gatemin=1;
+  gatemax=4;
+  %load data
+  for gate=gatemin:gatemax;
+    for co2=co2min:co2max;
+      fname=strcat('tavg_files/',num2str(co2),pas{gate},'_tavg.nc');
+      vname='A_sat';
+      SAT{co2,gate}=rnc(fname,vname);
+      SAT{co2,gate}=SAT{co2,gate}';
+    end
+    vname='G_kmt';
+    kmt{gate}=rnc(fname,vname);
+    kmt{gate}(kmt{gate}>1)=1;
+    kmt{gate}=kmt{gate}'; 
+  end
+
+  %plot effect of opened Drake on SAT, for 2 cases: CAS open, CAS closed
+  %open-CAS
+  for co2=co2min:co2max; 
+    hf=figure;
+    pv=SAT{co2,iPoDo}-SAT{co2,iPoDc};
+    hf=figure;
+    hold on
+    pcolor(pv),shading flat;
+    cb=colorbar;colormap(rbcbar(-8,4));caxis([-8 4]);
+    ylabel(cb,'Temperature difference ({^\circ}C)');
+    contour(kmt{iPoDo},[0.5 0.5],'Linecolor','k'),shading flat
+    axis tight
+    axis_labels
+    title(strcat(num2str(co2),'x PAL CO_2, CAS open, DP open minus closed'));
+    exportfig(hf,strcat('PoDc_m_PoDo_SAT_at_',num2str(co2),'CO2'))
+    hold off
+  end
+  %closed-CAS
+  for co2=co2min:co2max;
+    hf=figure;
+    pv=SAT{co2,iPcDo}-SAT{co2,iPcDc};
+    hold on
+    pcolor(pv),shading flat;
+    cb=colorbar;colormap(rbcbar(-8,4));caxis([-8 4]);
+    ylabel(cb,'Temperature difference ({^\circ}C)');
+    contour(kmt{iPcDo},[0.5 0.5],'Linecolor','k'),shading flat 
+    axis tight
+    axis_labels
+    title(strcat(num2str(co2),'x PAL CO_2, CAS closed, DP open minus closed'));
+    exportfig(hf,strcat('PcDc_m_PcDo_SAT_at_',num2str(co2),'CO2'))
+    hold off    
+  end 
+end
+%% Plot total column DIC difference between Drake open/closed, as function of CAS
+if CAS_DIC_response_to_Drake_opening
+co2min=5;
+  co2max=5;
+  gatemin=1;
+  gatemax=4;
+  %load data
+  for gate=gatemin:gatemax;
+    for co2=co2min:co2max;
+      fname=strcat('tavg_files/',num2str(co2),pas{gate},'_tavg.nc');
+      vname='O_dic';
+      var{co2,gate}=rnc(fname,vname);
+      var{co2,gate}=permute(var{co2,gate},[2 1 3]);
+      var{co2,gate}(var{co2,gate}>1.e10)=nan; %nan out non-ocean values.
+    end
+    vname='G_kmt';
+    kmt{gate}=rnc(fname,vname);
+    kmt{gate}=kmt{gate}';
+    kmt{gate}(kmt{gate}>1)=1;
+  end  
+  vname='G_dzt';
+  dzt(1,1,:)=rnc(fname,vname);
+  
+  %get total DIC in each ocean column (mol/m^2)
+  for co2=co2min:co2max;
+    for gate=gatemin:gatemax;
+      totDIC{co2,gate}=zeros(100,100);
+      for i=1:100
+        for j=1:100
+          totDIC{co2,gate}(i,j)=nansum(var{co2,gate}(i,j,:).*dzt);      
+        end
+      end
+    end
+    
+    %CAS-closed
+    hf=figure;
+    hold on
+    pv=totDIC{co2,iPcDc}-totDIC{co2,iPcDo};
+    %nan-out altered bathymetry values
+    pv(abs(pv)>1000)=nan;
+    pcolor(pv);shading flat
+    cb=colorbar;colormap(rbcbar(-600,600));caxis([-600 600]);
+    ylabel(cb,'total column DIC difference (mol/m^2)');
+    contour(kmt{iPcDc},[0.5 0.5],'Linecolor','k'),shading flat
+    title(strcat(num2str(co2),'x PAL CO_2, CAS closed, DP closed minus DP open column DIC load'));
+    axis tight
+    axis_labels
+    hold off
+    exportfig(hf,strcat('PcDc_m_PcDo_DIC_at_',num2str(co2),'CO2'))
+    
+    %CAS-opened
+    hf=figure;
+    hold on
+    pv=totDIC{co2,iPoDc}-totDIC{co2,iPoDo};
+    %nan-out altered bathymetry values
+    pv(abs(pv)>1000)=nan;
+    pcolor(pv);shading flat
+    cb=colorbar;colormap(rbcbar(-600,600));caxis([-600 600]);
+    ylabel(cb,'total column DIC difference (mol/m^2)');
+    kmt{gate}(kmt{gate}>1)=1;
+    contour(kmt{iPoDc},[0.5 0.5],'Linecolor','k'),shading flat
+    title(strcat(num2str(co2),'x PAL CO_2, CAS opened, DP closed minus DP open column DIC load'));
+    axis tight
+    axis_labels
+    hold off
+    exportfig(hf,strcat('PoDc_m_PoDo_DIC_at_',num2str(co2),'CO2'))   
+    
+  end
+end
+%% Plot total column land carbon difference between Drake open/closed, as function of CAS
+if CAS_land_carbon_response_to_Drake_opening
+co2min=4;
+  co2max=5;
+  gatemin=3;
+  gatemax=4;
+  %load data
+  for gate=gatemin:gatemax;
+    for co2=co2min:co2max;
+      fname=strcat('tavg_files/',num2str(co2),pas{gate},'_tavg.nc');
+      vname='L_vegcarb';
+      var{co2,gate}=sum(rnc(fname,vname),3);
+      vname='L_soilcarb';
+      var{co2,gate}=var{co2,gate}+rnc(fname,vname);
+      var{co2,gate}(var{co2,gate}>1.e20)=nan;
+      var{co2,gate}=var{co2,gate}';
+    end
+    vname='G_kmt';
+    kmt{gate}=rnc(fname,vname);
+    kmt{gate}=kmt{gate}';
+    kmt{gate}(kmt{gate}>1)=1;
+  end
+  for co2=co2min:co2max;
+    hf=figure;
+    hold on
+    pv=var{co2,iPcDc}-var{co2,iPcDo};
+    pv=pv/12.; %convert to mols C/m^2
+    pv(abs(pv)>1.e20)=nan; %omit Drake difference
+    pcolor(pv);shading flat
+    cb=colorbar;colormap(rbcbar(-1.5,1.5));caxis([-1.5 1.5]);
+    ylabel(cb,'total land carbon difference (mol/m^2)');
+    contour(kmt{iPcDc},[0.5 0.5],'Linecolor','k'),shading flat
+    title(strcat(num2str(co2),'x PAL CO_2, CAS closed, DP closed minus DP open land carbon load'));
+    axis tight
+    axis_labels
+    hold off
+    exportfig(hf,strcat('PcDc_m_PcDo_land_carbon_at_',num2str(co2),'CO2'))
+  end
+end
+%% Plot drift to equilibrium, based on ocean DIC
+if spinup_equilibrium_test  
+  color={'k','b','g','r'};
+  vname='O_no3';
+  hf=figure;
+  co2min=2;
+  co2max=5;
+  for co2=co2min:co2max;
+    subplot(4,1,co2-1)  
+    hold on 
+    for gate=1:4;
+      fname=strcat('tsi_files/',num2str(co2),pas{gate},'_tsi.nc');
+      file_info=inquire_about_netcdf_file(fname);
+      var{co2,gate}=rnc(fname,vname);
+      %Fix catenating error that dropped one value of DIC for one run to zero.
+      i=find(var{co2,gate}==0);
+      var{co2,gate}(i)=var{co2,gate}(i-1);
+      plot(var{co2,gate},color{co2-1});
+      text(length(var{co2,gate}),var{co2,gate}(end),strcat(pas{gate},num2str(co2)));
+      axis tight
+    end
+    ylabel(vname)
+    hold off
+  end
+  exportfig(hf,'DIC_spinup_dtimeseries')
+end

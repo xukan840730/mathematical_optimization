@@ -1,0 +1,12 @@
+close all
+clear all
+load GEOCARB
+time=geocarb(1:end-1,1);
+co2=geocarb(1:end-1,2)*280;
+rtime=linspace(-9,0,20)';
+rco2=linspace(co2(end),280,20)';
+co2=[co rco2]
+hold on
+plot(time(end-1:end),co2(end-1:end),'r','Linewidth',4)
+plot(time(1:end-1),co2(1:end-1),'b','Linewidth',4)
+hold off

@@ -1,0 +1,18 @@
+%%
+%ncload('etop05.nc')
+%%
+sl=zeros(size(bath));
+i=find(bath<0.);
+sl(i)=nan;
+i=find(bath<0&bath>-120.);
+sl(i)=1.;
+i=find(bath>0&bath<70.);
+sl(i)=2;
+%%
+close all
+fig1=figure;
+set(fig1,'Position',get(0,'Screensize'));
+m_proj
+m_pcolor(X,Y,sl(:,:)), shading flat
+%set(gcf, 'PaperPositionMode', 'auto');
+%print -depsc2 elev_feedback.eps

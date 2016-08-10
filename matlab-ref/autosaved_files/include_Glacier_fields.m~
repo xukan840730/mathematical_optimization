@@ -1,0 +1,59 @@
+clear all
+close all
+
+f=dir('RGI_data/*_RGI_outlines.mat');
+
+for r=1:19
+    
+    txt=regexp(f(r).name,'_','split');
+    regionname=txt{1};
+    load(fullfile('RGI_data',strcat(regionname,'_RGI_outlines'))); %glacier complex outlines
+    
+    disp(['*******Adding fields to ' regionname '.*******']);
+    
+    %% Remove any complexes with tiny or non-existent area
+    
+    %if the RGI region has area field named Area_km2, replace with AREA.
+    if isfield(glc,'Area_km2')
+        [glc.AREA]=glc.Area_km2;
+        glc=rmfield(glc,'Area_km2');
+    end
+    glc
+    l=length(glc);
+    
+    %method one: use AREA field to trim small glaciers
+    glc([glc.AREA]<1.e-2)=[]; %smaller than 10000 square meters (about equivalent to area of 9 aster pixels)
+    
+    l=l-length(glc);
+    
+    disp([num2str(l) ' glaciers trimmed because they were too small.'])
+    
+    cmin = 1.;
+    cmax=length(glc); %Calculate length of trimmed glacier complex structure array
+    
+    for c=cmin:cmax;
+        RGIData=glc(c);
+        %If saved topography exists, skip re-processing.
+        fnamein=strcat('RGI_topographies_and_hypsometries/',regionname,num2str(c),'.mat')
+        fnameout=strcat('RGI_topographies_masks_and_hypsometries/',regionname,num2str(c),'.mat')
+        if ~exist(fnameout,'file')
+            load(fnamein);
+            [GlacierMask,gr] = vec2mtx(glc(c).Y,glc(c).X,zeros(size(ElevationGrid)),double(GridReference),'filled');
+            GlacierElevation=nan(size(ElevationGrid));
+            GlacierElevation(GlacierMask==0.)=ElevationGrid(GlacierMask==0.);
+                    %redo aspect calculation so just ice surface is taken into ac
+                    try
+                        [aspect,slope,gradN,gradE]=gradientm(ElevationGrid,GridReference);
+                        aspect(GlacierMask~=0)=nan;
+                        Aspect=nanmean(aspect(:));
+                    catch
+                        disp('Warning: surface too small to calculate a surface slope: setting to nan.')
+                        Aspect=nan;
+                    end
+
+            GlacierMask=single(GlacierMask);
+            GlacierElevation=single(GlacierElevation);
+            save(fnameout,'GridReference','ElevationGridUnprocessed','ElevationGrid','GlacierMask','GlacierElevation','Hypsometry','ElevationBins','MeanLongitude','MeanLatitude','Aspect','RGIData');
+        end
+    end
+end

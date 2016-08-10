@@ -1,0 +1,30 @@
+close all
+clear all
+tot_length=0;
+f=dir('RGI_data/*_RGI_outlines.mat');
+for r=1:length(f)
+    
+    disp(['Processing])
+
+    load(strcat('RGI_data/',f(r).name))
+    
+    txt=regexp(f(r).name,'_','split');
+    regionname=txt{1};
+    
+    TotalGlaciers(r)=length(glc);
+    Complete=1;
+
+    for c=1:length(glc)
+        fname=strcat('RGI_topographies_and_hypsometries/',regionname,num2str(c),'.mat');
+        if ~exist(fname,'file')
+            Complete=0;
+            GlaciersToProcess(r)=length(glc)-c
+            break
+        end
+    end
+end
+
+hold on
+bar(TotalGlaciers)
+bar(GlaciersToProcess)
+hold off

@@ -1,0 +1,31 @@
+
+clear all
+
+if exist('/Volumes/Bluefire','dir')
+  rootdir='/Volumes/Bluefire/ptmp_link/';
+else
+    error('Gotta Macfusion to Bluefire')
+end
+
+files=dir(strcat(rootdir,'archive/1/glc/hist/*.cism.h.*.nc'))
+for f=1:length(files);
+    file=strcat(rootdir,'archive/1/glc/hist/',files(f).name)
+    t(:,:,f)=ncread(file,'temp');
+end
+z=ncread(file,'level');
+
+
+%%
+figure
+for n=1:size(t,4)
+    hold on
+    l(n)=plot(z,squeeze(t(150,250,:,n)));
+    view(90,90)
+    hold off
+end
+xlabel('ice sheet z coordinate (11=base, 1=surface)')
+ylabel('T (C)')
+set(l(1),'Linewidth',2,'Color','k')
+set(l(end),'Linewidth',2,'Color','r')
+text(0.9,-25,'Black: first available; Red: last available')
+

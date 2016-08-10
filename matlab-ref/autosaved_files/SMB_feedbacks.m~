@@ -1,0 +1,30 @@
+close all
+clear all
+
+!ssh mare.seos.uvic.ca 'ncra -O -d time,899,999 /net/mare/home1/jer/PhD_output/blow_away_shelves2/control2/budgsnow_Antarctica.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/control_SMB.nc'
+!ssh mare.seos.uvic.ca 'ncra -O -d time,1,100 /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/budgsnow_Antarctica.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_SMB.nc'
+!scp mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/blow_away_shelves2/*_SMB.nc .
+
+%%
+dynamic_smb=rnc('dynamic_SMB.nc','budgsnow_Antarctica',0,1);
+control_smb=rnc('control_SMB.nc','budgsnow_Antarctica',0,1);
+dsmb=dynamic_smb-control_smb;
+dsmb=dsmb./control_smb*100;
+dsmb(dynamic_smb==0.)=nan;
+dsmb=dsmb';
+close all
+scnsize=get(0,'Screensize')
+scnsize(3)=scnsize(4);
+fig1=figure;
+set(fig1,'Position',scnsize);
+pcolor(dsmb),shading flat
+caxis([-20 20])
+b2r=ones(64,3);
+b2r(1:32,1)=linspace(0,1,32);
+b2r(1:32,2)=linspace(0,1,32);
+b2r(33:64,3)=linspace(1,0,32);
+b2r(33:64,2)=linspace(1,0,32);
+hc=colormap(b2r)
+set(hc,'Fontsize',20);
+colorbar
+axis square tight

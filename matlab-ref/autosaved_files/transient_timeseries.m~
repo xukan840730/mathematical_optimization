@@ -1,0 +1,125 @@
+
+%%
+clear all
+version=getversion;
+if version == 7.8   
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropbox/Manuscripts/GIS_future/transient
+else 
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future/transient
+end
+%% Get catted timeseries files of Greenland data
+% !rm -r storage
+% !ssh jer@mare.seos.uvic.ca sh "PhD_output/future_transient/catscript"
+% !scp jer@mare.seos.uvic.ca:PhD_output/future_transient/tsicat.tar .
+% !tar -xvf tsicat.tar
+% !rm tsicat.tar
+
+%% Check default tail files
+% !ssh jer@mare.seos.uvic.ca "tail -n 3 PhD_output/future_transient/*/pr>PhD_output/future_transient/tail.txt"
+% !ssh jer@hermes.westgrid.ca "tail -n 3 future_transient/bracket_runs/*/pr>future_transient/tail.txt"
+% !scp jer@mare.seos.uvic.ca:PhD_output/future_transient/tail.txt ./defaulttail.txt
+% !scp jer@hermes.westgrid.ca:future_transient/tail.txt ./brackettail.txt
+% edit brackettail.txt
+
+%% Load timeseries
+
+run={'0' '1280' '2560' '3840' '5120'};
+en=length(run);
+year=linspace(0,20,20000);
+PAL=280.;
+%%
+for n=1:en
+  timeseries(n).smb=rnc(strcat('storage/',run{n},'.nc'),'L_icesmbN',0,1);
+  timeseries(n).smb_high=rnc(strcat('storage/',run{n},'_high.nc'),'L_icesmbN',0,1);  
+  timeseries(n).smb_low=rnc(strcat('storage/',run{n},'_low.nc'),'L_icesmbN',0,1); 
+  timeseries(n).vol=rnc(strcat('storage/',run{n},'.nc'),'L_icevolN',0,1);
+  timeseries(n).vol=timeseries(n).vol; 
+  timeseries(n).vol_high=rnc(strcat('storage/',run{n},'_high.nc'),'L_icevolN',0,1);  
+  timeseries(n).vol_low=rnc(strcat('storage/',run{n},'_low.nc'),'L_icevolN',0,1);  
+  timeseries(n).co2=rnc(strcat('storage/',run{n},'.nc'),'A_co2',0,1)/PAL;
+  timeseries(n).length=length(timeseries(n).vol);  
+  timeseries(n).length_high=length(timeseries(n).vol_high);
+  timeseries(n).length_low=length(timeseries(n).vol_low);  
+end
+%normalize volume to initial volume
+maxvol=timeseries(1).vol(1);
+for n=1:en
+ timeseries(n).vol(:)=timeseries(n).vol(:)/maxvol*100.;
+end
+%set year
+%% Plot timeseries
+close all
+%ice volume
+close all
+scnsize=get(0,'Screensize');
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize);
+
+R=linspace(0,1,en);
+B=linspace(1,0,en);
+maxY=[2520/PAL timeseries(1).vol(1)];
+plotlength=10000;
+subplot(2,1,1)
+hold on
+for n=1:en
+  plot(year(1:plotlength),timeseries(n).co2(1:plotlength),...
+         'Linestyle','-',...
+         'Color',[R(n),0,B(n)],...
+         'LineWidth',2);
+end 
+set(gca,'Ytick',[2 3 4 5 6 7],'Fontsize',20);
+set(gca,'Xtick',[],'Fontsize',20);
+Ylabel('PAL CO_2','Fontsize',20) 
+%title('Transient suite CO_2 concentrations and GIS ice volumes (m^3)','Fontsize',20);
+axis tight
+hold off
+%%
+
+subplot(2,1,2)
+hold on
+for n=1:en
+  plot(year(1:plotlength),timeseries(n).vol(1:plotlength),'Linestyle','-','Color',[R(n),0,B(n)],'LineWidth',2);
+  set(gca,'Ytick',[0 25 50 75 100],'Fontsize',20)
+  Ylabel('% preindustrial volume','Fontsize',20) 
+  legtext{n}=strcat(run{n},' Gt C');  
+end
+axis tight
+ax=axis; 
+ax(3)=0.; 
+axis(ax);
+hold off
+xlabel('Year','Fontsize',20);
+legend(legtext{:},'FontSize',20);
+text(,,'b)');
+
+get(gca)
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 transient_volevol.eps
+
+% %%
+% 
+% %smb
+% scnsize=get(0,'Screensize');
+% fig1=figure;
+% position = get(fig1,'Position');
+% set(fig1,'Position',scnsize*.75);
+% R=linspace(0,1,en);
+% B=linspace(1,0,en);
+% 
+% hold on
+% for n=1:en
+%   h(n)=plot(year(1:timeseries(n).length),timeseries(n).smb,'Color',[R(n),0,B(n)],'LineWidth',2,'Linestyle','-');
+%   plot(year(1:timeseries(n).length_high),timeseries(n).smb_high,'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--');  
+%   plot(year(1:timeseries(n).length_low),timeseries(n).smb_low,'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--');  
+% end
+% xlabel('Year' );
+% ylabel('kg');
+% %hTitle=title('Transient suite GIS ice SMB (kg/yr)','FontName' , 'AvantGarde','FontSize', 15, 'FontWeight' , 'bold');
+% %legend(h(:),co2{:},'FontSize',10);
+% axis tight
+% grid on
+% hold off
+% 
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 transient_smbevol.eps

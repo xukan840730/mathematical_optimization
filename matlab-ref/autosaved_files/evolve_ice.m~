@@ -1,0 +1,53 @@
+%
+%Ice Evolution Algorithm
+%
+%This function updates a cross-sectional glacier flow model based on the
+%previous geometry and applied surface mass balance.  The dynamics code
+%follows the method described in Oerlemans (2001): Glaciers and Climate.
+%Because the model uses forward Euler timestepping, be aware of model
+%instability particularly if grid sizes/timesteps are too small/big or if
+%bed elevation exhibits very steep slopes or large changes in slope.
+%
+%Inputs:
+%-thk:        ice column thickness vector (m)
+%-bed_elev:   bed elevation vector (m above sea level)
+%-smb:        surface mass balance vector (m ice/yr)
+%-nx:         number of grid points in x direction
+%-dx:         spatial resolution
+%
+%Outputs: 
+%-thk:        updated ice column thickness vector (m)
+%
+%Calling example: thk=evolve_ice(thk,bed_elev,smb,nx,dx,dt)
+
+function [thk] = evolve_ice(thk,bed_elev,smb,nx,dx,dt)
+rho = 920.;           %g/cm^3
+g    = 9.8;           %m/s^2
+A    = 1.e-16;        %kPa^-3/yr
+n    =3.;             %flow law exponent
+C=2.*A*(rho*g).^n/((n+2.).^n);
+diff                     =zeros(nx-1,1);
+dSdx                     =zeros(nx-1,1);
+Q                        =zeros(nx-1,1);
+dHdt                     =zeros(nx,1);
+%calculate surface elevation vector
+elev=thk+bed_elev;
+%calculate surface slope vector at midpoints between surface height values
+dSdx=(elev(2:nx)-elev(1:nx-1))/dx;   
+%calculate time- and space-dependent diffusion vector
+diff=abs(C.*((thk(2:nx)+thk(1:nx-1))/2.).^(n+2).*dSdx.^(n-1));
+%calculate ice flux vector at midpoint between surface height values
+%note: negative flux flows to origin, corresponding to a positive slope
+Q=-diff.*dSdx;
+%calculate surface height change vector, given flux on either side and
+%surface mass balance
+dHdt(2:nx-1)=(Q(1:nx-2)-Q(2:nx-1))/dx + smb(2:nx-1)*dt;
+%Do a forward Euler timestep
+thk=thk+dHdt;
+%limit ice thickness to positive values
+thk(thk<0.)=0.;
+%set lateral boundary conditions
+thk(1)=0;
+%thk(1)=thk(2); %assume barrier to negative flow at x=1 (cliff, ice divide)
+thk(end)=0;    %assume ice calves into ocean (thickness reduces to 0)
+thk(1)=thk(2)-bed_elev(1)+

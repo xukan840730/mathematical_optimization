@@ -1,0 +1,68 @@
+%%
+clear all
+cd /Users/jer/School/Manuscripts/GMD_mod_dev/raw_vs_bias_corr
+
+%%
+is={'ais','gis'};
+islong={'Antarctica','Greenland'};
+numsheets=length(islong);
+coloraxis={[0 4500],[0 3500]};
+
+%%
+for i=1:numsheets;
+  getloc=strcat('jer@mare.seos.uvic.ca:/net/mare/home1/jer/playground/diagnostic_run/',islong{i},'_restart1.nc');
+  putloc=strcat(is{i},'_obs.nc');
+  exists=exist(putloc,'file');
+  if (exists==0)
+    clear command
+    command=sprintf('scp %s %s',getloc,putloc)
+    system(command);
+  end
+end
+
+%% Extract fields
+
+%extract fields from netcdf files
+for i=1:numsheets;
+   ncload(strcat(is{isnum},fname{field}),'h','hb','hs');
+   isn(isnum).array{ih(:,:)}=h(:,:);
+   isn(isnum).array{ihb(:,:)}=hb(:,:);
+   isn(isnum).array{ihs(:,:)}=hs(:,:);  
+   clear h hb hs
+end
+
+%% Plot difference field between bias and corrected h
+close all
+for isnum=iais:igis;  
+  diffh = isn(isnum).exp(ibias).array{ih}-isn(isnum).exp(iraw).array{ih};
+  i=find(diffh==0.);
+  diffh(i)=nan;
+  figure
+  hold on
+  surface(diffh), shading interp;
+  axis equal tight; set(gca,'Visible','off')
+  caxis([-1000 1000]);
+  colorbar
+  print('-depsc',strcat('/Users/jer/Dropbox/Public/Manuscripts/GMD_mod_desc/figures/',is{isnum},'biasmrawh'));
+  close all
+  hold off
+    hs=isn(isnum).exp(mrun).array{ihs};
+    %mask bare land with zeros
+    i=find(isn(isnum).exp(mrun).array{ih}<=0.0000000001);
+    hs(i)=0.;
+    %mask bare ocean with nans  
+    i=find(isn(isnum).exp(mrun).array{ih}<=0.0000000001 & isn(isnum).exp(mrun).array{ihb}<=0.);
+    hs(i)=nan;
+    figure
+     hold on
+     surface(hs), shading interp
+     %pcolor(hs), shading flat
+     set(gca,'Visible','off'); axis equal tight
+     caxis(coloraxis{isnum});
+     colormap(jet(10000));cmap=colormap;cmap(1,:,:)=[153/255 102/255 0/255];colormap(cmap)
+     colorbar
+     print('-depsc',strcat('/Users/jer/Dropbox/Public/Manuscripts/GMD_mod_desc/figures/',is{isnum},expname{mrun}));
+     hold off
+     close all  
+   end
+end

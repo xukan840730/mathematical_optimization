@@ -1,0 +1,59 @@
+%% Figure generation m-file model mask
+close all
+clear all
+
+%Set default figures parameters (font sizes, linewidths, exportfig, etc.)
+fig_format
+
+%% Load data
+
+hs=rnc('Greenland_hs.nc','hs');
+iind=rnc('indexes.nc','iceiind');
+jind=rnc('indexes.nc','icejind');
+
+89,86
+hs(iind~=90)=nan;
+hs(jind~=87)=nan;
+imin=0
+for i=1:size(hs,1)
+  
+
+
+sg_map=zeros(size(hs));
+sg_map=floor(hs/100.)*100;
+
+%%
+
+is=1;
+ie=75
+js=1
+je=139
+
+% is=59;
+% ie =66;
+% js=110;
+% je =130;
+f1=figure
+h1=bar3(sg_map(is:ie,js:je),1)
+for i = 1:length(h1)
+    zdata = get(h1(i),'ZData');
+    set(h1(i),'CData',zdata)
+end
+f2=figure
+h2=bar3(hs(is:ie,js:je),1)
+shading flat
+colorbar
+
+for i = 1:length(h2)
+    zdata = get(h1(i),'ZData');
+    set(h2(i),'CData',zdata)
+    %set(h2(i),'EdgeColor',zdata)
+        % Add back edge color removed by interpolating shading
+    set(h2,'EdgeColor','k')
+end
+title('think this is right')
+close(f1)
+
+
+axis tight off
+

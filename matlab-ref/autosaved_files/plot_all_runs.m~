@@ -1,0 +1,85 @@
+%% Get updated tsi files for hysteresis runs and plot
+clear all
+cd /Users/jer/School/Manuscripts/Hysteresis/plot_timeseries
+
+%% Get tail of all pr files
+sroot='jer@mare.seos.uvic.ca';
+mroot='/net/mare/home1/jer/PhD_output/sensitivity_runs/refreeze/highCO2/AIS_and_GIS/'
+command=sprintf('ssh %s "tail -n 5 %s*/pr > %scatfiles/tailfile"',sroot,mroot,mroot)
+system(command);
+command=sprintf('scp %s:%scatfiles/tailfile .',sroot,mroot);
+system(command);
+edit tailfile
+%% Call bash script to redo updated tsi files in Mare directories.
+tseries={'2','3','4','5','6_full','7_full'};
+tseries_len=length(tseries);
+for n=1:tseries_len;
+  command=sprintf('ssh %s "ncrcat -O %s%s/tsi.*  %scatfiles/%s.nc"',sroot,mroot,tseries{n},mroot,tseries{n})
+  system(command);
+  command=sprintf('scp %s:%scatfiles/%s.nc .',sroot,mroot,tseries{n});
+  system(command);
+end
+
+%% Load timeseries and plot the fcuk up
+close all
+clear is
+for n=1:tseries_len;
+  ncload(strcat(tseries{n},'.nc'),'L_icevolN','A_co2','A_sat');
+  is(n).N_vol=L_icevolN;
+  is(n).co2=A_co2;
+  is(n).sat=A_sat;
+end
+
+% figure
+% hold on
+% for n=1:tseries_len;
+%   plot(is(n).N_vol)
+% end
+% hold off
+% 
+% figure
+% hold on
+% for n=1:tseries_len;
+%   plot(is(n).co2)
+% end
+% hold off
+% 
+% figure
+% hold on
+% for n=1:tseries_len;
+%   plot(is(n).sat)
+% end
+% hold off
+
+
+for n=1:tseries_len;
+  rndclr(n,:)=[rand, rand, rand];
+end
+
+figure
+hold on
+
+for n=1:tseries_len;
+  hplot(n)=plot(is(n).N_vol,'Color',rndclr(n,:),'LineWidth',2)
+end
+hlegend=legend(hplot,tseries)
+title('GIS ice volume evol')
+hold off
+
+figure
+hold on
+for n=1:tseries_len;
+  hplot(n)=plot(is(n).co2,'Color',rndclr(n,:),'LineWidth',2)
+end
+hlegend=legend(hplot,tseries)
+title('Carbon dioxide ppmv')
+hold off
+
+figure
+hold on
+for n=1:tseries_len;
+  hplot(n)=plot(is(n).sat,'Color',rndclr(n,:),'LineWidth',2)
+end
+hlegend=legend(hplot,tseries)
+title('Global avg. SAT')
+hold off

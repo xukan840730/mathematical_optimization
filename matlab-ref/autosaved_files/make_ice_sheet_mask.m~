@@ -1,0 +1,17 @@
+close all
+clear all
+File='../GLOBE_glacier_mask/output_merged/PCT_GLC_ICESHEET.nc';
+VarName='PCT_GLC_ICESHEET';
+FileInfo=ncinfo(File,VarName);
+ArrSize=FileInfo.Size;
+IceSheetMask=zeros(ArrSize(1),ArrSize(2));
+for nlev=1:ArrSize(3)
+    nlev
+    IceSheetMask=IceSheetMask+ncread(File,VarName,[1 1 nlev],[ArrSize(1) ArrSize(2) 1]);
+end
+
+%%
+
+[Xq,Yq]=meshgrid( linspace(0,1,size(IceSheetMask,1)),linspace(0,1,size(IceSheetMask,2)) ) 
+
+CoarseIceSheetMask=interp2( 

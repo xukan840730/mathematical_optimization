@@ -1,0 +1,59 @@
+%% Generate polar amplification
+close all
+clear all
+%% Get SAT from all deglacial equilibrium runs after 400 years (i.e. after SAT equilibration but before significant ice change).
+!rm -r polamp.nc
+!ssh jer@mare.seos.uvic.ca sh "PhD_output/future_equilib/pol_amp_catscript"
+!scp jer@mare.seos.uvic.ca:PhD_output/future_equilib/polamp.nc .
+
+%open polar amplification file
+tdiff=rnc('polamp.nc','A_sat',0,1);
+%tdiff=permute(tdiff,[ 3 2 1]);
+%get latitude list
+temp=rnc('grid.nc','lat_t',0,1);
+
+%%
+lat=temp(2:101,1);
+coslat=cos(lat*pi/180);
+clear temp
+coslat=abs(rot90(coslat));
+latsum=sum(coslat);
+wt=coslat/latsum;
+arrsize=size(tdiff);
+tdiffzm= zeros(arrsize(3),arrsize(1));
+%for t=1:arrsize(3)
+for t=1:arrsize(3)  
+  tdiffzm(t,:)=mean(tdiff(:,:,t),1);
+  tdiffglobeavg(t)=sum(tdiffzm(t,:).*wt);
+end
+
+%% Calculate polar amplification like Holland and Bitz (2003)
+%ampar dims: lon,lat,time
+for t=1:arrsize(3)
+   %normalize the temperature increase to the global temperature
+    tdiffzm(t,:)=tdiffzm(t,:)./tdiffglobeavg(t);
+end
+fs=20;
+scnsize=get(0,'Screensize');
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize*.75);
+R=linspace(0,1,arrsize(3));
+B=linspace(1,0,arrsize(3));
+hold on
+for t=1:arrsize(3)
+  plot(lat',tdiffzm(t,:),'Color',[R(t),0,B(t)],'Linewidth',2)
+end
+hold off
+set(gca,'Fontsize',fs)
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 polamp.eps
+
+%% Calculate 75-90 lat N average polar amplification
+i=find(lat>75&lat<90);
+for t=1:arrsize(3)
+  temp=tdiffzm(t,:);
+  temp=temp';
+  avgpolamp(t)=mean(temp(i));
+end
+avgpolamp=mean(avgpolamp)

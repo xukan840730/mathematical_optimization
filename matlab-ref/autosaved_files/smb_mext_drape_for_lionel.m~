@@ -1,0 +1,98 @@
+%% Figure generation m-file model mask
+close all
+clear all
+fig_format_smb_mext_drape
+%% Generate pres-submission SMB and melt extent, draped over model topography.
+isn={'Antarctica' 'Greenland'};
+root='/Users/jer/School/Manuscripts/GMD_mod_dev/melt_extent/';
+%ha=tight_subplot(1,2,0.01,0.01,0.01);
+hf=figure;
+for is=1:1;
+  %load topography data
+  fname=strcat(root,isn{is},'recent.nc');
+  h=rnc(fname,'h');
+  h=mean(h,3)';
+  hb=rnc(fname,'hb');
+  hb=mean(hb,3)';
+  hs=h+hb;
+  i=find(h>0. & hs<0.);
+  hs(i)=h(i)*0.1; %approx. floatation elev 
+  hs(hs<0)=nan;
+
+  %load melt extent data
+  mext=rnc(fname,'mext');
+  mext=ceil(mean(mext,3))';
+  mext(mext==0)=1.e5;
+  mext(mext==1)=1.e5+1;  
+  %load smb data
+  fname=strcat(root,'budgsnow_',isn{is},'_recent.nc');
+  smb=rnc(fname,strcat('budgsnow_',isn{is}));
+  smb=mean(smb,3)'*980.;
+  
+  %axes(ha(is));
+  hold on
+  h=surface(hs,smb);
+  set(h,'AmbientStrength',0.8);
+  minval=min(min(smb))
+  maxval=max(max(smb))
+  colormap(rbcbar(minval,maxval)); %hardwired
+
+  %hc=contour3(mext,[1.e5 1.e5],'-k');
+  light('Position',[-0.3 -0.3 1],'Style','Infinite');
+  az=0;
+  el=89.5;
+  view(az,el)
+  shading flat;
+
+  hc=colorbar('location','EastOutside');
+  xlabel(hc,'kg/m^2/yr'); 
+  title('')
+
+  axis equal off tight;
+  hold off;
+end
+%print('-depsc',hf,strcat('smb'));
+  %exportfig(hf,strcat(isn{is},'smb'))
+  
+%   if is==2
+%     root='/Users/jer/Dropbox/Presentations/CMOS_2011/';
+%     %load topography data
+%     fname=strcat(root,isn{is},'234020.nc');
+%     h=rnc(fname,'h');
+%     h=mean(h,3)';
+%     hb=rnc(fname,'hb');
+%     hb=mean(hb,3)';
+%     hs=h+hb;
+%     i=find(h>0. & hs<0.);
+%     hs(i)=h(i)*0.1; %approx. floatation elev 
+%     hs(hs<0)=0.;
+% 
+%     %load melt extent data
+%     mext=rnc(fname,'mext');
+%     mext=ceil(mean(mext,3))';
+%     mext(mext==0)=1.e5;
+%     mext(mext==1)=1.e5+1;  
+%     %load smb data
+%     fname=strcat(root,'budgsnow_',isn{is},'.nc');
+%     smb=rnc(fname,strcat('budgsnow_',isn{is}));
+%     smb=mean(smb,3)'*980.;
+%     
+%     hf=figure;
+%     hold on
+%     h=surface(hs,smb);
+%     set(h,'AmbientStrength',0.8);
+%     colormap(rbcbar(min(min(smb)),max(max(smb))));
+%     hc=colorbar;
+%     xlabel(hc,'kg/m^2/yr');
+%     hc=contour3(mext,[1.e5 1.e5],'-k');
+%     light('Position',[-0.3 -0.3 1],'Style','Infinite');
+%     shading flat;
+%     axis equal off tight;
+%     hold off;
+%    
+%     print('-depsc',hf,strcat(isn{is},'smbupdate')); 
+%     %exportfig(hf,strcat(isn{is},'smbupdate'))
+%   
+%   end
+% end
+

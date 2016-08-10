@@ -1,0 +1,117 @@
+%% Get year 2010 melt extent and smb maps
+
+clear all
+cd /Users/jer/School/Manuscripts/GMD_mod_dev/melt_extent
+
+%% Get files from model directories.
+is={'AIS','GIS'};
+isname={'Antarctica','Greenland'};
+isnamelower={'ais','gis'};
+ismb=1;
+imext=2;
+numsheets=length(isname);
+mroot{1}='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/sensitivity_runs/refreeze/transient/0_2_2010/transient_CO2/';
+mroot{2}='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/sensitivity_runs/refreeze/transient/0_2_2010/transient_CO2/';
+mroot{3}='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/figure_sources/';
+
+for i=1:numsheets
+  %Get name of history file that has melt extent
+  fname{1}=strcat(isname{i},'recent.nc');  
+  %Get name of file that has SMB
+  fname{2}=strcat('budgsnow_',isname{i},'_recent.nc');
+  %Get area file
+  fname{3}=strcat(isname{i},'_darea.nc');
+  numfields=length(fname);
+  for f=1:numfields
+    getloc=strcat(mroot{f},fname{f});
+    putloc=fname{f};
+    exists=exist(putloc,'file');
+    if (exists==0)
+      clear command
+      command=sprintf('scp %s %s',getloc,putloc);
+      system(command);
+    end
+  end
+end
+
+%% load mext and SMB (budgsnow)
+for i=1:numsheets
+  fname{1}=strcat(isname{i},'recent.nc');  
+  fname{2}=strcat('budgsnow_',isname{i},'_recent.nc');
+  fname{3}=strcat(isname{i},'_darea.nc');
+  ncload(fname{1},'mext','h','hb');
+  isheet(i).mext(:,:)=mean(mext,1);
+  isheet(i).h(:,:)=mean(h,1);
+  isheet(i).hb(:,:)=mean(hb,1);
+ 
+  clear mext h hb
+
+  ncload(fname{2});
+  %Get mean of last 10 years of SMB, save this to the structure
+  s=strcat('isheet(i).smb(:,:)=mean(budgsnow_',isname{i},',1);'); eval(s)
+  s=strcat('clear budgsnow_',isname{i},';'); eval(s)
+  isheet(i).smb=isheet(i).smb*913.; %to kg/m^2/yr
+  ind=find(isheet(i).h==0.0&isheet(i).hb<=0.);
+  isheet(i).smb(ind)=nan;
+  ncload(fname{3});
+  s=strcat('isheet(i).darea(:,:)=',isname{i}); eval(s)  
+  s=sprintf('clear %s',isname{i}); eval(s)    
+end
+%% plot recent average SMB 
+close all
+for i=1:numsheets
+  %make colorbar white at zero blue below and red above
+  maxsmb=max(max(isheet(i).smb));
+  minsmb=min(min(isheet(i).smb));
+  numcontours=50.;
+  contour_levels=linspace(minsmb,maxsmb,numcontours);  
+  cmlength=numcontours;
+  maxwt=maxsmb/(maxsmb-minsmb);
+  minwt=1.-maxwt;
+  maxwt=round(maxwt*cmlength);
+  minwt=round(minwt*cmlength);
+  cmabl=ones(minwt,3);
+  cmaccum=ones(maxwt,3);  
+  cmabl(:,1)=linspace(0,1,minwt);
+  cmabl(:,2)=linspace(0,1,minwt);  
+  cmaccum(:,2)=linspace(1,0,maxwt);
+  cmaccum(:,3)=linspace(1,0,maxwt);  
+  scrsz = get(0,'ScreenSize');
+  figure('Position',[1 scrsz(4) scrsz(3) scrsz(4)])
+  hold on
+  pcolor(isheet(i).smb), shading flat 
+  %contourf(isheet(i).smb,contour_levels), shading flat
+  caxis([minsmb maxsmb]);
+  set(gca,'Visible','off'); axis equal tight off
+  colormap([cmabl;cmaccum])
+  colorbar
+  
+  %uncomment for equilibrium line contour
+  clear temp
+  [C,heqcontour]=contour(isheet(i).smb,0.0001,'k');
+  set(heqcontour,'LineWidth',2);
+  %uncomment for melt extent contours (not totally satisfactory as they
+  %clip small melt areas)
+  temp(:,:)=(isheet(i).mext(end,:,:));
+  pcol
+  contour(temp,0.99999, 'LineColor','b');
+  hold off
+  print('-depsc2',strcat('/Users/jer/Dropbox/Manuscripts/GMD/figures/',...
+                                        isnamelower{i},'_modSMB'));
+end
+
+%% Get % of ice sheet covered by an ablation/melt zones
+for i=1:numsheets
+  
+  isname{i}
+  ind=find(isheet(i).h>0.);
+  totar=sum(sum(isheet(i).darea(ind)))/1.e6; %km^2
+
+  ind=find(isheet(i).smb<0.);
+  abtar=sum(sum(isheet(i).darea(ind)))/1.e6 %km^2
+  abation_zone_areal_extent=abtar/totar*100.
+
+  ind=find(isheet(i).mext>0.);
+  mextar=sum(sum(isheet(i).darea(ind)))/1.e6 %km^2
+  melt_zone_areal_extent=mextar/totar*100.
+end

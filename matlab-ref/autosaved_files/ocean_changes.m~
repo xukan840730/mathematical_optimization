@@ -1,0 +1,141 @@
+% 
+% !ssh mare.seos.uvic.ca 'ncks -O -d time,20 /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/tavg.24400.01.01.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_snap.nc'
+% !rm dynamic_snap.nc
+% !scp mare:/net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_snap.nc .
+% 
+% !ssh mare.seos.uvic.ca 'ncks -O -d time,20 /net/mare/home1/jer/PhD_output/blow_away_shelves2/control2/tavg.24400.01.01.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/control_snap.nc'
+% !rm control_snap.nc
+% !scp mare:/net/mare/home1/jer/PhD_output/blow_away_shelves2/control_snap.nc .
+%% Load snapshots
+close all 
+clear all
+
+d_o_sal=rnc('dynamic_snap.nc','O_sal',0,1);
+c_o_sal=rnc('control_snap.nc','O_sal',0,1);
+d_o_temp=rnc('dynamic_snap.nc','O_temp',0,1);
+c_o_temp=rnc('control_snap.nc','O_temp',0,1);
+kmt=rnc('control_snap.nc','G_kmt',0,1)';
+dsal=d_o_sal-c_o_sal;
+dtemp=d_o_temp-c_o_temp;
+
+
+%% Plot d_salin
+close all
+scnsize=get(0,'Screensize')
+fig1=figure;
+mnsz=min(scnsize(3:4))
+set(fig1,'Position',[1 1 mnsz*0.5 mnsz*0.5]);
+plotvar(:,:)=dsal(:,:,1)';
+plotvar(kmt==0)=100;
+lat_array=linspace(-90,90);lon_array=linspace(-1,359);
+[Plg,Plt]=meshgrid(lon_array,lat_array);
+m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 40);
+m_pcolor(Plg,Plt,plotvar);shading flat; 
+axis off equal
+b2r=ones(640,3);
+b2r(1:320,1)=linspace(0,1,320);
+b2r(1:320,2)=linspace(0,1,320);
+b2r(321:640,3)=linspace(1,0,320);
+b2r(321:640,2)=linspace(1,0,320);
+b2r(641,:)=[0 0 0];
+colormap(b2r)
+caxis([-.5 .5])
+ch=colorbar
+ylabel(ch,'Salinity difference (psu)','FontSize',20)
+set(ch,'FontSize',20)
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 ocean_d_surf_sal.eps
+%!open ocean_d_surf_sal.eps
+
+%% Plot d_temp
+close all
+scnsize=get(0,'Screensize')
+fig1=figure;
+mnsz=min(scnsize(3:4))
+set(fig1,'Position',[1 1 mnsz*0.5 mnsz*0.5]);
+plotvar(:,:)=dtemp(:,:,1)';
+plotvar(kmt==0)=100;
+lat_array=linspace(-90,90);lon_array=linspace(-1,359);
+[Plg,Plt]=meshgrid(lon_array,lat_array);
+m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 40);
+m_pcolor(Plg,Plt,plotvar);shading flat; 
+axis off equal
+b2r=ones(640,3);
+b2r(1:320,1)=linspace(0,1,320);
+b2r(1:320,2)=linspace(0,1,320);
+b2r(321:640,3)=linspace(1,0,320);
+b2r(321:640,2)=linspace(1,0,320);
+b2r(641,:)=[0 0 0];
+colormap(b2r)
+caxis([-1 1])
+ch=colorbar
+ylabel(ch,'Temperature difference ({^\circ}C)','FontSize',20)
+set(ch,'FontSize',20)
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 ocean_d_surf_temp.eps
+%!open ocean_d_surf_temp.eps
+
+%% Plot TS diagram
+%!ssh mare.seos.uvic.ca 'ncks -O -v O_sal,O_temp /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/tavg.24400.01.01.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/dyn_sal_temp.nc'
+%!scp mare:/net/mare/home1/jer/PhD_output/blow_away_shelves2/dyn_sal_temp.nc .
+sal=rnc('dyn_sal_temp.nc','O_sal',0,1);
+temp=rnc('dyn_sal_temp.nc','O_temp',0,1);
+kmt=rnc('control_snap.nc','G_kmt',0,1)';
+
+clear S1 T1 S2 T2
+close all
+%Ronne
+X(1)=81;
+Y(1)=7;
+Z(1)=1;
+ti=20;
+S1(1:ti)=sal(X(1),Y(1),Z(1),1:ti);
+T1(1:ti)=temp(X(1),Y(1),Z(1),1:ti)-273.15;
+
+%Ross
+X(2)=49;
+Y(2)=5;
+Z(2)=1;
+S2(1:ti)=sal(X(2),Y(2),Z(2),1:ti);
+T2(1:ti)=temp(X(2),Y(2),Z(2),1:ti)-273.15;
+
+Sbuf=0.1;
+Tbuf=0.05;
+axlim=[min([S1 S2])-Sbuf max([S1 S2])+Sbuf min([T1 T2])-Tbuf max([T1 T2])+Tbuf];
+figure
+tsdiagram(S1,T1,25,5,axlim);
+hold on
+plot(S1(2:end-1),T1(2:end-1),'.b','Markersize',10)
+plot(S2(2:end-1),T2(2:end-1),'.k','Markersize',10)
+plot(S1(1),T1(1),'ob','Markersize',10,'Linewidth',2)
+plot(S2(1),T2(1),'ok','Markersize',10,'Linewidth',2)
+plot(S1(end),T1(end),'xb','Markersize',10,'Linewidth',2)
+plot(S2(end),T2(end),'xk','Markersize',10,'Linewidth',2)
+axis(axlim)
+hold off
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 TS_plot.eps
+%!open TS_plot.eps
+
+%% Plot velocity
+close all
+scnsize=get(0,'Screensize')
+fig1=figure;
+mnsz=min(scnsize(3:4))
+set(fig1,'Position',[1 1 mnsz*0.5 mnsz*0.5]);
+u=rnc('dynamic_snap.nc','O_icevelX',0,1);
+v=rnc('control_snap.nc','O_icevelY',0,1);
+u=u';v=v';
+lat_array=linspace(-90,90);lon_array=linspace(-1,359);
+[Plg,Plt]=meshgrid(lon_array,lat_array);
+m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 40);
+m_quiver(Plg,Plt,u,v,200);
+%m_coast('patch',[1 1 1],'Linewidth',1);
+axis off
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 ice_vel.eps
+%!open ice_vel.eps

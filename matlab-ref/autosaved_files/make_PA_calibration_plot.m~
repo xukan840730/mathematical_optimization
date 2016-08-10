@@ -1,0 +1,136 @@
+close all
+clear all
+
+CMIP5ZonalAverage=zeros(78,72,2880);
+for en = 0:77
+  CMIP5ZonalAverage(en+1,:,:)=ncread(sprintf('CMIP5_zonal_average_timeseries/tas_Amon_ens_rcp85_%02d_zonalmean.nc',en),'tas');
+end
+
+ClimatologicalPeriod=30.; %years
+PresentClimateYrS=1970.;
+FutureClimateYrS=2070.;
+
+%Set starting and ending indices for calculating climatological Ts, for modern and future periods.
+MS=2880-(2100-PresentClimateYrS)*12;
+ME=MS+ClimatologicalPeriod*12.;
+FS=2880-(2100-FutureClimateYrS)*12;
+FE=FS+ClimatologicalPeriod*12.;
+
+%Generate CMIP5 modern and future mean zonal averages for all ensemble members.
+CMIP5ModernMeanT=mean(CMIP5ZonalAverage(:,:,MS:ME),3);
+CMIP5FutureMeanT=mean(CMIP5ZonalAverage(:,:,FS:FE),3);
+
+%Generate zonal dT for each ensemble member
+CMIP5dT=CMIP5FutureMeanT-CMIP5ModernMeanT;
+
+%Calculate global average dT (latitude-weighted)
+CMIP5LatArr=-88.75:2.5:88.75;
+CMIP5CosLat=cos(deg2rad(CMIP5LatArr))/sum(cos(deg2rad(CMIP5LatArr)));
+
+CMIP5dTGlobeAvg=zeros(size(CMIP5dT,1));
+CMIP5dTNormalized=zeros(size(CMIP5dT));
+
+for en=1:size(CMIP5dT,1)
+  CMIP5dTGlobeAvg(en)=sum(CMIP5dT(en,:).*CMIP5CosLat); %calculate lat-weighted global average dT
+  CMIP5dTNormalized(en,:)=CMIP5dT(en,:)./CMIP5dTGlobeAvg(en); %calculate normalized dT
+end
+
+%Calculate normalized warming for CMIP5 models (relative to mean of zonal average warming)
+%CMIP5dTNormalized=bsxfun(@rdivide,CMIP5dT,mean(CMIP5dT,2));
+
+%Calculate minimum, mean, and maximum absolute dTs, for CMIP5 models.
+CMIP5dTmin=min(CMIP5dT,[],1);
+CMIP5dTmax=max(CMIP5dT,[],1);
+CMIP5dTmean=mean(CMIP5dT,1);
+
+%Calculate minimum, mean, and maximum normalized dTs, for CMIP5 models.
+CMIP5dTnmin=min(CMIP5dTNormalized,[],1);
+CMIP5dTnmax=max(CMIP5dTNormalized,[],1);
+CMIP5dTnmean=mean(CMIP5dTNormalized,1);
+
+
+
+CMIP5ieq=knnsearch(CMIP5LatArr',0);
+
+%% Plot equivalent UVic ESCM polar amplifications
+
+UVicdTGlobeAvg=zeros(11,1);
+UVicdT=zeros(11,100);
+UVicdTNormalized=zeros(11,100);
+
+UVicLatArr=-89.1:1.8:89.1;
+UVicCosLat=cos(deg2rad(UVicLatArr))/sum(cos(deg2rad(UVicLatArr)));
+
+for en=1:11 %Generate UVic modern and future mean zonal averages for all ensemble members.
+  disp(['Processing ' num2str(en)])
+  fp=sprintf('/Volumes/Mare/Polar_Amp_calibration/%02d/',en-1);
+  %Get modern, future zonal averages
+  UVicModernMeanT = mean ( mean ( ncread(strcat(fp,'tavg.01960.01.01.nc'),'A_sat',[1 1 3],[100 100 3]),3 ) ,1 );
+  UVicFutureMeanT = mean ( mean ( ncread(strcat(fp,'tavg.01960.01.01.nc'),'A_sat',[1 1 13],[100 100 3]),3 ) ,1 );
+  
+  %Generate zonal dT
+  UVicdT(en,:)=UVicFutureMeanT-UVicModernMeanT;
+
+  %Calculate normalized warming (relative to mean of zonal average warming)
+  UVicdTGlobeAvg(en)=sum(UVicdT(en,:).*UVicCosLat); %calculate lat-weighted global average dT
+  UVicdTNormalized(en,:)=UVicdT(en,:)./UVicdTGlobeAvg(en);
+end
+
+UVicieq=knnsearch(UVicLatArr',0);
+
+%% Plot all
+
+figure
+
+hold on
+h(1)=plot(CMIP5LatArr(CMIP5ieq:end),CMIP5dTnmean(CMIP5ieq:end),'k','Linewidth',3);
+h(2)=plot(CMIP5LatArr(CMIP5ieq:end),CMIP5dTnmax(CMIP5ieq:end),'k','Linewidth',1);
+plot(CMIP5LatArr(CMIP5ieq:end),CMIP5dTnmin(CMIP5ieq:end),'k','Linewidth',1);
+UVicColor(1,:)=linspace(0,1,11);
+UVicColor(2,:)=linspace(0,0,11);
+UVicColor(3,:)=linspace(1,0,11);
+for en=1:11
+
+  h(en)=plot(UVicLatArr(UVicieq:end),squeeze(UVicdTNormalized(en,UVicieq:end)),'Color',UVicColor(:,en),'Linewidth',1);
+  leglab{en}=strcat('M_{pa}=',num2str((en-1.)/100));
+
+end
+hold off
+axis tight
+ax=axis;ax(3)=0.;axis(ax);
+xlabel('Latitude')
+ylabel('Normalized warming')
+legend(h,leglab)
+
+%PrintMatlabFrag(1,10,'figs/CMIP5_PA_calib')
+
+%%%%%%%%%%%%
+
+figure
+
+hold on
+h(1)=plot(CMIP5LatArr(CMIP5ieq:end),CMIP5dTmean(CMIP5ieq:end),'k','Linewidth',3);
+h(2)=plot(CMIP5LatArr(CMIP5ieq:end),CMIP5dTmax(CMIP5ieq:end),'k','Linewidth',1);
+plot(CMIP5LatArr(CMIP5ieq:end),CMIP5dTmin(CMIP5ieq:end),'k','Linewidth',1);
+leglab{1}='CMIP5 mean dT';
+leglab{2}='CMIP5 max/min dT';
+%leglab{3}='';
+UVicColor(1,:)=linspace(0,1,11);
+UVicColor(2,:)=linspace(0,0,11);
+UVicColor(3,:)=linspace(1,0,11);
+for en=1:11
+
+  h(en+2)=plot(UVicLatArr(UVicieq:end),squeeze(UVicdT(en,UVicieq:end)),'Color',UVicColor(:,en),'Linewidth',1);
+  leglab{en+2}=strcat('M_{pa}=',num2str((en-1.)/100));
+
+end
+hold off
+axis tight
+ax=axis;ax(3)=0.;axis(ax);
+xlabel('Latitude')
+ylabel('Absolute warming')
+legend(h,leglab)
+
+print('-dpng','figs/absolute_zonal_avg_dT')
+%PrintMatlabFrag(1,10,'figs/CMIP5_PA_calib')
+

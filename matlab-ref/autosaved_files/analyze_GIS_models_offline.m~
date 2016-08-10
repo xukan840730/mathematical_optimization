@@ -1,0 +1,321 @@
+close all
+
+load_data = 0;
+if load_data;
+    clear all
+    load_data = 1;
+end
+%% Plotting options
+
+plot_individual_run_states = 1;
+plot_timeseries = 0;
+plot_diagnostic_distribution_histogram = 0;
+plot_ranking_bar = 1;
+plot_diagnostics_vs_parameters = 0;
+fs=30;
+
+nmin=  1;
+nmax=  100;
+nm=100;
+
+%% Obtain preindustrial GIS model output from multiple runs, compare each run against observed using various diagnostics, and rank the results based on these diagnostics
+
+if load_data 
+    %initialize some file-related things
+    rd=cell(nm,2);
+    model_exists=ones(nm,1);
+    res=5.; % km
+    ua=res^2;
+    mt=1.; %minimum thickness, above which ice is counted (100m is GLIMMER standard)
+    %% Get comparison data
+    
+    othk = ncread('Greenland_observed.nc','thk');
+    osrf = ncread('Greenland_observed.nc','usrf');
+    oare = length(othk(othk>mt)).*ua;
+    oare = oare + 87810.; %additional area from peripheral ice caps (calculated from Randolph dataset)
+    ovol = sum(othk(othk>mt)./1000.).*ua;
+    ovol = ovol + 33851.; %additional volume from peripheral ice caps (calculated from Randolph dataset and Bahr area-volume scaling)
+    
+    %% Get LHS parameters
+
+    load downloaded_data/LHS_array.mat
+    %get # of parameters varied
+    np=size(LHSp,2);
+    %hardcode parameter names
+    p_name={'Geothermal flux (W/m^2)','Flow factor','Exp. of basal tract. param.'};
+    
+    %% Load model output, calculate diagnostics
+    
+    for m=nmin:nmax; %for all available arrays with output
+        if model_exists(m)
+            disp(['Loading history for model ' num2str(m)])
+            file=fullfile('downloaded_data',num2str(m));
+            load(file,'mthksav');
+            mthk{m}=mthksav;
+            load(file,'msrfsav');
+            msrf{m}=msrfsav;
+            load(file,'asav');
+            a{m}=asav;
+            load(file,'vsav');
+            v{m}=vsav;
+            v_eq(m)=v{m}(end);
+            load(file,'tsav');
+            t{m}=tsav;
+        end
+    end
+cdfplot(v_eq)
+end
+%% Calculate diagnostics
+
+for m=nmin:nmax;
+    if model_exists(m)
+        
+        nd=0; %initialize diagnostics counter
+        
+        nd=nd+1;d_name{nd}='dA (%)';
+        mare=length(mthk{m}(mthk{m}>mt)).*ua;
+        d(nd,m)=(mare-oare)./oare.*100.;
+        
+        nd=nd+1;d_name{nd}='dV (%)';
+        mvol=sum(mthk{m}(mthk{m}>mt)./1000.).*ua;
+        d(nd,m)=(mvol-ovol)./ovol.*100.;
+        
+        nd=nd+1;d_name{nd}='H RMSE (m)';
+        d(nd,m)=gfit2(othk,mthk{m},'3');
+        
+        %calculate difference in max ice elevation, and offset of max ice
+        %elevation
+        [maxm,id_name]=max(msrf{m}(:));
+        [xm,ym]=ind2sub(size(msrf{m}),id_name);
+        [maxo,id_name]=max(osrf(:));
+        [xo,yo]=ind2sub(size(osrf),id_name);
+        
+        nd=nd+1;d_name{nd}='dHS_{max{_k}} (m)';
+        d(nd,m)=maxm-maxo;
+        
+        nd=nd+1;d_name{nd}='dHS_{max_{ij}} (km)';
+        d(nd,m)=sqrt((xo-xm)^2+(yo-ym)^2).*res;
+    end
+end
+
+%% Plot area/volume timeseries
+if plot_timeseries
+    
+    figure;
+    hold on
+    for m=nmin:nmax;
+        '****'
+        m
+        length(v{m})
+        plot(t{m},v{m});
+        
+    end
+    plot(t{m},linspace(v{m}(1),v{m}(1),length(v{m})),'r--','LineWidth',3)
+    
+    xlabel('Time (yr)','Fontsize',fs);
+    %set(AX(:),'Fontsize',fs)
+    ylabel('Ice volume (km^3)','Fontsize',fs);
+    hold off
+    
+    print('-dpng',strcat('figs/','volume_evolution'))
+    
+end
+
+%% Plot distribution of diagnostics
+
+if plot_diagnostic_distribution_histogram
+    for dd=1:nd
+        subplot(1,nd,dd);
+        hold on
+          hist(d(dd,:),5)
+        hold off
+    end
+end
+
+
+%% Plot ranked model output
+if plot_ranking_bar
+    
+    absd=abs(d);
+    
+    figure
+    
+    for dd=1:nd
+        %sort absolute ranking into index I
+        [junk,I(dd,:)]=sort(absd(dd,:));
+        %make temporary plotting array with original diagnostic data, sorted by
+        %absolute values
+        dplot=d(dd,I(dd,:));
+        
+        subplot(1,nd,dd);
+        hold on;
+        h=bar(dplot);
+        shading flat
+        axis tight
+        buf=(max(dplot)-min(dplot)).*0.05;
+        ax=axis;ax(3)=min(dplot)-buf;ax(4)=max(dplot)+buf;axis(ax);
+        %ax=axis;ax(3)=max(0.,min(dplot)-0.1.*(max(Y)-min(Y)));axis(ax);
+        set(gca,'Xtick',[],'Xticklabel',I(dd,:),'fontsize',fs)
+        %xlabel('Simulation #')
+        ylabel(d_name{dd})
+        
+%         ch = get(h,'Children');
+%         fvd = get(ch,'Faces');
+%         fvcd = get(ch,'FaceVertexCData');
+%         [zs, izs] = sort(d);
+%         for i = 1:length(izs)
+%             row = izs(i);
+%             fvcd(fvd(row,:)) = i;
+%         end
+%         set(ch,'FaceVertexCData',fvcd)
+        
+        
+        hold off
+    end
+    
+    print('-dpng','figs/ranked_models')
+    
+    %fid_name first model that performs in top 5
+    top_seed = 4;
+    
+    for m=nmin:nmax;
+        for dd=1:nd
+            ranking(dd)=find(squeeze(I(dd,:)==m)); %for each diagnostic, get ranking of model
+        end
+        [worst_rank(m),iworst(m)]=max(sort(ranking(:)));
+        [best_rank(m),ibest(m)]=min(sort(ranking(:)));
+    end
+    
+    [worst_rank,modnum]=sort(worst_rank); %rank models by their worst-performing diagnostic
+    for n=1:top_seed
+        disp(['Model ' num2str(modnum(n)) ' is better than ' num2str(worst_rank(n)) 'th place in all diagnostics.'])
+        disp(['It does worst at ' d_name{iworst(n)} '(' num2str(worst_rank(n)) 'th)'])
+        disp(['It does best at ' d_name{ibest(n)} '(' num2str(best_rank(n)) 'th)'])
+    end
+    
+end
+
+
+%% Plot GIS geometries
+if plot_individual_run_states
+    plot_top_4=0;
+    if plot_top_4
+        figure;
+        
+        for m=1:top_seed
+            
+            subplot(2,5,m);
+            hold on
+            temp=msrf{modnum(m)}';temp(temp==0.)=nan;caxis([0 3500]),colorbar;
+            contourf(temp,15);
+            shading flat, axis equal tight
+            set(gca,'Xtick',[],'Ytick',[])
+            set(gca,'Fontsize',15);
+            ylabel(sprintf('Geo=%s, FF=%s, BT=10^{%s}',num2str(LHSp(modnum(m),1)),num2str(LHSp(modnum(m),2)),num2str(LHSp(modnum(m),3))));
+            hold off
+            subplot(2,5,m+5);
+            hold on
+            temp=msrf{modnum(m)}'-osrf';temp(temp==0.)=nan;caxis([-1000 1000]),colorbar;
+            contourf(temp,10);
+            shading flat, axis equal tight
+            box off
+            set(gca,'Xtick',[],'Ytick',[])
+            set(gca,'Fontsize',15);
+            ylabel(sprintf('Geo=%s, FF=%s, BT=10^{%s}',num2str(LHSp(modnum(m),1)),num2str(LHSp(modnum(m),2)),num2str(LHSp(modnum(m),3))));
+            hold off
+        end
+        hold on
+        subplot(2,5,10);
+        temp=osrf';
+        temp(temp==0)=nan;
+        contourf(temp,15)
+        shading flat, axis equal tight,caxis([0 3500])
+        set(gca,'Xtick',[],'Ytick',[])
+        %     axpos=get(gca,'Position');
+        cb=colorbar;
+        ylabel(cb,'m asl')
+        %     set(gca,'Position',axpos)
+        box on
+        title('Observed')
+        print('-dpng',strcat('figs/','example_ice_sheets'))
+        hold off
+    end
+    
+    plot_for_bill=1;
+    if plot_for_bill
+       
+        figure
+        subplot(1,3,1)
+        hold on
+        temp=osrf';temp(temp==0.)=nan;caxis([0 3500]),colorbar;
+        contourf(temp,15);
+        shading flat, axis equal tight
+        set(gca,'Xtick',[],'Ytick',[])
+        set(gca,'Fontsize',25);
+        title('Observed')
+        hold off        
+        subplot(1,3,2)
+        hold on
+        temp=msrf{modnum(1)}';temp(temp==0.)=nan;caxis([0 3500]),colorbar;
+        contourf(temp,15);
+        shading flat, axis equal tight
+        set(gca,'Xtick',[],'Ytick',[])
+        set(gca,'Fontsize',25);
+        title('Best model')
+        hold off
+        subplot(1,3,3)
+        hold on
+        temp=msrf{modnum(m)}'-osrf';temp(temp==0.)=nan;caxis([-1000 1000]),colorbar;
+        contourf(temp,10);
+        shading flat, axis equal tight
+        box off
+        set(gca,'Xtick',[],'Ytick',[])
+        set(gca,'Fontsize',25);
+        title('Difference')
+        hold off
+        
+        print('-dpng',strcat('figs/','example_for_bill'))
+        
+    end
+    
+end
+
+
+%% Plot diagnostics vs. parameter
+if plot_diagnostics_vs_parameters
+    
+    figure
+    n=0;
+    for dd=1:nd
+        for pp=1:np
+            n=n+1;
+            subplot(nd,np,n)
+            hold on
+            plot(squeeze(LHSp(1:nm,pp)),squeeze(d(dd,1:nm)),'.','Markersize',20)
+            
+            axis([min(LHSp(1:nm,pp)) max(LHSp(1:nm,pp)) min(d(dd,1:nm)) max(d(dd,1:nm))]);
+            plot(squeeze(LHSp(modnum(1:5),pp)),squeeze(d(dd,modnum(1:5))),'.r','Markersize',30)
+            hold off
+            if pp==3;
+                set(gca,'XScale', 'log');
+                %lsline
+            else
+                %lsline
+            end
+            if dd==nd;
+                xlabel(p_name{pp})
+            else
+                set(gca,'Xticklabel','')
+            end
+            if pp==1;
+                ylabel(d_name{dd})
+            else
+                set(gca,'Yticklabel','')
+            end
+            
+        end
+    end
+    
+    print('-dpng','figs/params_vs_diagnostics')
+    
+end

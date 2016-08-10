@@ -1,0 +1,65 @@
+%%
+
+close all
+clear all
+load AC'RIM Composite TSI_120810.rtf'
+ACRIM_time=ACRIM_Composite_TSI_120810(:,1);
+ACRIM_data=ACRIM_Composite_TSI_120810(:,2);
+clear ACRIM_Composite_TSI_120810
+load dayssn.dat
+SSN_time=dayssn(:,1);
+SSN_data=dayssn(:,2);
+clear dayssn
+
+%%
+
+scnsize=get(0,'Screensize');
+fig1=figure;
+set(fig1,'Position',scnsize)
+
+subplot(2,1,1)
+plot(ACRIM_time,ACRIM_data)
+axis tight
+ax=axis
+ax(3)=1363
+axis(ax)
+ylabel('Solar irradiance (w/m^2)','Fontsize',20)
+set(gca,'Fontsize',20)
+subplot(2,1,2)
+plot(SSN_time,SSN_data)
+ylabel('Sunspot number','Fontsize',20)
+set(gca,'Fontsize',20)
+axis tight
+
+%print('-depsc2','sunspot_irrad.eps')
+
+
+%%
+close all
+%interpolate ACRIM data to ssn data
+X=linspace(0,length(ACRIM_time),length(ACRIM_time))
+XI=linspace(0,length(ACRIM_time),length(SSN_time));
+Y=ACRIM_data;
+ACRIM_data_int=interp1(X,Y,XI)';
+%smooth using moving-window average
+wind=400;
+ACRIM_smooth=zeros((floor(length(SSN_data)/wind)),1);
+SSN_smooth=zeros((floor(length(SSN_data)/wind)),1);
+for n=wind+1:length(SSN_data)-wind;
+  ACRIM_smooth(n-wind)=mean(ACRIM_data_int(n-wind:n+wind));
+  SSN_smooth(n-wind)=mean(SSN_data(n-wind:n+wind));  
+end
+figure
+hold on
+plot(SSN_smooth(wind+1:end))
+figure
+plot(ACRIM_smooth(wind+1:end))
+
+%%
+cp=polyfit(SSN_smooth,ACRIM_smooth,1);
+[R,P]=corrcoef(SSN_smooth,ACRIM_smooth);
+R(1,2)
+c=cov(SSN_smooth,ACRIM_smooth)
+figure
+plot(SSN_smooth,ACRIM_smooth,'.')
+

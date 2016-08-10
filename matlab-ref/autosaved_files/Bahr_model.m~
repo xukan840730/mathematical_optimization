@@ -1,0 +1,155 @@
+clear all
+close all
+
+%% Load initial hypsometric conditions (a,ebins)
+
+regionname='Iceland'
+
+load(fullfile('data',strcat(regionname,'_hypsometry.mat')))
+
+%number of glaciers, length of run
+cmin = 1 ;
+cmax = length(a) ;
+
+hold on
+for c=cmin:cmax
+    plot(
+end
+hold off
+
+nt = 2000;
+
+%preallocations
+v=zeros(cmax,nt);
+a0=zeros(cmax,1);
+tres=zeros(cmax,nt);
+ELA=zeros(cmax,nt);
+
+AAReq = 0.57 ;
+dELAmax = 200;
+%%
+for c=cmin:cmax
+    c
+    % set up glacier response time constants (once per glacier)
+    v(c,1) = 0.033 .* ((sum(a{c})).^1.375);
+    a0(c)=sum(a{c});
+    D0=v(c,1)/a0(c).*1000.; %initial mean thickness in m (seems very small...)
+    R0=max(ebins{c})-min(ebins{c});
+    k=0.005; %mean of Raper-Braithewaite measured values - this could be calculated from climate model
+    y=1.375; %Bahr constant
+    n=0.35; %mean of result of Raper/Braithewaite analysis
+    
+    % given area distribution with altitude, find initial ELA
+    i=find( (cumsum(a{c})/sum(a{c})) > (1.-AAReq), 1);
+    ELA(c,1)=ebins{c}(i);
+    AAR = AAReq;
+    
+    for t=2:nt
+        
+        %calculate volume (Bahr)
+        v(c,t) = 0.033 .* ((sum(a{c})).^1.375);
+        
+        % prescribe change in ELA
+        ELA(c,t) = ELA(c,t-1) + 2.;
+        ELA(c,t)=min(ELA(c,t),mean(ELA(c,1))+dELAmax);
+        
+        % generate new AAR, given retreat  
+        i=find(ebins{c} > ELA(c,t), 1);
+        AAR = sum(a{c}(i:end)) ./ sum(a{c}) ;
+        
+        % generate an equilibrium change in volume from this change in AAR
+        % (Bahr)
+        dv = (( (AAR./AAReq).^(1.375) ) - 1. ) .* v(c,t) ;
+        veq=v(c,t)+dv;
+        
+        % generate new equilibrium A that glacier would drift to, given
+        % time (Bahr)
+        aeq = ( veq ./ 0.033 ) .^ (1. ./ 1.375) ; %assumes glacier in y constant
+        
+        % generate new realistic total area change, given real response time
+        %response time setup (based on Raper/Braithewaite 2009, and not
+        %supposed to be used for ice caps :)
+        tres(c,t) = (y./n) .* D0 .* (2./R0) .* (1./k) .* (v(c,t)/v(c,1))^( (y-1-n)/y ); 
+        atm1 = sum(a{c}); % old volume
+        at = (atm1 - aeq).*exp(-1./tres(c,t)) + aeq;  % real new area.  dt assumed to be 1 year (hardcoded here)
+        da = at - atm1 ; % total volume change: negative if less area
+        
+        % simply take off area from bottom up.
+        for e=1:length(a{c});
+            dae = max(da,-a{c}(e)); %
+            a{c}(e) = a{c}(e) + dae ;
+            da = da - dae;
+        end
+        
+        %break if only tiny volume left
+        if sum(a{c})<1.e-3;
+            disp(['No ice left at t=' num2str(t)])
+            break
+        end
+    end
+end
+
+%%
+
+save(fullfile('data',strcat(regionname,strcat('_volume evolution'))),'v')
+
+%%
+
+fs=25;
+
+bin=logspace(0,5,6);
+nb=0;
+
+for n=2:length(bin);
+    c=find(a0>bin(n-1) & a0<=bin(n));
+    if ~isempty(c) % if there glaciers in this size range...
+        nb=nb+1;
+    end
+end
+nb=2.*ceil(nb/2);
+nc=0;
+scnsize=get(0,'Monitorpositions');
+f=figure;
+set(f,'Position',scnsize(1,:),'PaperPositionMode','auto');
+for n=2:length(bin);
+    c=find(a0>bin(n-1) & a0<=bin(n));
+    if ~isempty(c) % if there glaciers in this size range...
+        nc=nc+1;
+        vt{nc}=zeros(1,nt);
+        for nn=1:length(c)  %add up all volume timeseries to make composite timeseries for this size-range
+            vt{nc} = vt{nc} + v(c(nn),:);
+        end
+        subplot(nb/2,2,nc)
+        plot(vt{nc},'Linewidth',length(c))
+        ylabel('Ice volume (km^3)','Fontsize',fs); xlabel('Time (yr)','Fontsize',fs)
+        title(strcat('Size bin=',num2str(round(bin(n-1))),'-',num2str(round(bin(n))),' km^2'),'Fontsize',fs)
+        set(gca,'Fontsize',fs)
+    end
+end
+set(gca,'Fontsize',fs)
+print('-dpng',strcat('figs/',regionname,'_dVdt_by_volume_bin'))
+
+scnsize=get(0,'Monitorpositions');
+f=figure;
+set(f,'Position',scnsize(1,:)/2,'PaperPositionMode','auto');
+plot((sum(v(:,1))-sum(v,1))/335258000.*1.e6,'Linewidth',3) ; % SLR, units of mm.
+xlabel('Time (yr)','Fontsize',fs)
+ylabel('SLR contribution (mm)','Fontsize',fs)
+title(strcat(regionname,' contribution to global sea level rise'),'Fontsize',fs)
+set(gca,'Fontsize',fs)
+print('-dpng',strcat('figs/',regionname,'_SLR'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

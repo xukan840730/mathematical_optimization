@@ -1,0 +1,129 @@
+function[Mask,LegendLabels,ColorMap] = climate_analysis(analysis_type,InputDir,Elevation)
+
+
+
+switch analysis_type
+
+    case 'DDgt18_threshold_map'
+
+        varname='DDgt18';
+        load(fullfile(InputDir,'2020',varname));
+        eval(sprintf('CV2020=%s;',varname));
+        load(fullfile(InputDir,'2050',varname));
+        eval(sprintf('CV2050=%s;',varname));
+        load(fullfile(InputDir,'2080',varname));
+        eval(sprintf('CV2080=%s;',varname));
+        load(fullfile(InputDir,'historical',varname));
+        eval(sprintf('CV2000=%s;',varname));
+        eval(sprintf('clear %s',varname));
+        Mask=zeros(size(CV2000));
+        threshold_lb=150.;
+        threshold_ub=400.;
+        
+        Mask(CV2000>threshold_lb & CV2000<threshold_ub & Mask==0.)=1;
+        Mask(CV2020>threshold_lb & CV2020<threshold_ub & Mask==0.)=2;
+        Mask(CV2050>threshold_lb & CV2050<threshold_ub & Mask==0.)=3;
+        Mask(CV2080>threshold_lb & CV2080<threshold_ub & Mask==0.)=4;
+        Mask(Elevation<=50. | isnan(Elevation))=-1;
+        Mask=Mask-10; %drop so text visible
+
+        LegendLabels={'ocean' 'threshold never achieved' 'threshold achieved at present' 'threshold achieved 2020-2039' 'threshold achieved 2050-2069' 'threshold achieved 2080-2099'};
+
+        ColorMap=colormap('jet(100)');
+
+    case 'DDgt5_threshold_map'
+
+        varname='DDgt5';
+        load(fullfile(InputDir,'2020',varname));
+        eval(sprintf('CV2020=%s;',varname));
+        load(fullfile(InputDir,'2050',varname));
+        eval(sprintf('CV2050=%s;',varname));
+        load(fullfile(InputDir,'2080',varname));
+        eval(sprintf('CV2080=%s;',varname));
+        load(fullfile(InputDir,'historical',varname));
+        eval(sprintf('CV2000=%s;',varname));
+        eval(sprintf('clear %s',varname));
+        Mask=zeros(size(CV2000));
+        threshold_lb=1900.;
+        threshold_ub=3000.;
+        
+        Mask(CV2000>threshold_lb & CV2000<threshold_ub & Mask==0.)=1;
+        Mask(CV2020>threshold_lb & CV2020<threshold_ub & Mask==0.)=2;
+        Mask(CV2050>threshold_lb & CV2050<threshold_ub & Mask==0.)=3;
+        Mask(CV2080>threshold_lb & CV2080<threshold_ub & Mask==0.)=4;
+        Mask(Elevation<=50. | isnan(Elevation))=-1;
+        Mask=Mask; %drop so text visible
+
+        LegendLabels={'ocean' 'threshold never achieved' 'threshold achieved at present' 'threshold achieved 2020-2039' 'threshold achieved 2050-2069' 'threshold achieved 2080-2099'};
+
+        ColorMap=colormap('jet(100)');
+
+    case 'Summer_precipitation_change_2050_m_2000'
+
+        varname='PPT_sm';
+        load(fullfile(InputDir,'2020',varname));
+
+        Mask=(CV2050-CV2000)./CV2000.*100.;
+
+        Mask(Elevation<=50. | isnan(Elevation))=0;
+
+        LegendLabels={};
+
+        ColorMap=rbcbar(min(Mask(:)),max(Mask(:)));
+
+    case 'Winter_precipitation_change_2050_m_2000'
+
+        varname='PPT_wt';
+
+        [CV2000,CV2020,CV2050,CV2100] = get_climate_field_slices(varname)
+
+
+        Mask=(CV2050-CV2000)./CV2000.*100.;
+
+        Mask(Elevation<=50. | isnan(Elevation))=0;
+
+        LegendLabels={};
+
+        ColorMap=rbcbar(min(Mask(:)),max(Mask(:)));
+
+    case 'Snowfall_amount_change_2050_m_2000'
+
+        varname='PAS';
+        
+        [CV2000,CV2020,CV2050,CV2100] = get_climate_field_slices(varname)
+
+        Mask=(CV2050-CV2000)./CV2000.*100.;
+
+        Mask(Elevation<=50. | isnan(Elevation))=0;
+
+        LegendLabels={};
+
+        ColorMap=rbcbar(min(Mask(:)),max(Mask(:)));
+
+    otherwise
+
+        error('analysis_type not recognized.')
+
+end
+
+if size(ColorMap,1)~=100
+    error('ColorMap must be of length 100, for later use in ge_surf.')
+end
+
+end
+
+%%%%%%%%%% Local Functions %%%%%%%%%%%
+
+function[CV2000,CV2020,CV2050,CV2100] = get_climate_field_slices(varname)
+
+load(fullfile(InputDir,'2020',varname));
+eval(sprintf('CV2020=%s;',varname));
+load(fullfile(InputDir,'2050',varname));
+eval(sprintf('CV2050=%s;',varname));
+load(fullfile(InputDir,'2080',varname));
+eval(sprintf('CV2080=%s;',varname));
+load(fullfile(InputDir,'historical',varname));
+eval(sprintf('CV2000=%s;',varname));
+eval(sprintf('clear %s',varname));
+
+end

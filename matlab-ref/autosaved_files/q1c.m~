@@ -1,0 +1,114 @@
+%% 1-D mountain glacier flow model  
+clear all
+close all
+%% set time and space dimensions
+for T=1:300
+  dlength=60000;                         %set total domain length (meters)
+  dx=1000;                                   %set model resolution (meters)     
+  nx=floor(dlength/dx)+1;           %calculate number of grid cells needed
+  run_length=4000;                 %set run length (years)
+  dt=1./24.;                                  %set timestep (years)    
+  nt=floor(run_length/dt)+1;        %calculate number of timesteps to take
+
+  %% preallocate arrays
+  melt=zeros(nx,1);       %melt contribution to mass balance
+  accum=zeros(nx,1);    %accumulation contribution to mass balance
+  smb=zeros(nx,1);       %net surface mass balance
+  bed_elev=zeros(nx,1);%ice bed elevation (meters above sea level (ASL))
+  thk=zeros(nx,1);         %ice thickness
+  elev=zeros(nx,1);        %surface elevation (bed elevation + ice thickness)
+  T_elev=zeros(nx,1);    %surface air temperature
+  vol=zeros(nt,1);          %total ice volume (assuming unit glacier width of 1 m)
+  dVdt=zeros(nt,1);
+  temp=zeros(nt,1);
+
+  %rhoice=912.;
+  %rhomant=3300.;
+  %tau_relax=2000;
+  %% Define the bed elevation at all points, in units of meters above
+  %% sealevel (ASL).
+  bed_elev=linspace(3000,0,nx)';
+  %save bed elevation for isostatic model
+  bed_elev_init=bed_elev;
+  % Set initial ice elevation to 0.
+  elev=bed_elev+thk;
+  %% Load restart file to overwrite default values set above.  
+  %If you want to continue running from the saved state of a previous simulation.
+  %load restart.mat
+  tt=1;
+  equilib_crit=1.;
+  counter=0.;
+  dVdtavg=0.;
+
+  %% Set smb stuff
+  T_sealev=T/10;
+  accum(:)=3;
+  lapse_rate=-.006;          %C/m
+  %set smb array
+
+  %% Iterative timestepping loop
+  while tt<nt;
+    tt=tt+1;
+    PDD_factor=-2;            %m/yr/C    
+    %T_var=12;                 % imposed seasonal variance amplitude (C)   
+    %ssr=sin(tt*dt*2*pi);   %sin of season, in radians
+    T_elev=T_sealev + elev.*lapse_rate;  %elevated air temp C
+    %T_elev=T_sealev(tt) + ssr*T_var + elev.*lapse_rate;  %elevated air temp C
+  
+    %generate ablation as a function of surface temperature          
+    melt(:)=0.;
+    i=find(T_elev>0);
+    melt(i)=(T_elev(i).*PDD_factor);  %melt rate (m/yr ice)
+  
+    %determine smb
+    smb=accum+melt; %net mass balance rate (m/yr ice)
+    %smb=linspace(1,-10,nx)';
+  
+    %Run ice evolution timestep, return updated ice thickness and surface elevation fields, and total ice volume. 
+    [thk]=evolve_ice(thk,bed_elev,smb,nx,dx,dt);
+    %Calculate total ice volume thk
+    vol(tt)=sum(thk)*dx;
+  %Test for equilibrium
+    dvol=vol(tt)-vol(tt-1); % get change in volume since last time-step
+    crit=1.e-6*vol(tt); % criterion for equilibrium: 1/1000000 of total volume
+    if  dvol <= crit
+      vol_at_T=vol(tt);
+      vol_T(T)=vol(tt);
+      display('***********************')
+      display(strcat('Sea level temperature=',num2str(T_sealev)))
+      display(strcat('Equilibrium reached at year=',num2str(tt*dt)))
+      display(strcat('Equilibrium volume=',num2str(vol_at_T)))
+      break
+    end
+  
+    %Test for crash
+    if (isnan(dvol))>0
+      display(strcat('Runaway model at year',num2str(tt*dt)))
+      break
+    end
+    %Calculate isostatic adjustment to bed elevation
+    %bed_elev_equilib=bed_elev_init-thk*(rhoice/rhomant);
+    %bed_elev=bed_elev-(bed_elev-bed_elev_equilib)/tau_relax*dt;
+  
+    elev=thk+bed_elev;
+  end
+end
+%%
+%for n=1:floor(nt*dt)-(1/dt*10)
+%    ii=n/dt+1;
+%    jj=n/dt+1/dt;
+%volann(n)=mean(vol(ii:jj));   
+%n/floor(nt*dt)*100
+%end
+%dvoldt=volann(2:end)-volann(1:end-1);
+%plot(dvoldt)
+%%a
+figure
+plot(linspace(0.1,30,300),vol_T,'Linewidth',2)
+xlabel('Sealevel temperature')
+ylabel('Ice volume')
+figure
+plot()
+
+
+

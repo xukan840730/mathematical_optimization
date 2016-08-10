@@ -1,0 +1,76 @@
+close all
+clear all
+%Define global variables
+global k
+
+%Fluxes (F) and rate coefficients (k) are stored in matrix form: F(i,j)
+%means the flux of carbon from component i to component j.  Likewise,
+%k(i,j) identifies the rate coefficient associated with the flux from i to
+%j.
+%The initial mass of carbon (M0) is stored in a lenght-9 vector.
+
+%Load initial values
+F=zeros(6,6);
+k=zeros(6,6);
+M0=zeros(6,1);
+
+component{1}='atmosphere';
+F(1,2)=70.;
+F(1,5)=120.;
+
+component{2}='surface ocean';
+F(2,1)=70.6.;
+F(2,3)=50.;
+F(2,4)=90.2.;
+
+component{3}='marine biota';
+F(3,2)=36.;
+F(3,4)=4.;
+
+component{4}='intermediate/deep water';
+F(4,2)=42.;
+F(4,6)=0.2;
+
+component{5}='terrestrial vegetation, soil, detritus';
+F(5,1)=119.6;
+F(5,2)=0.4;
+
+component{6}='lithosphere';
+F(6,7)=15.;
+
+
+%Initial mass of carbon
+M0(1)=725.;
+M0(2)=725.;
+M0(3)=3.;
+M0(4)=37675.;
+M0(5)=110.;
+M0(6)=450.;
+M0(7)=60.;
+M0(8)=1350.;
+M0(9)=160.;
+
+%Calculate rate coefficients
+for n=1:9;
+  k(n,:)=F(n,:)/M0(n);
+end
+
+%Set time interval
+time_min=1800.;
+time_max=2400.;
+n=time_max-time_min+1;
+timespan=linspace(time_min,time_max,n);
+
+%Use the Matlab Runge-Kutta 4/5 solver to solve for the evolving M of each
+%component over the timespan defined above.  The call to ode45 includes the
+%reference to function carb_odes which includes the set of ODEs which define
+%dM/dT.  It is this set of equations that Matlab marches through time, using 
+%the solution from the previous time-step.
+[t,M] = ode45(@carb_odes,timespan,M0);
+
+%% Plot M(t) evolution of all components
+close all
+h=area(timespan,M);
+legend(h,component,'Location','West')
+axis tight
+

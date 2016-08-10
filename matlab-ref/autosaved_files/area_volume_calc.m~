@@ -1,0 +1,72 @@
+%%
+close all
+clear all
+% Load shapefile data
+files=dir('RGIV1_20120305/*.shp');
+  %set regions to read
+minreg=1; %Greenland
+maxreg=19;
+maxreg=min(maxreg,19); %no higher than 19!
+%% Inquire about/load data
+for r=minreg:maxreg;
+    info(r)=shapeinfo(fullfile('RGIV1_20120305/',files(r).name));
+    reg(r).glc=shaperead(fullfile('RGIV1_20120305/',files(r).name));
+    
+    %get region names from file headers
+    txt=regexp(files(r).name,'_','split');
+    rn{r}=txt{1};
+    
+end
+
+%% Hardcode variable name changes, so all regions use same nomenclature
+reg(1).glc=RenameField(reg(1).glc,'Area','a');
+reg(2).glc=RenameField(reg(2).glc,'Area','a'); %Shape_Area ,AreaLamber?
+reg(3).glc=RenameField(reg(3).glc,'Shape_Area','a'); %?
+reg(4).glc=RenameField(reg(4).glc,'Area','a'); %Shape_Area?
+reg(5).glc=RenameField(reg(5).glc,'SHAPE_Area','a'); %?
+reg(6).glc=RenameField(reg(6).glc,'AREA_SQKM','a'); %Shape_Area?
+reg(7).glc=RenameField(reg(7).glc,'Shape_Area','a'); %?
+reg(8).glc=RenameField(reg(8).glc,'Shape_Area','a'); %?
+reg(9).glc=RenameField(reg(9).glc,'AREA_KM2','a'); % Shape_Area, AREA ?
+reg(10).glc=RenameField(reg(10).glc,'area_km2','a');% Shape_Area ?
+reg(11).glc=RenameField(reg(11).glc,'SHAPE_Area','a'); %?
+reg(12).glc=RenameField(reg(12).glc,'Area','a');% Shape_Area ?
+reg(13).glc=RenameField(reg(13).glc,'Shape_Area','a'); %?
+reg(14).glc=RenameField(reg(14).glc,'AREA','a'); % Shape_Area, DB_AREA, GEOG_AREA  ?
+reg(15).glc=RenameField(reg(15).glc,'Area','a'); % Shape_Area?
+reg(16).glc=RenameField(reg(16).glc,'Shape_Area','a'); %?
+reg(17).glc=RenameField(reg(17).glc,'Area','a'); % Shape_Area?
+reg(18).glc=RenameField(reg(18).glc,'Shape_Area','a'); % 
+reg(19).glc=RenameField(reg(19).glc,'Shape_Area','a'); %?
+
+%% Calculate total glacierized area and volume/total volume in each region.
+
+for r=minreg:maxreg
+    for g
+   reg(r).gl 
+end
+
+
+for r=minreg:maxreg;
+    for g=1:length(reg(r).glc); reg(r).glc(g).v=0.033.*reg(r).glc(g).a.^1.36; end %Bahr scaling, ugly loop
+    reg(r).ca=sum([reg(r).glc.a]);
+    reg(r).cv=sum([reg(r).glc.v]);
+end
+
+%% Generate histogram of glacier areas for each region
+for r=minreg:maxreg;
+    figure
+    nbins=100;
+    bin_lims=linspace(0,10,nbins);
+    tot_area=zeros(nbins,1);
+    for n=2:nbins
+        ca=[reg(r).glc.a];
+        tot_area(n-1)=sum ( ca( ca > bin_lims(n-1) & ca <= bin_lims(n) ) ) ;  
+    end
+    bar(tot_area)
+    xlabel('Glacier area bin area (km^2)')
+    ylabel('Regional glacier area in each bin (km^2)')
+    set(gca,'Xtick',[1 nbins/2 nbins],'Xticklabel',round(bin_lims([2 nbins/2 nbins])))
+    axis tight
+end
+

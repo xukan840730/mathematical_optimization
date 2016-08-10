@@ -1,0 +1,40 @@
+%%
+reload              =0;
+if reload
+    close all
+    clear all
+    reload=1
+end
+plot_SAT_diffs      =1;
+
+mounted_directory='/Volumes/Mare/PhD_output/future_equilib/SAT_output/';
+
+if reload
+  for co2=[2 3 4 5 6 7];
+    file_root=strcat('/Volumes/Mare/PhD_output/future_equilib/SAT_output/');
+    fname=strcat(file_root,num2str(co2),'dT.nc');
+    sat{co2}=rnc(fname,'satiE')';
+
+    fname=strcat(file_root,num2str(co2),'/data/Greenland_restart.nc');
+    hs{co2}=rnc(fname,'hs')';
+  end
+end
+fig_format
+if plot_SAT_diffs
+  hf=figure
+  ha=tight_subplot(2,3,[0.04 0],0.04,0.02);
+  n=0
+  for co2=[2 3 4 5 6 7];
+    n=n+1;
+    axes(ha(n));
+    hold on
+    surface(hs{co2},sat{co2},'AmbientStrength',0.8);
+    light('Position',[-0.5 -0.5 1],'Style','Infinite');lighting phong;shading flat;
+    axis equal off tight;
+    hc=colorbar;caxis([0 30]);
+    ylabel(hc,'dT (^{\circ}C)')
+    title(strcat(num2str(co2*280.),' ppmv CO_2'));
+    hold off
+  end
+  exportfig(hf,'SAT_diffs')
+end

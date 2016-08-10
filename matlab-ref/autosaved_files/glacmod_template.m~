@@ -1,0 +1,56 @@
+%% 1-D mountain glacier flow model
+clear all
+close all
+%% set time and space dimensions
+
+dlength=60000;                    %set total domain length (meters)
+dx=1000;                          %set model resolution (meters)     
+nx=floor(dlength/dx)+1;           %calculate number of grid cells needed
+
+run_length=4000;                  %set run length (years)
+dt=1./24.;                        %set timestep (years)    
+nt=floor(run_length/dt)+1;        %calculate number of timesteps to take
+
+%% preallocate arrays
+melt=zeros(nx,1);    %melt contribution to mass balance
+accum=zeros(nx,1);   %accumulation contribution to mass balance
+smb=zeros(nx,1);     %net surface mass balance
+bed_elev=zeros(nx,1);%ice bed elevation (meters above sea level (ASL))
+thk=zeros(nx,1);     %ice thickness
+elev=zeros(nx,1);    %surface elevation (bed elevation + ice thickness)
+T_elev=zeros(nx,1);  %surface air temperature
+T_sealev=zeros(nt,1);%sea-level air temperature
+vol=zeros(nt,1);     %total ice volume (assuming unit glacier width of 1 m)
+
+%% Define the bed elevation at all points, in units of meters above sealevel (ASL).
+
+%% Define sealevel temperature (SLT) timeseries
+
+%% Load restart file to overwrite default values set above.  
+%%If you want to continue running from the saved state of a previous simulation.
+%load restart.mat
+
+%Otherwise, set initial ice thickness to zero everywhere
+elev=bed_elev+thk;
+
+%% Iterative timestepping loop
+for tt=1:nt;
+  % Probably a good idea to generate the timestep-specific surface mass balance field here  
+  
+  %Run ice evolution timestep, return updated ice thickness and surface elevation fields, and total ice volume. 
+  [thk,vol(tt),elev]=evolve_ice(thk,bed_elev,elev,smb,nx,dx,dt);
+
+  %Plot output
+  %Example: every 20 years, plot ice/bed profile, volume evolution, and SLR evolution in one figure
+  %if (mod(tt*dt,20)==0.)  
+  % cla
+  % subplot(3,1,1);hold on; plot(elev,'b','LineWidth',2);plot(bed_elev,'k','LineWidth',2);axis([0 nx min(bed_elev) max(bed_elev+1000)]); hold off
+  % subplot(3,1,2); plot(vol(1:tt)); axis([0 nt 0 4.3e7]);
+  % subplot(3,1,3); plot(T_sealev(1:tt));;axis([0 nt min(T_sealev) max(T_sealev)]);  
+  % M=getframe;
+  %end
+end
+%% Save final ice sheet state (ice thickness, bed elevation, surface elevation)
+%save restart.mat thk bed_elev elev
+
+

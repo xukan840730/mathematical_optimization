@@ -1,0 +1,27 @@
+%%
+clear all
+close all
+
+ncload('out.nc')
+ncload('AIS_vol.nc')
+vol=L_icevolS(7000:end);
+
+sec2yr=365*24*60*60;
+%% convert m3 ice to Sv
+flux=vol(2:end)-vol(1:end-1); %m/yr (year intervals between tsi points)
+flux=-flux/sec2yr/1.e6;
+plot(flux,'Linewidth',2)
+axis tight
+xlabel('time (years)');
+ylabel('FW flux from AIS (Sv)');
+
+% %%
+% for n=1:length(hs)
+%   temp(:,:)=hs(n,:,:);
+% contourf(temp),shading flat
+%   M(n)=getframe
+%   clear temp
+% end
+% %%
+% fname='AIS_vol.mpg'
+% mpgwrite(M,hot,fname)

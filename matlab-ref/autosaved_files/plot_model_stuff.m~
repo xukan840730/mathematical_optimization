@@ -1,0 +1,190 @@
+%%
+close all
+clear all
+kmt=rnc('viu.nc','G_kmt')';
+
+vname='A_sat'
+leg_lab='Temperature ({^\circ}C)'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+pv=rnc('viu.nc',vname)'-273.15;
+contourf(pv,30),shading flat;
+cb=colorbar%colormap(rbcbar(-1,1));
+ylabel(cb,leg_lab);
+contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off
+
+%% OCEAN TEMP
+
+vname='O_temp'
+leg_lab='Ocean temperature ({^\circ}C)'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+temp=rnc('viu.nc',vname);
+pv=temp(:,:,1)'-273.15;
+pv(kmt==0)=nan;
+clear temp
+pcolor(pv),shading interp;
+cb=colorbar
+ylabel(cb,leg_lab);
+contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off
+
+%% OCEAN FLOW
+
+vname='O_psi'
+leg_lab='Streamfunction (Sv)'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+pv=rnc('viu.nc',vname)';
+pv(kmt==0)=nan;
+pcolor(pv),shading interp;
+cb=colorbar
+caxis([min(min(pv)) max(max(pv))/2]);
+ylabel(cb,leg_lab);
+contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off
+
+%% VEG
+
+vname='L_vegfra'
+leg_lab='Grassland fraction'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+temp=rnc('viu.nc',vname);
+temp(temp>10000)=nan;
+pv=temp(:,:,3)';
+contourf(pv,30),shading flat;
+cb=colorbar
+ylabel(cb,leg_lab);
+%contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off
+
+%% PRECIP
+
+vname='F_precip'
+leg_lab='Precip (kg m^{-2} s^{_1}")'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+pv=rnc('viu.nc',vname)';
+contourf(pv,30),shading flat;
+cb=colorbar
+caxis([min(min(pv)) max(max(pv))]);
+ylabel(cb,leg_lab);
+contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off
+
+%% SEA ICE
+
+vname='O_icefra'
+leg_lab='Sea ice coverage (%)'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+pv=rnc('viu.nc',vname)';
+pv(kmt==0)=nan;
+pcolor(pv),shading flat;
+cb=colorbar
+caxis([min(min(pv)) max(max(pv))/2]);
+ylabel(cb,leg_lab);
+contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off
+
+%% Bathy/topog
+leg_lab='Bathymetry/topography'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+depth=rnc('viu.nc','zw');
+pv=zeros(100);
+for i=1:100
+    for j=1:100
+        if kmt(i,j)>0.
+            pv(i,j)=-depth(uint8(kmt(i,j)));
+        end
+    end
+end
+elev=rnc('viu.nc','L_elev')';
+pv(elev>0.)=elev(elev>0.);
+hold on
+contourf(pv,30),shading flat
+caxis([min(min(pv)) max(max(pv))/2]);
+contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+cb=colorbar
+ylabel(cb,leg_lab);
+caxis([min(min(pv)) max(max(pv))]);
+axis tight
+axis_labels
+vname='elev_bathy';
+print(h,'-dpdf',vname)
+hold off
+
+%% Carbon
+
+%% VEG
+
+vname='L_vegfra'
+leg_lab='Grassland fraction'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+temp=rnc('viu.nc',vname);
+temp(temp>10000)=nan;
+pv=temp(:,:,3)';
+contourf(pv,30),shading flat;
+cb=colorbar
+ylabel(cb,leg_lab);
+%contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off
+
+%% Veg carb
+
+vname='L_vegcarb'
+leg_lab='Vegetation carbon (kg m{-2})'
+scnsize=get(0,'Monitorpositions');
+h=figure;
+set(h,'Position',scnsize(1,:));
+hold on
+pv=rnc('viu.nc',vname)';
+contourf(pv,30),shading flat;
+cb=colorbar
+caxis([min(min(pv)) max(max(pv))]);
+ylabel(cb,leg_lab);
+contour(kmt,[0.5 0.5],'Linecolor','k'),shading flat
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off

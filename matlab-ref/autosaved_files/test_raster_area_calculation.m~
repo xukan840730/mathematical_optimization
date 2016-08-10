@@ -1,0 +1,23 @@
+hold on
+clear all
+
+load RGI_topographies_masks_and_hypsometries/Alaska822.mat
+clear Hypsometry ElevationBins GlacierElevation
+bres=10.;
+GridReference=double(GridReference);
+
+ElevationBins=emin:bres:emax;
+Hypsometry=squeeze(zeros(length(ElevationBins)-1,1)); %area bins are bounded by elevation bin limits
+for e=1:length(Hypsometry);
+    Hypsometry(e)=areamat( GlacierElevation<ElevationBins(e+1) & GlacierElevation>=ElevationBins(e) & GlacierMask == 0 , GridReference , wgs84Ellipsoid('kilometers'));...
+                 +areamat( GlacierElevation<ElevationBins(e+1) & GlacierElevation>=ElevationBins(e) & GlacierMask == 1 , GridReference , wgs84Ellipsoid('kilometers')).*.5;
+end
+
+disp(['Original Area=' num2str(RGIDataStructure.AREA)])
+disp(['Recalculated Area=' num2str(sum(Hypsometry))])
+disp(['Percent difference=' num2str( (RGIDataStructure.AREA-sum(Hypsometry))./sum(Hypsometry) )])
+% geoshow(double(GlacierElevation),double(GridReference))
+% hold on
+% geoshow(RGIDataStructure.Y,RGIDataStructure.X)
+plot(Hypsometry,'b')
+

@@ -1,0 +1,286 @@
+%% Regrid MARGO (SST), land surface (SAT), and UVic (SST/SAT) data onto
+%% common SST/SAT grid.
+
+clear all
+close all
+
+global print_output
+
+print_output=0;
+
+%Set jobs to carry out.
+process_models=0;
+    output_models=0;
+process_MARGO_data=1;
+    output_MARGO_data=0;
+process_land_data=1;
+    output_land_data=0;    
+create_zonal_averages=0;
+rootout='/Volumes/Mare/SEA_response/';
+    
+% For simplicity, hardcode dimensions for regridding (longitude, latitude).
+UVic_dims=[100 100];
+MARGO_dims=[72 35];   
+LAND_dims=[180 90];
+ndimrg(1)=lcms([UVic_dims(1) MARGO_dims(1) LAND_dims(1)]);
+ndimrg(2)=lcms([UVic_dims(2) MARGO_dims(2) LAND_dims(2)]);
+
+%% Load all data.  Regrid to common grid.  Save to file.
+
+
+if process_models
+    
+    %***UVic polar amplification output***
+    rootin='/Volumes/Mare/SEA_response/pol_amp_files/';
+    SAT_PI=rnc(strcat(rootin,'PI_amp.tavg.nc'),'A_sat');
+    SST_PI=rnc(strcat(rootin,'PI_amp.tavg.nc'),'O_temp'); 
+    SAT_LGM_NOAMP=rnc(strcat(rootin,'no_PA.tavg.nc'),'A_sat');
+    SST_LGM_NOAMP=rnc(strcat(rootin,'no_PA.tavg.nc'),'O_temp');
+    SAT_LGM_AMP=rnc(strcat(rootin,'PA.tavg.nc'),'A_sat');
+    SST_LGM_AMP=rnc(strcat(rootin,'PA.tavg.nc'),'O_temp');
+    LGMtmsk=rnc(strcat(rootin,'PA.tavg.nc'),'G_mskt');   
+    LAT=cos(rnc(strcat(rootin,'PA.tavg.nc'),'G_latT')*pi/180.); %converted to cos(LAT)
+    %differences between amp/no amp SST and SAT for LGM and PI.
+    DSAT_NOAMP=SAT_LGM_NOAMP(:,:,end)-SAT_PI(:,:,end);
+    DSAT_AMP=SAT_LGM_AMP(:,:,end)-SAT_PI(:,:,end);
+    DSST_NOAMP=SST_LGM_NOAMP(:,:,1,end)-SST_PI(:,:,1,end);
+    DSST_AMP=SST_LGM_AMP(:,:,1,end)-SST_PI(:,:,1,end);
+    %global average dSAT for no-amp and amp cases
+    G_AVG_dSAT_NOAMP=sum(DSAT_NOAMP(:).*LAT(:))/sum(LAT(:));
+    %generate combined amp/noamp SST/SAT fields 
+    DSAT_SST_NOAMP=zeros(UVic_dims);
+    DSAT_SST_NOAMP(LGMtmsk==0)=DSAT_NOAMP(LGMtmsk==0);
+    DSAT_SST_NOAMP(LGMtmsk==1)=DSST_NOAMP(LGMtmsk==1);
+    DSAT_SST_AMP=zeros(UVic_dims);
+    DSAT_SST_AMP(LGMtmsk==0)=DSAT_AMP(LGMtmsk==0);
+    DSAT_SST_AMP(LGMtmsk==1)=DSST_AMP(LGMtmsk==1);
+    %generate difference in combined SST/SAT fields (due to polar amp).
+    DSAT_LGM=DSAT_SST_AMP-DSAT_SST_NOAMP;
+    %***SEA output***
+    rootin='Schmittner_data/sat_sst_aice/';
+    files=dir(strcat(rootin,'*.dat'));
+    LGMtmskUVic=LGMtmsk;
+    %for n=1:length(files);
+    for n=1:1;   
+        fname=strcat(rootin,files(n).name);
+        SEA=load(fname);
+        SEA=reshape(SEA,100,100,10);
+        LGMtmsk=SEA(:,:,10);
+        DSAT=SEA(:,:,4)-SEA(:,:,3);
+        DSST=SEA(:,:,6)-SEA(:,:,5);
+        SEA_DT{n}=zeros(UVic_dims);       
+        %regenerate combined SEA SST/SAT field
+        SEA_DT{n}(LGMtmsk==0)=DSAT(LGMtmsk==0);
+        SEA_DT{n}(LGMtmsk==1)=DSST(LGMtmsk==1);       
+        %generate 'adjusted' SEA SEA_DT field:
+        %1. get global average dSAT (for SEA run).
+        SEA_G_AVG_DSAT(n)=sum(DSAT(:).*LAT(:))/sum(LAT(:));
+        %2. generate 'adjustment term' field to apply to combined SEA SST/SAT
+        T_adj{n}=DSAT_LGM*SEA_G_AVG_DSAT(n)/G_AVG_dSAT_NOAMP;
+        %3. add adjustment field onto SEA temperature change.
+        SEA_DT_adj{n}=SEA_DT{n}+T_adj{n};
+    end
+    
+    tmskdiff=LGMtmskUVic-LGMtmsk;
+    figure
+    subplot(1,3,1)
+    pcolor(tmskdiff'), shading flat, colorbar
+    subplot(1,3,2)
+    pcolor(LGMtmsk'), shading flat, colorbar
+    subplot(1,3,3)
+    pcolor(LGMtmskUVic'), shading flat, colorbar 
+    
+    
+    if output_models
+        
+        rootout='/Volumes/Mare/SEA_response/';
+        for n=1:length(files);
+            %write original non-adjusted SEA field
+            fname=strcat(rootout,'SEA.orig.',files(n).name,'.nc');
+            wnc_ll(SEA_DT{n},strcat(rootout,'SEA.orig.',files(n).name,'.nc'),'DT','C');
+            %write regridded non-adjusted SEA field
+            SEA_DT_rg=regrid(SEA_DT{n},ndimrg);
+            wnc_ll(SEA_DT_rg,strcat(rootout,'SEA.orig.regridded.',files(n).name,'.nc'),'DT','C');
+            %write original adjusted SEA field
+            wnc_ll(SEA_DT_adj,strcat(rootout,'SEA.adj.',files(n).name,'.nc'),'DT','C');
+            %write regridded adjusted SEA field
+            SEA_DT_adj_rg=regrid(SEA_DT_adj{n},ndimrg);
+            wnc_ll(SEA_DT_adj_rg,strcat(rootout,'SEA.adj.regridded.',files(n).name,'.nc'),'DT','C');            
+        end
+        %write original and regridded tmsk field
+        wnc_ll(LGMtmsk,strcat(rootout,'SEA.tmsk.orig.nc'),'tmsk','mask')
+        SEA_LGMtmsk_rg=regrid(LGMtmsk,ndimrg);
+        wnc_ll(SEA_LGMtmsk_rg,strcat(rootout,'SEA.tmsk.regridded.nc'),'tmsk','mask') 
+        %write original and regridded UVic polar amp/noamp output
+        wnc_ll(DSAT_SST_NOAMP,strcat(rootout,'UVic.SAT_SST.no_polamp.orig.nc'),'DT','C')
+        UVic_DT_NOAMP_rg=regrid(DSAT_SST_NOAMP,ndimrg);
+        wnc_ll(UVic_DT_NOAMP_rg,strcat(rootout,'UVic.SAT_SST.no_polamp.regridded.nc'),'DT','C')         
+        wnc_ll(DSAT_SST_AMP,strcat(rootout,'UVic.SAT_SST.polamp.orig.nc'),'DT','C')
+        UVic_DT_AMP_rg=regrid(DSAT_SST_AMP,ndimrg);
+        wnc_ll(UVic_DT_AMP_rg,strcat(rootout,'UVic.SAT_SST.polamp.regridded.nc'),'DT','C')      
+    end
+    
+end
+
+%%
+
+if process_MARGO_data
+    
+    %***MARGO SST anomalies***
+    MARGO_sst=rnc('Schmittner_data_and_scripts/MARGO09.nc','DSST');
+    sst_lon=rnc('Schmittner_data_and_scripts/MARGO09.nc','LONGITUDE');
+    sst_lat=rnc('Schmittner_data_and_scripts/MARGO09.nc','LATITUDE');
+    %sst_lat=[-87.5 sst_lat']';
+    %updates to MARGO
+    MARGO_sst_update=rnc('Schmittner_data_and_scripts/dt_updated_MARGO.nc','DT');
+    %other updates
+    other_sst_updates=rnc('Schmittner_data_and_scripts/dt_other_ocean.nc','DT');
+    %trim first zonal band to match MARGO latitude bands
+    other_sst_updates=other_sst_updates(:,2:end); 
+    %update basic MARGO data with two update datasets
+    sst_data_mask=zeros(size(MARGO_sst));
+    sst_data_mask(MARGO_sst<-99.)=1;
+    MARGO_sst    (MARGO_sst_update>-1000.)=MARGO_sst_update(MARGO_sst_update>-1000.);
+    sst_data_mask(MARGO_sst_update>-1000.)=2;
+    MARGO_sst    (other_sst_updates>-1.e10)=other_sst_updates(other_sst_updates>-1.e10);
+    sst_data_mask(other_sst_updates>-1.e10)=3;
+    %apply sealevel correction
+    MARGO_sst=MARGO_sst+0.32;
+    %nan no-data-available points
+    MARGO_sst(MARGO_sst<-99.)=nan;
+
+    %calculate total percent of planet covered by MARGO data
+
+    [totarea,waste]=meshgrid(cos(sst_lat.*pi/180.),1:72);clear waste
+    margoarea=zeros(MARGO_dims);
+    margoarea(~isnan(MARGO_sst))=totarea(~isnan(MARGO_sst));
+    margopercentcoverage=sum(margoarea(:))./sum(totarea(:))*100.
+
+    if output_MARGO_data
+       
+        %write original and regridded (updated) MARGO data
+        wnc_ll(MARGO_sst,strcat(rootout,'data.SST.orig.nc'),'DT','C');
+        MARGO_sst_rg=regrid(MARGO_sst,ndimrg);
+        wnc_ll(MARGO_sst_rg,strcat(rootout,'data.SST.regridded.nc'),'DT','C');
+        %write sst_data_mask for reference
+        wnc_ll(sst_data_mask,strcat(rootout,'datamask.SST.nc'),'data_source','source');
+        
+    end
+    
+end
+
+%%
+
+if process_land_data
+
+    LAND_sat=rnc('Schmittner_data_and_scripts/382_2010_904_MOESM2_ESM/mat_delta_21ka_ALL_grid_2x2.nc','mat_anm_mean');
+    LAND_lon=rnc('Schmittner_data_and_scripts/382_2010_904_MOESM2_ESM/mat_delta_21ka_ALL_grid_2x2.nc','lon');
+    LAND_lat=rnc('Schmittner_data_and_scripts/382_2010_904_MOESM2_ESM/mat_delta_21ka_ALL_grid_2x2.nc','lat');
+    %updates to data
+    sat_updates=rnc('Schmittner_data_and_scripts/dt_other_land_2x2.nc','DT');
+    sat_update_lon=rnc('Schmittner_data_and_scripts/dt_other_land_2x2.nc','LONGITUDE');
+    sat_update_lat=rnc('Schmittner_data_and_scripts/dt_other_land_2x2.nc','LATITUDE');   
+    sat_data_mask=zeros(size(LAND_sat));
+    sat_data_mask(LAND_sat>-9000.)=1;
+    %shift original SAT data and data_mask by half a hemisphere to match other datasets.
+    temp=LAND_sat;
+    LAND_sat(1:90,:)=temp(91:180,:);
+    LAND_sat(91:180,:)=temp(1:90,:);  
+    temp=sat_data_mask;
+    sat_data_mask(1:90,:)=temp(91:180,:);
+    sat_data_mask(91:180,:)=temp(1:90,:);    
+    %update basic land data with update dataset
+    LAND_sat     (sat_updates>-1.e10)=sat_updates(sat_updates>-1.e10);
+    sat_data_mask(sat_updates>-1.e10)=2;
+    %nan no-data-available points
+    LAND_sat(LAND_sat<-9000.)=nan;
+    
+    figure
+    pcolor(LAND_sat),shading flat,title('Land')
+    %calculate total percent of planet covered by land data
+
+    [totarea,waste]=meshgrid(cos(LAND_lat.*pi/180.),1:180);clear waste
+    totarea=totarea*
+    landarea=zeros(LAND_dims);
+    landarea(~isnan(LAND_sat))=totarea(~isnan(LAND_sat));
+    landpercentcoverage=sum(landarea(:))./sum(totarea(:))*100.
+
+
+    
+    if output_land_data
+        
+        %write original and regridded (updated) land data
+        wnc_ll(LAND_sat,strcat(rootout,'data.SAT.orig.nc'),'data_source','source');
+        LAND_sat_rg=regrid(LAND_sat,ndimrg);       
+        wnc_ll(LAND_sat_rg,strcat(rootout,'data.SAT.regridded.nc'),'DT','C');
+        %write sat_data_mask for reference
+        wnc_ll(sat_data_mask,strcat(rootout,'datamask.SAT.nc'),'data_source','source');
+        
+    end
+     
+    total_data_coverage=landpercentcoverage+margopercentcoverage
+    
+end
+
+if create_zonal_averages
+    %create zonal averages of data and model, where model zonal average is
+    %only sampled where data exists.  
+    
+    %regrid data
+    LAND_sat_rg=regrid(LAND_sat,ndimrg);
+    MARGO_sst_rg=regrid(MARGO_sst,ndimrg);
+    SEA_LGMtmsk_rg=regrid(LGMtmsk,ndimrg);
+    rg_dimsize=size(LAND_sat_rg);
+    
+    %find any overlap between land and ocean data
+    data_overlap=nan(rg_dimsize);
+    data_overlap(isfinite(LAND_sat_rg) & isfinite(MARGO_sst_rg))=1;
+    
+    %create array of combined SAT/SST data
+    SAT_SST_data=nan(rg_dimsize);
+    SAT_SST_data_mask=nan(rg_dimsize);    
+    i_sst=find(isfinite(MARGO_sst_rg) & SEA_LGMtmsk_rg==1);
+    SAT_SST_data(i_sst)=MARGO_sst_rg(i_sst);
+    SAT_SST_data_mask(i_sst)=1.;
+    i_sat=find(isfinite(LAND_sat_rg) & SEA_LGMtmsk_rg==0);
+    SAT_SST_data(i_sat)=LAND_sat_rg(i_sat);
+    SAT_SST_data_mask(i_sat)=2.;
+    %print_output=1.;
+    %wnc_ll(SAT_SST_data_mask,'SAT_SST_data_mask.nc','DT','C'); 
+    zonal_DT_data=nanmean(SAT_SST_data,1);
+    for n=11:15;
+        SAT_SST_SEA=nan(rg_dimsize);
+        SEA_DT_rg=regrid(SEA_DT{n},ndimrg);
+        SAT_SST_SEA(i_sst)=SEA_DT_rg(i_sst);
+        %ditto, for land
+        SAT_SST_SEA(i_sat)=SEA_DT_rg(i_sat);   
+        %wnc_ll(SAT_SST_SEA,strcat(regexprep(files(n).name,'sat_sst_aice_([0-9].[0-9]{2}).dat','$1'),'.nc'),'DT','C')
+        zonal_DT_SEA{n}=nanmean(SAT_SST_SEA,1);
+    end    
+    
+    hold on
+    %make latitude array for plotting
+    latoffset=180./rg_dimsize(2)/2.;
+    lat=linspace(-90+latoffset,90-latoffset,rg_dimsize(2));
+    col={'k','r','g','b','y','m'};
+    %plot data line
+    plot(lat,zonal_DT_data,col{1},'Linewidth',3)
+    leg_lab{1}='Data';
+    %plot SEA models
+    nn=1;
+    for n=11:15; %SEA 'best-guess' models
+        nn=nn+1;
+        plot(lat,zonal_DT_SEA{n},col{nn},'Linewidth',1)
+        leg_lab{nn}=regexprep(files(n).name,'sat_sst_aice_([0-9].[0-9]{2}).dat','$1');
+    end
+    box on
+    legend(leg_lab,'Location','Southeast')
+    ax=axis;
+    ax(1)=-90.;
+    ax(2)=90.;
+    ax(3)=-12.;
+    axis(ax)
+    xlabel('Latitude (Degrees)')
+    ylabel('DT (C)')
+    hold off
+end

@@ -1,0 +1,151 @@
+close all
+
+load_files = 1;
+if load_files
+    clear all;load_files=1;
+end
+
+%% Load data
+varname='DDgt18';
+if load_files
+    
+    load(strcat('2020/',varname));
+    eval(sprintf('MAT2020=%s;',varname));
+    load(strcat('2050/',varname));
+    eval(sprintf('MAT2050=%s;',varname));
+    load(strcat('2080/',varname));
+    eval(sprintf('MAT2080=%s;',varname));
+    load(strcat('historical/',varname));
+    eval(sprintf('MAT2000=%s;',varname));
+    eval(sprintf('clear %s',varname));
+    
+    load('metadata','refvec')
+    load('metadata','town_lat','town_lon','town_name');
+    load('historical/Elevation','Elevation');
+    
+    refvec=double(refvec);
+    
+end
+
+%% Produce map data
+
+mask=zeros(size(MAT2000));
+
+threshold_lb=150.;
+threshold_ub=400.;
+
+mask(MAT2000>threshold_lb & MAT2000<threshold_ub & mask==0.)=1;
+mask(MAT2020>threshold_lb & MAT2020<threshold_ub & mask==0.)=2;
+mask(MAT2050>threshold_lb & MAT2050<threshold_ub & mask==0.)=3;
+mask(MAT2080>threshold_lb & MAT2080<threshold_ub & mask==0.)=4;
+mask(Elevation<=50. | isnan(Elevation))=-1;
+ge_label={'ocean' ...
+         'threshold never achieved' ...
+         'threshold achieved at present' ...
+         'threshold achieved 2020-2039' ...
+         'threshold achieved 2050-2069' ...
+         'threshold achieved 2080-2099'};
+
+clear MAT2000 MAT2020 MAT2050 MAT2080
+
+%% Produce map
+
+% figure
+% axesm('MapProjection','miller',...
+%     'MapLatLimit',[49. 55.],'MapLonLimit',[-130. -114.],...
+%     'frame','on','grid','on',...
+%     'MLineLocation',2,'PLineLocation',2,...
+%     'ParallelLabel','on','MeridianLabel','on',...
+%     'MLabelLocation',2,'PLabelLocation',2)
+% hold on
+% geoshow(mask-10,refvec,'DisplayType', 'texturemap');%drop mask values by 10 points, so lines, text is visible above.
+% geoshow(town_lat,town_lon,'Displaytype','Point','Marker','.','MarkerFaceColor','k','MarkerEdgeColor','k','Markersize',20)
+% textm(town_lat,town_lon,town_name,'Fontsize',10)
+% axis tight
+% hold off
+
+%% Generate KML file
+
+load('metadata','Longitude_gridded','Latitude_gridded');
+
+for i=1:size(Longitude_gridded,2)
+    temp=Longitude_gridded(:,i);
+    temp(isnan(temp))=nanmean(temp);
+    Longitude_gridded(:,i)=temp;
+end
+for j=1:size(Latitude_gridded,1)
+    temp=Latitude_gridded(j,:);
+    temp(isnan(temp))=nanmean(temp);
+    Latitude_gridded(j,:)=temp;
+end
+
+%latitude index counts south to north)
+%longitude (index counts west to east)
+
+dtile=50;
+for tilelat=2:2 %run across lower latitude band first
+    for tilelon=3:3
+        disp(['***Processing lat/lon tile: ' num2str(tilelat) num2str(tilelon)])
+        lons=(tilelon-1)*dtile+1651
+        lone=lons+dtile-1
+        lats=(tilelat-1)*dtile+51
+        late=lats+dtile-1
+
+        lon=Longitude_gridded(lats:late,lons:lone);
+        lat=Latitude_gridded(lats:late,lons:lone);
+        msk=mask(lats:late,lons:lone);
+        if sum(sum(isnan(lon)))+sum(sum(isnan(lat))) > 0
+            error('nans in lon or lat array')
+        else
+            lonvec=lon(1,:);
+            latvec=lat(:,1)';
+        end
+        clear kmlStr
+        kmlStr = ge_surf(lonvec,latvec,msk,...
+            'altitudeMode','clampToGround',...
+            'altRefLevel',1000,...
+            'polyAlpha','AA');
+        
+        kmlStr2 = ge_colorbar(lonvec(end),latvec(1),msk,...
+                         'numClasses',5,...
+                          'cLimLow',-1,...
+                         'cLimHigh',max(msk(:)),...
+                         'labels',{'test1' 'test2' 'test3' 'test4' 'test5' 'test6'},...
+                    'cBarFormatStr','%s');
+        fname=strcat('test.kml')
+        ge_output(fname,[kmlStr kmlStr2])
+
+
+    end
+end
+
+
+% dtile=350;
+% for tilelat=1:4 %run across lower latitude band first
+%     for tilelon=1:4
+%         disp(['***Processing lat/lon tile: ' num2str(tilelat) num2str(tilelon)])
+%         lons=(tilelon-1)*dtile+1651
+%         lone=lons+dtile-1
+%         lats=(tilelat-1)*dtile+51
+%         late=lats+dtile-1
+%         
+%         lon=Longitude_gridded(lats:late,lons:lone);
+%         lat=Latitude_gridded(lats:late,lons:lone);
+%         msk=mask(lats:late,lons:lone);
+%         if sum(sum(isnan(lon)))+sum(sum(isnan(lat))) > 0
+%             error('nans in lon or lat array')
+%         else
+%             lonvec=lon(1,:);
+%             latvec=lat(:,1)';
+%         end
+%         clear kmlStr
+%         kmlStr = ge_surf(lonvec,latvec,msk,...
+%             'altitudeMode','clampToGround',...
+%             'altRefLevel',1000,...
+%             'polyAlpha','AA');
+%         fname=strcat(num2str(tilelat),num2str(tilelon),'.kml')
+%         ge_output(fname,kmlStr)
+%         
+%     end
+% end
+

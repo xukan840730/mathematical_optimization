@@ -1,0 +1,23 @@
+close all
+clear all
+
+RGIInputOutputDir='/Users/fyke/Projects/Glacier_modelling/Gridded_RGI_data';
+RGIInputOutputFile='RGI_gridded_to_CESM';
+disp('Loading RGI data')
+load(fullfile(RGIInputOutputDir,RGIInputOutputFile),'GriddedM*')
+
+GriddedMinElevation(GriddedMinElevation>1.e9)=0.;
+
+nVertLev=10;
+GriddedElevationBins=zeros([size(GriddedMinElevation) nVertLev]);
+for i=1:size(GriddedMinElevation,1)
+    for j=1:size(GriddedMinElevation,2)
+        GriddedElevationBins(i,j,:)=linspace(GriddedMinElevation(i,j),GriddedMaxElevation(i,j),nVertLev);
+    end
+end
+
+pcolor(GriddedElevationBins(:,:,2)-GriddedElevationBins(:,:,1))
+
+wnc(GriddedElevationBins,'ElevationBins.nc','ElevationBins','m asl',{'Longitude','Latitude','Altitude'});
+
+wnc_ll

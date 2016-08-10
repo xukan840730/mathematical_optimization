@@ -1,0 +1,251 @@
+close all
+clear all
+
+zonal_mean_sal=0;
+sea_ice_fraction=0;
+sea_ice_thickness=0;
+TS_diagram=0;
+sea_ice_velocity=1;
+
+fig1=figure;
+scnsize=get(0,'Monitorpositions')/1.5;
+set(fig1,'Position',scnsize(1,:));
+
+dtimetavg=200;
+fs=15;
+fsax=12;
+
+if zonal_mean_sal
+    %% Load data
+    csal=[];
+    dsal=[];
+    homedir='/net/mare/home1/jer/WAIS_ocean_interaction/WAIS_retreat/';
+    clear files
+    files=dir(strcat(homedir,'tavg*'));
+    for nfiles=1:length(files);
+        fname=strcat(homedir,files(nfiles).name);
+        dsal=cat(3,dsal,rnc(fname,'O_sal'));
+    end
+    dsal=permute(dsal,[2 1 3 4]);
+    dsal(dsal>100)=nan;
+    ddimsize=size(dsal);
+    homedir='/net/mare/home1/jer/WAIS_ocean_interaction/no_WAIS_retreat/';
+    clear files
+    files=dir(strcat(homedir,'tavg*'));
+    for nfiles=1:length(files);
+        fname=strcat(homedir,files(nfiles).name);
+        csal=cat(3,csal,rnc(fname,'O_sal'));
+    end
+    csal=permute(csal,[2 1 3 4]);
+    csal(csal>100)=nan;
+    cdimsize=size(dsal);
+    
+    dz=rnc(fname,'G_dzt');
+    for n=2:19;
+        dz(n)=dz(n)+dz(n-1);
+    end
+    dz=flipud(-dz);
+    %% Plot zonal means of salinity difference evolution
+    lat=linspace(-90,90,100);
+    mdsal=nanmean(dsal,2);
+    mcsal=nanmean(csal,2);
+    
+    %% Plot snapshots of salinity differences
+    t=[1 3 5 7 9 11 13 15];
+    year=t*200;
+    %%
+    for n=1:length(t);
+        clear temp
+        temp(:,:)=mdsal(:,1,:,t(n))-mcsal(:,1,:,t(n));
+        temp=rot90(temp);
+        subplot(2,length(t)/2,n)
+        %contourf(lat,dz,temp,40);
+        pcolor(lat,dz,temp),shading flat
+        
+        %set colorbar
+        mincv=-.1;
+        maxcv=.1;
+        dval=maxcv-mincv;
+        nc=640;
+        b2r=ones(nc,3);
+        zp=floor(abs(nc*(mincv/dval)));
+        b2r(1:zp,1)=linspace(0,1,zp);
+        b2r(1:zp,2)=linspace(0,1,zp);
+        b2r(zp:nc,3)=linspace(1,0,nc-zp+1);
+        b2r(zp:nc,2)=linspace(1,0,nc-zp+1);
+        colormap(b2r);
+        caxis([mincv maxcv]);
+        
+        text(-80,400,strcat('yr=',num2str(year(n))),'Fontsize',fs)
+        
+        %   if n<4
+        %     set(gca,'XtickLabel','');
+        %   end
+        if n~=1 && n~=5
+            set(gca, 'YtickLabel','');
+        end
+        if n==length(t);
+            axpos=get(gca,'Position');
+            cb=colorbar;
+            ylabel(cb,'salinity difference (psu)','Fontsize',fs)
+            set(cb,'Fontsize',fs-10)
+            set(gca,'Position',axpos)
+        end
+        if n>4
+            xlabel('latitude','Fontsize',fsax)
+        end
+        if n==1||n==5
+            ylabel('depth (mbsl)','Fontsize',fsax)
+        end
+        set(gca,'Fontsize',fsax)
+    end
+    
+    set(gcf, 'PaperPositionMode', 'auto');
+    print -depsc salin_diff_time_slices.eps
+end
+if sea_ice_fraction||sea_ice_thickness
+    
+    %% Load data
+    homedir='/net/mare/home1/jer/WAIS_ocean_interaction/WAIS_retreat/';
+    files=dir(strcat(homedir,'tavg*'));
+    fname=strcat(homedir,files(length(files)).name);
+    d_si_f=rnc(fname,'O_icefra');
+    d_si_t=rnc(fname,'O_icethk');
+    homedir='/net/mare/home1/jer/WAIS_ocean_interaction/no_WAIS_retreat/';
+    files=dir(strcat(homedir,'tavg*'));
+    fname=strcat(homedir,files(length(files)).name);
+    c_si_f=rnc(fname,'O_icefra');
+    c_si_t=rnc(fname,'O_icethk');
+    files=dir(strcat(homedir,'tavg*'));
+    fname=strcat(homedir,files(length(files)).name);
+    kmt=rnc(fname,'G_kmt')';
+    
+    %% Plot sea ice differences for year 3000
+    lat_array=linspace(-90,90);lon_array=linspace(-1,359);
+    [Plg,Plt]=meshgrid(lon_array,lat_array);
+    m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 40);
+    hold on
+    if sea_ice_fraction
+        dvar(:,:)=d_si_f(:,:,15)-c_si_f(:,:,15);
+        mincv=-0.3;
+        maxcv=1;        
+        leglabel='Ice fraction difference (%)';
+        fname='seaice_frac_diff';
+    elseif sea_ice_thickness
+        dvar(:,:)=d_si_t(:,:,15)-c_si_t(:,:,15);
+        mincv=-5;
+        maxcv=5;
+        leglabel='Ice thickness difference (%)';
+        fname='seaice_thickness_diff';
+    end
+    dvar=dvar';
+    dvar(kmt==0)=100;
+    m_pcolor(Plg,Plt,dvar);shading flat;
+    axis off equal tight
+
+    dval=maxcv-mincv;
+    nc=640;
+    b2r=ones(nc,3);
+    zp=floor(abs(nc*(mincv/dval)));
+    b2r(1:zp,1)=linspace(0,1,zp);
+    b2r(1:zp,2)=linspace(0,1,zp);
+    b2r(zp:nc,3)=linspace(1,0,nc-zp+1);
+    b2r(zp:nc,2)=linspace(1,0,nc-zp+1);
+    b2r(643,:)=[0 0 0];
+    colormap(b2r);
+    caxis([mincv maxcv+.01])
+    ch=colorbar;
+    ylabel(ch,leglabel,'FontSize',fs)
+    set(ch,'FontSize',fs-5)
+    hold off
+    print('-depsc','-painters',fname)  
+end
+
+if TS_diagram
+    %% Plot TS diagram
+    %!ssh mare.seos.uvic.ca 'ncks -O -v O_sal,O_temp /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/tavg.24400.01.01.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/dyn_sal_temp.nc'
+    %!scp mare:/net/mare/home1/jer/PhD_output/blow_away_shelves2/dyn_sal_temp.nc .
+    
+    close all
+    scnsize=get(0,'Screensize')
+    fig1=figure;
+    mnsz=min(scnsize(3:4))
+    set(fig1,'Position',[1 1 mnsz*0.5 mnsz*0.5]);
+    
+    sal=rnc('dyn_sal_temp.nc','O_sal');
+    temp=rnc('dyn_sal_temp.nc','O_temp');
+    kmt=rnc('control_snap.nc','G_kmt')';
+    
+    clear S1 T1 S2 T2
+    %Ronne
+    X(1)=81;
+    Y(1)=7;
+    Z(1)=1;
+    ti=20;
+    S1(1:ti)=sal(X(1),Y(1),Z(1),1:ti);
+    T1(1:ti)=temp(X(1),Y(1),Z(1),1:ti)-273.15;
+    
+    %Ross
+    X(2)=49;
+    Y(2)=5;
+    Z(2)=1;
+    S2(1:ti)=sal(X(2),Y(2),Z(2),1:ti);
+    T2(1:ti)=temp(X(2),Y(2),Z(2),1:ti)-273.15;
+    
+    Sbuf=0.1;
+    Tbuf=0.05;
+    axlim=[min([S1 S2])-Sbuf max([S1 S2])+Sbuf min([T1 T2])-Tbuf max([T1 T2])+Tbuf];
+    
+    tsdiagram(S1,T1,25,5,axlim);
+    hold on
+    plot(S1(2:end-1),T1(2:end-1),'.b','Markersize',10)
+    plot(S2(2:end-1),T2(2:end-1),'.k','Markersize',10)
+    plot(S1(1),T1(1),'ob','Markersize',10,'Linewidth',2)
+    plot(S2(1),T2(1),'ok','Markersize',10,'Linewidth',2)
+    plot(S1(end),T1(end),'xb','Markersize',10,'Linewidth',2)
+    plot(S2(end),T2(end),'xk','Markersize',10,'Linewidth',2)
+    axis(axlim)
+    set(gca,'Fontsize',30)
+    hold off
+    
+    set(gcf, 'PaperPositionMode', 'auto');
+    print -depsc TS_plot.eps
+end
+if sea_ice_velocity
+    %% Plot velocity
+    compname=getComputerName()
+    if strcmp(compname,'fyke-3.local')==1
+        homedir='/net/mare/home1/jer/WAIS_ocean_interaction/WAIS_retreat/'
+    else
+        homedir='/Volumes/mare/home1/jer/WAIS_ocean_interaction/WAIS_retreat/' 
+    end
+    files=dir(strcat(homedir,'tavg*'));
+    fname=strcat(homedir,files(length(files)).name);
+    utot=rnc(fname,'O_icevelX');
+    vtot=rnc(fname,'O_icevelY');
+    u=utot(:,:,15)';
+    v=vtot(:,:,15)';
+    kmt=rnc(fname,'G_kmt')';
+    
+    lat_array=linspace(-90,90);lon_array=linspace(-1,359);
+    [Plg,Plt]=meshgrid(lon_array,lat_array);
+    m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 40);
+    hold on
+    %make velocity arrows
+    sv=200;
+    m_quiver(Plg,Plt,u,v,sv);
+    %make continent mask
+    temp=zeros(size(kmt));
+    temp(kmt>0)=nan;
+    m_pcolor(Plg,Plt,temp);shading flat;
+    caxis([-1 1])
+    colormap(zeros(10,3))
+    %make scale legend arrow
+    [hpv5, htv5] = m_vec(sv, 160, -60, 0.2*sv, 0, 'k', 'key', '0.2 m s^{-1}');
+    set(htv5,'FontSize',fs);
+    
+    axis off tight equal square
+    hold off
+    set(gcf, 'PaperPositionMode', 'auto');
+    %print -depsc ice_vel.eps
+end

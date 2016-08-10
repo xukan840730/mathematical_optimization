@@ -1,0 +1,585 @@
+%% Analyzes RCP GIS simulations, forced with CESM BG SMB
+load_fresh_data = 0;
+if load_fresh_data;
+    clear all
+    load_fresh_data = 1;
+end
+load_saved_data = 1;
+if load_saved_data;
+    clear all
+    load_saved_data = 1;
+    load_fresh_data = 0;
+end
+
+%% Plotting options
+plot_average_smb_periods = 0;
+plot_volume_and_SMB_timeseries = 1;
+plot_surface_difference = 0;
+plot_preind_usurf_comparison = 0;
+plot_cross_section_change = 0;
+fs=30;
+
+Jclim_figure_path='~/Projects/SeaRise_CESM_special_issue/JClim_manuscript/JClimate2012/figures/';
+
+
+%% Obtain GIS model output from RCP8p5, for different ice sheet model configurations, and active vs. inactive ice dynamics
+
+nmin=1;
+nmax=100;
+
+RCPscenario={'RCP8p5'};
+
+%set base path to links to user's directories
+rp='/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive';
+lhsp='/Volumes/Bluefire/CISM_validation/LHS_parameter_files';
+
+if load_fresh_data
+    
+    n_preind=0;
+    n_mod=0;
+    n_fut=0;
+    smb=cell(length(RCPscenario),nmax);
+    dhs=cell(length(RCPscenario),nmax,2);
+    usurf_preind=cell(length(RCPscenario),nmax,1);
+    smb_preind_map=cell(length(RCPscenario),nmax);
+    smb_mod_map=cell(length(RCPscenario),nmax);
+    smb_fut_map=cell(length(RCPscenario),nmax);
+
+    if ~exist('/Volumes/Bluefire','dir')
+        error('Gotta Macfusion to Bluefire')
+    end
+
+    for RCPnum=1:length(RCPscenario);
+        
+        rd{RCPnum,1}='/Volumes/Bluefire/ptmp/RCP_8p5_emsemble_TG_output/acab_output';
+        rd{RCPnum,2}='/Volumes/Bluefire/BG_RCP8p5_ensemble/BG_rcp8p5_ensemble/logs';
+        
+        for enum=1:nmax;
+            tic
+            %% Load timeseries of volume and area from log files
+            
+            disp(['Loading log for model ' num2str(enum) ', Scenario ' RCPscenario{RCPnum}])
+            %extract area/volume timeseries from log files
+            logs=dir(fullfile(rd{RCPnum,2},sprintf('glc_%04d.log*',enum))); %get log files from ensemble folder
+            [SUCCESS,MESSAGE,MESSAGEID]=mkdir('log_storage');
+            for f = 1:length(logs)
+                [pathstr, name, ext] = fileparts(logs(f).name);
+                if strcmp(ext,'.gz')
+                    gunzip(fullfile(rd{RCPnum,2},logs(f).name),'log_storage');
+                else %in case things were unzipped over on Bluefire for some reason, just copy over file
+                    [SUCCESS,MESSAGE,MESSAGEID] = copyfile( fullfile(rd{RCPnum,enum,2},logs(f).name) , fullfile('log_storage',logs(f).name) );
+                end
+            end
+            %catenate all log files to one local file
+            !cat log_storage/glc_* > log_storage/logcat
+            %extract all ice area lines to file 'alog', remove text, load areas
+            !grep "Total ice area" log_storage/logcat > log_storage/alog
+            !sed -i "" s/"* Total ice area (km^2)"//g log_storage/alog
+            a{RCPnum,enum} = load('log_storage/alog');
+            %same for volume
+            !grep "Total ice volume" log_storage/logcat > log_storage/vlog
+            !sed -i "" s/"* Total ice volume (km^3)"//g log_storage/vlog
+            v{RCPnum,enum} = load('log_storage/vlog');
+            %same for time
+            !grep "Global diagnostic output, time" log_storage/logcat > log_storage/tlog
+            !sed -i "" s/"  \* Global diagnostic output, time =  "//g log_storage/tlog
+            t{RCPnum,enum} = load('log_storage/tlog');
+            %same for energy
+            !grep "Total ice energy" log_storage/logcat > log_storage/elog
+            !sed -i "" s/"  \* Total ice energy (J)     "//g log_storage/elog
+            e{RCPnum,enum} = load('log_storage/elog');
+            %remove temporary files
+            !rm -r log_storage
+            
+            %% Calculate net SMB timeseries
+            
+            disp(['Loading SMB for model ensemble #' num2str(enum) ', Scenario ' RCPscenario{RCPnum}])
+
+            grid_area=5.*5.;
+            smb{RCPnum,enum}=zeros(250,1);
+            smb_preind_map{RCPnum,enum}=zeros(301,561);
+            smb_mod_map{RCPnum,enum}=zeros(301,561);
+            smb_fut_map{RCPnum,enum}=zeros(301,561);
+            for tm = 1:250;
+                yr=tm+1850;
+                smb_map=ncread( sprintf('acab_output/%04d_%04d_acab.nc',yr,enum),'acab'); %read 'acab' field
+                %accumulate smb fields for preind, modern, and
+                %future smbs
+                if tm >= 1 && tm <= 30
+                    smb_preind_map{RCPnum,enum}=smb_preind_map{RCPnum,enum}+smb_map;
+                    n_preind=n_preind+1;
+                    %disp(['accumulating preindustrial smb'])
+                elseif tm >= 120 && tm <= 150
+                    smb_mod_map{RCPnum,enum}=smb_mod_map{RCPnum,enum}+smb_map;
+                    n_mod=n_mod+1;
+                    %disp(['accumulating mod smb'])
+                    
+                elseif tm >= 220 && tm <= 250
+                    smb_fut_map{RCPnum,enum}=smb_fut_map{RCPnum,enum}+smb_map;
+                    n_fut=n_fut+1;
+                    %disp(['accumulating fut smb'])
+                    
+                end
+                smb{RCPnum,enum}(tm)=sum(smb_map(:))./1000..*grid_area; %convert to km3 of water
+            end
+            
+            %% Get snapshots of SMB timeseries.
+
+            %get snapshots of ice sheet geometry
+            usurftm=[1851 2005 2100];
+            for tm=1:length(usurftm);
+                fname=sprintf('usurf_output/%04d_%04d_usurf.nc',usurftm(tm),enum);
+                usurf=ncread(fname,'usurf');
+                if tm==1
+                    usurf_preind{RCPnum,enum}=usurf;
+                else
+                    dhs{RCPnum,enum}(:,:,tm-1)=usurf-usurf_preind{RCPnum,enum}; %calculate mod-preind/fut-preind difference
+                end
+            end 
+
+            smb_preind_map{RCPnum,enum}=smb_preind_map{RCPnum,enum}./n_preind;
+            smb_mod_map{RCPnum,enum}=smb_mod_map{RCPnum,enum}./n_mod;
+            smb_fut_map{RCPnum,enum}=smb_fut_map{RCPnum,enum}./n_fut;
+
+            disp('Saving data')
+            a_sav=a{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'a_sav');
+            v_sav=v{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'v_sav','-append');
+            t_sav=t{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'t_sav','-append');
+            e_sav=e{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'e_sav','-append');
+            smb_sav=smb{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'smb_sav','-append');
+            usurf_preind_sav=usurf_preind{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'usurf_preind_sav','-append');
+            dhs_sav=dhs{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'dhs_sav','-append');                       
+            smb_preind_map_sav=smb_preind_map{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'smb_preind_map_sav','-append');
+            smb_mod_map_sav=smb_mod_map{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'smb_mod_map_sav','-append');
+            smb_fut_map_sav=smb_fut_map{RCPnum,enum};
+            save(fullfile('downloaded_future_data',num2str(enum)),'smb_fut_map_sav','-append');
+
+            clear *_sav
+
+            toc
+
+        end
+    end
+elseif load_saved_data
+
+    smb=cell(length(RCPscenario),nmax);
+    dhs=cell(length(RCPscenario),nmax,2);
+    usurf_preind=cell(length(RCPscenario),nmax,1);
+    smb_preind_map=cell(length(RCPscenario),nmax);
+    smb_mod_map=cell(length(RCPscenario),nmax);
+    smb_fut_map=cell(length(RCPscenario),nmax);
+
+    for RCPnum=1:length(RCPscenario);
+        for enum=1:nmax;
+
+            disp(['Loading saved model ' num2str(enum) '.'])
+            load(fullfile('downloaded_future_data',num2str(enum)),'a_sav');
+            a{RCPnum,enum}=a_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'v_sav');
+            v{RCPnum,enum}=v_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'t_sav');
+            t{RCPnum,enum}=t_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'e_sav');
+            e{RCPnum,enum}=e_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'smb_sav');
+            smb{RCPnum,enum}=smb_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'usurf_preind_sav');
+            usurf_preind{RCPnum,enum}=usurf_preind_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'dhs_sav');
+            dhs{RCPnum,enum}=dhs_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'smb_preind_map_sav');
+            smb_preind_map{RCPnum,enum}=smb_preind_map_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'smb_mod_map_sav');
+            smb_mod_map{RCPnum,enum}=smb_mod_map_sav;
+            load(fullfile('downloaded_future_data',num2str(enum)),'smb_fut_map_sav');
+            smb_fut_map{RCPnum,enum}=smb_fut_map_sav;
+
+            clear *_sav
+
+        end
+    end
+end
+
+if load_fresh_data | load_saved_data
+    %Do some cleaning of timeseries (for some reason, some duplicated values exist)
+    for RCPnum=1:length(RCPscenario);
+        for enum=1:nmax
+            t{RCPnum,enum}(2:end)=t{RCPnum,enum}(2:end)+1; %increment all values of t after first value up (two t=0 occurances at [1,2])
+            i=find(diff(t{RCPnum,enum})==0);
+            t{RCPnum,enum}(i)=[]; %Remove duplicate values (index is from diff array of t which is unambiguous for duplicate times and matches other duplicate values, so should remove first value)
+            v{RCPnum,enum}(i)=[];
+            a{RCPnum,enum}(i)=[];
+            e{RCPnum,enum}(i)=[];
+            t{RCPnum,enum}(1)=[]; %remove
+            v{RCPnum,enum}(1)=[];
+            a{RCPnum,enum}(1)=[];
+            e{RCPnum,enum}(1)=[];
+        end
+    end
+end
+
+%% Output
+BestModels=[81 89 35 98 11]; %optimal models
+WorstModels=[56 6 18 59 80]; %worst models
+
+
+if plot_average_smb_periods
+    
+    cmin=-5.;
+    cmax=1.;
+    
+    subplot(1,3,1)
+    tmp=smb_preind_map{1,BestModels(1)};
+    tmp(tmp==0)=nan;
+    pcolor(tmp'.*60.)
+    ylabel('Preindustrial (1850-1880)')
+    shading flat, axis equal tight
+    set(gca,'Xtick',[],'Ytick',[]), colormap(rbcbar(cmin,cmax)),caxis([cmin,cmax])
+    text(10,520,'a)','fontsize',fs)
+    
+    subplot(1,3,2)
+    tmp=smb_mod_map{1,BestModels(1)};
+    tmp(tmp==0)=nan;
+    pcolor(tmp'.*60.)
+    ylabel('Recent (1970-2000)')
+    shading flat, axis equal tight
+    set(gca,'Xtick',[],'Ytick',[]), colormap(rbcbar(cmin,cmax)),caxis([cmin,cmax])
+    text(10,520,'b)','fontsize',fs)
+    
+    subplot(1,3,3)
+    tmp=smb_fut_map{1,BestModels(1)};
+    tmp(tmp==0)=nan;
+    pcolor(tmp'.*60.)
+    shading flat, axis equal tight
+    ylabel('Future (2070-2100)')
+    axpos=get(gca,'Position');
+    hc=colorbar;
+    ylabel(hc,'Climatological SMB (m/yr ice)')
+    set(gca,'Position',axpos)
+    shading flat, axis equal tight
+    set(gca,'Xtick',[],'Ytick',[]), colormap(rbcbar(cmin,cmax)),caxis([cmin,cmax])
+    text(10,520,'c)','fontsize',fs)
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2',strcat('figs/','SMB_comparisons'))
+    print('-depsc2',fullfile(Jclim_figure_path,'SMB_comparisons'))
+    clear tmp
+    
+end
+
+if plot_volume_and_SMB_timeseries
+    
+    close all
+    clear h
+    colors={[255, 102, 0]./255. [1 0 0]};
+    time=1851:2100;
+    rhoi=0.910;
+    
+    for enum=1:nmax;
+        for RCPnum=1:length(RCPscenario);
+            dv_ie{RCPnum,enum}=diff(v{RCPnum,enum}); %km^3 ice
+            smb_ie{RCPnum,enum}=smb{RCPnum,enum}./rhoi;
+            dyn_ie{RCPnum,enum}=dv_ie{RCPnum,enum} - smb_ie{RCPnum,enum}(2:end); %negative means ice loss via discharge
+            
+            dv_we{RCPnum,enum}=diff(v{RCPnum,enum}).*rhoi; %km^3 ice
+            smb_we{RCPnum,enum}=smb{RCPnum,enum};
+            dyn_we{RCPnum,enum}=dv_we{RCPnum,enum} - smb_we{RCPnum,enum}(2:end);
+        end
+    end
+    
+    %SMB
+    subplot(3,1,1)
+    hold on
+    for en=1:length(BestModels);
+        enum=BestModels(en)
+        for RCPnum=1:length(RCPscenario);
+            ws=20.; %windowsize
+            smb_mv_avg=moving(smb_we{RCPnum,enum},ws);
+            smb_sdt=movingstd(smb_we{RCPnum,enum},ws);
+            
+            is=floor(ws./2.);
+            ie=250-floor(ws./2.);
+            plot(time(is:ie),smb_mv_avg(is:ie),'Color',min(1.,colors{RCPnum}+.3),'linewidth',4)
+            plot(time(is:155),smb_mv_avg(is:155),'Color',[.5 .5 .5],'linewidth',4)
+            plot(time(is:ie),smb_mv_avg(is:ie)+smb_sdt(is:ie),'Color',min(1.,colors{RCPnum}+.3));
+            plot(time(is:ie),smb_mv_avg(is:ie)-smb_sdt(is:ie),'Color',min(1.,colors{RCPnum}+.3));
+            plot(time(is:155),smb_mv_avg(is:155)+smb_sdt(is:155),'Color',[.5 .5 .5]);
+            plot(time(is:155),smb_mv_avg(is:155)-smb_sdt(is:155),'Color',[.5 .5 .5]);
+            h(2)=plot(time(1:250),smb_we{RCPnum,enum}(1:250),'Color',colors{RCPnum});
+            h(1)=plot(time(1:155),smb_we{RCPnum,enum}(1:155),'k');
+            
+        end
+    end
+    
+    legend(h,{'Historical','RCP8.5'},'Location','Southwest');
+    axis tight
+    ylabel('SMB (Gt/yr)')
+    grid on
+    ax=axis;
+    text(1835,ax(4),'a)','fontsize',fs)
+    hold off
+    
+    subplot(3,1,2)
+    hold on
+    for en=1:length(BestModels);
+        enum=BestModels(en)
+        for RCPnum=1:length(RCPscenario);
+            h(2)=plot( time(1:length(dyn_we{RCPnum,enum})) , -dyn_we{RCPnum,enum},'Color',colors{RCPnum});
+            h(1)=plot(time(1:155),-dyn_we{RCPnum,enum}(1:155),'k');
+        end
+    end
+    axis tight
+    ylabel('Discharge (Gt/yr)')
+    ax=axis;
+    text(1835,ax(4),'b)','fontsize',fs)
+    grid on
+    
+    hold off
+    
+    subplot(3,1,3)
+    
+    hold on
+    clear SLR_1900_2005 SLR_2006_2050 SLR_2051_2100
+    o_area=361900000.; %NOAA ETOPO1 estimate, km^2;
+    km3_ice_2_mm_slr = rhoi ./ o_area .* 1.e6; %convert to volume of water, then convert to thickness of water over ocen area , then convert this thickness to cm
+    
+    for RCPnum=1:length(RCPscenario);
+         for en=1:length(BestModels);
+            enum=BestModels(en);
+            slr = - (v{RCPnum,enum} - v{RCPnum,enum}(1)) .* km3_ice_2_mm_slr;
+            
+            %calculate SMB influence
+            dsmb=mean(smb_ie{RCPnum,enum}(1:30))-smb_ie{RCPnum,enum}; %get anomaly
+            dsmb=cumsum(dsmb) .* km3_ice_2_mm_slr; %in SLR equivalent
+            ddyn=slr-dsmb; %get anomaly (im km3 ice)
+            plot(time,dsmb,'Color',[0.4 0.4 1])
+            plot(time,ddyn,'Color',[1 0.4 0.4])
+            h(2)=plot(time(1:250),slr(1:250),'Color',colors{RCPnum},'Linewidth',4);
+            h(1)=plot(time(1:155),slr(1:155),'k','Linewidth',4);
+            %             test=dyn_ie{RCPnum,enum}(1)-dyn_ie{RCPnum,enum};
+            %             test= cumsum(test) .* km3_ice_2_cm_slr ;
+            %             test=plot(time(2:end),test)
+            slr_final(RCPnum,enum)=slr(end);
+            
+            line([2100 2100],[60 85],'Color','k','linewidth',5)
+            
+            %calculate rates of SLR for various periods
+            SLR_1900_2005(enum,RCPnum,:)=polyfit(time(50:155)',slr(50:155),1);
+            SLR_2006_2050(enum,RCPnum,:)=polyfit(time(156:200)',slr(156:200),1);
+            SLR_2051_2100(enum,RCPnum,:)=polyfit(time(201:250)',slr(201:250),1);
+            SLR_2035_2065(enum,RCPnum,:)=polyfit(time(185:215)',slr(185:215),1);
+            SLR_2070_2100(enum,RCPnum,:)=polyfit(time(220:250)',slr(220:250),1);
+        end
+        
+        disp([RCPscenario{RCPnum} ' SLR_1900_2005=' num2str(mean(SLR_1900_2005(:,RCPnum,1))*10.) ' mm/decade'])
+        disp([RCPscenario{RCPnum} ' SLR_2006_2050=' num2str(mean(SLR_2006_2050(:,RCPnum,1))*10.) ' mm/decade'])
+        disp([RCPscenario{RCPnum} ' SLR_2051_2100=' num2str(mean(SLR_2051_2100(:,RCPnum,1))*10.) ' mm/decade'])
+        disp([RCPscenario{RCPnum} ' SLR_2035_2065=' num2str(mean(SLR_2035_2065(:,RCPnum,1))*10.) ' mm/decade'])
+        disp([RCPscenario{RCPnum} ' SLR_2070_2100=' num2str(mean(SLR_2070_2100(:,RCPnum,1))*10.) ' mm/decade'])
+        
+    end
+    
+    axis tight
+    ylabel(' Eustatic SLR (mm)')
+    ax=axis;
+    text(1835,ax(4),'c)','fontsize',fs)
+    grid on
+    hold off
+    
+    set(gcf, 'Renderer', 'painters')
+    print('-depsc2',strcat('figs/','hist_future_timeseries'))
+    print('-depsc2',fullfile(Jclim_figure_path,'hist_future_timeseries'))
+end
+
+%%
+if plot_surface_difference
+    
+    for RCPnum=1:length(RCPscenario);
+        n=0;
+        dhsavg=zeros( size(dhs{1,1,1}));
+        for enum=1:length(BestModels);
+            n=n+1;
+            dhsavg=dhsavg+squeeze(dhs{RCPnum,enum,1});
+        end
+        dhsavg = dhsavg ./ n;
+    end
+    
+    figure
+    subplot(1,2,1)
+    hold on
+    pcolor(squeeze(dhsavg(:,:,1)')); shading flat
+    axis equal tight
+    hc=colorbar;caxis([-20 20]);
+    ylabel(hc,'m')
+    colormap(rbcbar(-20,20));
+    set(gca,'Xtick',[],'Ytick',[])
+    text(10,520,'a)','fontsize',fs)
+    title('2005-1850 topography')
+    hold off
+    
+    
+    subplot(1,2,2)
+    hold on
+    pcolor(squeeze(dhsavg(:,:,2)')); shading flat
+    axis equal tight
+    hc=colorbar;caxis([-20 20]);
+    ylabel(hc,'m')
+    colormap(rbcbar(-20,20));
+    set(gca,'Xtick',[],'Ytick',[])
+    text(10,520,'b)','fontsize',fs)
+    title('2100-1850 topography')
+    hold off
+    
+    %set(gcf, 'Renderer', 'painters')
+    print('-depsc2',strcat('figs/','future_dhs'))
+    print('-depsc2',fullfile(Jclim_figure_path,'future_dhs'))
+    
+end
+
+if plot_preind_usurf_comparison
+    %plot best/worst model preindustrial geometry
+    figure
+    for enum=1:length(BestModels);
+        subplot(1,3,1)
+        PreindOptimalGeom=usurf_preind{RCPnum,BestModels(1)};
+        PreindFlatGeom=usurf_preind{RCPnum,WorstModels(5)};
+        PreindSteepGeom=usurf_preind{RCPnum,WorstModels(2)};
+        PreindOptimalGeom(PreindOptimalGeom==0)=nan;
+        PreindFlatGeom(PreindFlatGeom==0)=nan;
+        PreindSteepGeom(PreindSteepGeom==0)=nan;
+        contourf(squeeze(PreindOptimalGeom)',25), axis equal tight
+        title('Optimal model geometry')
+        caxis([0 3200]), colorbar
+        set(gca,'Xtick',[],'Ytick',[])
+        subplot(1,3,2)
+        contourf(squeeze(PreindFlatGeom-PreindOptimalGeom)',20), axis equal tight
+        title('Poor (flat) geometry difference  ')
+        caxis([-350 0]), colorbar
+        set(gca,'Xtick',[],'Ytick',[])
+        subplot(1,3,3)
+        contourf(squeeze(PreindSteepGeom-PreindOptimalGeom)',20), axis equal tight
+        title('Poor (steep) geometry difference   ')
+        caxis([0 350]), colorbar
+        set(gca,'Xtick',[],'Ytick',[])
+    end
+
+    print('-depsc2',strcat('figs/','preind_dhs_diff'))
+    print('-depsc2',fullfile(Jclim_figure_path,'preind_dhs_diff'))
+
+end
+
+if plot_cross_section_change
+    xlat = 150; %from X-section designed in BG_forced_spinups/analyze_GIS_models!  Check BG_forced_spinups/analyze_GIS_models, variable xlat, for consistency if unsure
+    clear msrf mflx mthk
+    for RCPnum=1:length(RCPscenario);
+        for enum=1:1
+            msrf(1,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_spinup_w_BG_forcing_2_stage_2/glc/hist/GIS_spinup_w_BG_forcing_2_stage_2.cism.h.3001-01-01-00000.nc','usurf');
+            muflx(1,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_spinup_w_BG_forcing_2_stage_2/glc/hist/GIS_spinup_w_BG_forcing_2_stage_2.cism.h.3001-01-01-00000.nc','uflx');
+            mvflx(1,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_spinup_w_BG_forcing_2_stage_2/glc/hist/GIS_spinup_w_BG_forcing_2_stage_2.cism.h.3001-01-01-00000.nc','vflx');
+            mthk(1,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_spinup_w_BG_forcing_2_stage_2/glc/hist/GIS_spinup_w_BG_forcing_2_stage_2.cism.h.3001-01-01-00000.nc','thk');
+            msmb(1,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_spinup_w_BG_forcing_2_stage_2/glc/hist/GIS_spinup_w_BG_forcing_2_stage_2.cism.h.3001-01-01-00000.nc','acab');
+            
+            msrf(2,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_RCP8p5_w_BG_forcing_2/glc/hist/GIS_RCP8p5_w_BG_forcing_2.cism.h.2100-01-01-00000.nc','usurf');
+            muflx(2,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_RCP8p5_w_BG_forcing_2/glc/hist/GIS_RCP8p5_w_BG_forcing_2.cism.h.2100-01-01-00000.nc','uflx');
+            mvflx(2,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_RCP8p5_w_BG_forcing_2/glc/hist/GIS_RCP8p5_w_BG_forcing_2.cism.h.2100-01-01-00000.nc','vflx');
+            mthk(2,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_RCP8p5_w_BG_forcing_2/glc/hist/GIS_RCP8p5_w_BG_forcing_2.cism.h.2100-01-01-00000.nc','thk');
+            msmb(2,:,:)=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_RCP8p5_w_BG_forcing_2/glc/hist/GIS_RCP8p5_w_BG_forcing_2.cism.h.2100-01-01-00000.nc','acab');
+            
+            mbed=ncread('/Volumes/Bluefire/CISM_validation/Greenland_5km_v1.1_SacksRev_c110629.nc','topg');
+        end
+        
+        msrf(mthk<1)=nan;
+        mthk2=mthk(:,1:end-1,1:end-1);
+        
+        mflxmag = sqrt(muflx.^2 + mvflx.^2);
+        mflxmag(:,end+1,:)=0.;
+        mflxmag(:,:,end+1)=0.;
+        
+        mflx(mthk2<1)=nan;
+        
+        maskthk=zeros(size(mthk));
+        maskthk(mthk>1)=1;
+        
+        coastmsk=zeros(size(mthk));
+        
+        for t=1:2
+            for i=2:size(mthk,2)-1
+                for j=2:size(mthk,3)-1
+                    if maskthk(t,i,j)>0.;
+                        if min(min(maskthk(t , i-1:i+1 , j-1:j+1)))==0.;
+                            coastmsk(t,i,j)=1;
+                        end
+                        if min(min(mbed(i-1:i+1 , j-1:j+1)))<0. && coastmsk(t,i,j)==1;
+                            coastmsk(t,i,j)=2;
+                        end
+                    end
+                end
+            end
+        end
+        mbed=repmat(mbed,[1 1 2]);
+        mbed=permute(mbed,[3,1,2]);
+        
+        gmsk=zeros(size(mthk));
+        gmsk(mthk>1. & mbed>0.)=1;
+        gmsk(mthk>1. & mbed<0.)=2;
+        for t=1:2
+            
+            tmp1=squeeze(coastmsk(t,:,:));
+            tmp2=squeeze(mflxmag(t,:,:));
+            tmp3=squeeze(msmb(t,:,:));
+            tmp4=squeeze(mthk(t,:,:));
+            
+            itot=sum( sum(tmp1>=1) )
+            itide=sum( sum( tmp1==2) )
+            percent_ocean_terminating = itide./itot
+            
+            flux_into_ocean_terminating=sum(sum( tmp2(tmp1==2).*5000. ))
+            smb_over_ocean_terminating=sum(sum( tmp3(tmp1==2) )).*25000*itide
+        end
+        
+        figure
+        subplot(1,2,1)
+        pcolor(squeeze(mflxmag(1,:,:))');shading flat, axis equal tight
+        subplot(1,2,2)
+        pcolor(squeeze(mflxmag(2,:,:))');shading flat, axis equal tight
+        
+        figure
+        subplot(3,1,1)
+        mgrd(1,:)=abs( msrf(1,2:end,xlat) - msrf(1,1:end-1,xlat) );
+        mgrd(2,:)=abs( msrf(2,2:end,xlat) - msrf(2,1:end-1,xlat) );
+        hold on
+        h(1)=plot(squeeze(mgrd(1,:)),'.');
+        h(2)=plot(squeeze(mgrd(2,:)),'.r');
+        title('Surface gradient')
+        legend(h,{'1850' '2100'})
+        axis tight
+        hold off
+        
+        subplot(3,1,2)
+        hold on
+        plot(squeeze(msrf(2,:,xlat))-msrf(1,:,xlat),'.');
+        title('2100-1850 topography')
+        axis tight
+        hold off
+        
+        subplot(3,1,3)
+        hold on
+        plot(squeeze(muflx(2,:,xlat))-squeeze(muflx(1,:,xlat)),'.');
+        title('2100-1850 flux speed')
+        axis tight
+        hold off
+        
+    end
+    
+end
+
+

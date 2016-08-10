@@ -1,0 +1,72 @@
+%%
+clear all
+close all
+%% Load data, generate thickness.
+% !scp mare.seos.uvic.ca:PhD_output/blow_away_shelves2/h_hb.nc .
+% !scp mare.seos.uvic.ca:playground/2.9_subgrid/darea.nc .
+% display('Loading...')
+% h=rnc('h_hb.nc','h',0,1);
+% hb=rnc('h_hb.nc','hb',0,1);
+% darea=rnc('darea.nc','darea',0,1);
+% version =getversion;
+% if version==7.8
+% else
+%   display('Permuting...')
+%   h=permute(h,[3 2 1]);
+%   hb=permute(hb,[3 2 1]);  
+% end
+% display('Saving...')
+% save h_hb.mat darea h hb
+%%
+display('Loading...')
+load h_hb.mat
+%%
+dimsize=size(h);
+rhoice=913.;
+rhosw=1020.;
+h_pre(:,:)=h(:,:,1);
+hb_pre(:,:)=hb(:,:,1);
+for n=1:dimsize(3)
+  display(strcat('Processing slice ',num2str(n)))
+  h_post(:,:)=h(:,:,n);
+  %% Get mask of total ice loss regions
+  mask=zeros(size(h_pre));
+  clear i
+  dh=zeros(dimsize(1),dimsize(2))
+  i=find(h_pre>0. & h_post==0. & h_pre>hb_pre*rhosw/rhoice);
+  dh(i)=max(h_pre(i),hb_pre(i).*rhosw/rhoice);
+  vol_total(n)=sum(dh(i).*darea(i));
+  %% Get mask of partial ice loss regions
+  clear i
+  dh=zeros(dimsize(1),dimsize(2))
+  i=find(h_pre>0. & h_post>0.);
+  dh(i)=h_pre(i)-h_post(i);
+  vol_partial(n)=sum(dh(i).*darea(i));
+  vol(n)=vol_total(n)+vol_partial(n);
+end  
+  
+%   for n=1:dimsize(3)
+%   display(strcat('Processing slice ',num2str(n)))
+%   h_post(:,:)=h(:,:,n);
+%   %% Get mask of total ice loss regions
+%   mask=zeros(size(h_pre));  
+%   i=find(h_pre>0. & h_post==0. & h_pre>hb_pre*rhosw/rhoice);
+%   mask(i)=1;
+%   %% For total ice loss regions, calc. SLR-equivalent volume contribution
+%   vol_total(n)=0.;
+%   vol_partial(n)=0.;
+%   for i=1:dimsize(1);
+%     for j=1:dimsize(2);
+%        if mask(i,j)==1
+%          maxdh=max(h_pre(i,j),hb_pre(i,j)*rhosw/rhoice);
+%          dh=h_pre(i,j)+maxdh;%only use the part of the ice that is below floatation.
+%          vol_total(n)=vol_total(n)+dh*darea(i,j);
+%        elseif mask(i,j)==0
+%          dh=h_pre(i,j)-h_post(i,j);
+%          vol_partial(n)=vol_partial(n)+dh*darea(i,j);
+%        end
+%     end
+%   end  
+%   vol(n)=vol_total(n)+vol_partial(n);
+%end
+save SLR.mat SLR

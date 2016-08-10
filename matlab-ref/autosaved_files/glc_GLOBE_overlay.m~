@@ -1,0 +1,95 @@
+clear all
+close all
+
+f=dir('all10/*10g');
+
+%% Load topography data
+
+%Notes on e array:
+%-10800 in lon, 4800/6000 in lat
+%indexing starts from northwest corner
+%row == longitude == first index
+%column == latitude == second index
+
+scalefac=6.; %6x reduction in resolution (from 30" to 3' in this case)
+
+%set lon/lat grid size, arrays for GLOBE array
+GLOBEtopo=zeros(4800+6000+6000+4800,10800.*4,'uint16');
+GLOBEis=1;
+GLOBEjs=1;
+GLOBEnlon=repmat(10800,1,16); 
+GLOBEnlat=[repmat(4800,1,4) repmat(6000,1,8) repmat(4800,1,8)];
+GLOBEoffset=1./60./60.*30./2;
+GLOBElat=linspace(-90+GLOBEoffset,90-GLOBEoffset,size(GLOBEtopo,1));
+GLOBElon=linspace(0+GLOBEoffset,360-GLOBEoffset,size(GLOBEtopo,2));
+
+%set lon/lat grid size, arrays for CESM array
+CESMtopo=zeros(size(GLOBEtopo)/scalefac,'uint16');
+CESMis=1;
+CESMjs=1;
+CESMnlon=GLOBEnlon./scalefac;
+CESMnlat=GLOBEnlat./scalefac;
+CESMoffset=GLOBEoffset.*scalefac;
+CESMlat=linspace(-90+CESMoffset,90-CESMoffset,size(CESMtopo,1));
+CESMlon=linspace(0+CESMoffset,360-CESMoffset,size(CESMtopo,2));
+
+latrange(1,:)=[repmat(50.,1,4) repmat(0.,1,4) repmat(-50.,1,4) repmat(-90.,1,4)]; %set latitude ranges for each tile
+latrange(2,:)=[repmat(90.,1,4) repmat(50.,1,4) repmat(0.,1,4) repmat(-50.,1,4)];
+
+%% Process data
+
+for t=1:16;
+
+    [CESMtopotile,GLOBEtopotile] = process_topography(f(t).name,latrange(:,t),[GLOBEnlon(t) GLOBEnlon(t)],scalefac,GLOBEoffset);
+    GLOBEtopo(GLOBEis:GLOBEis+GLOBEnlat(t)-1,GLOBEjs:GLOBEjs+GLOBEnlon(t)-1) = GLOBEtopotile;
+    CESMtopo(CESMis:CESMis+CESMnlat(t)-1,CESMjs:CESMjs+CESMnlon(t)-1) = CESMtopotile;
+    
+    if mod(t,4)==0 %if at end of 4-tile longitudinal strips, reset latitude index to next southern strips, and back at west edge of grid
+        GLOBEis=GLOBEis+GLOBEnlat(t);
+        GLOBEjs=1;
+        CESMis=CESMis+CESMnlat(t);
+        CESMjs=1;
+    else %otherwise, advance in longitude along strips
+       GLOBEjs=GLOBEjs+GLOBEnlon(t); 
+       CESMjs=CESMjs+CESMnlon(t); 
+    end
+    
+end
+
+disp('Done loading data.')
+
+%%
+% figure,imagesc(CESMtopo),caxis([0 6000]),colorbar,print('-dpng','CESMtopo')
+% figure,imagesc(GLOBEtopo),caxis([0 6000]),colorbar,print('-dpng','GLOBEtopo')
+
+nccreate('CESM_topography.nc','topog',...
+    'Format','classic',...
+    'Dimensions',{'Latitude',size(CESMtopo,2),'Longitude',size(CESMtopo,1)},...
+    'Datatype','int16')
+nccreate('CESM_topography.nc','Latitude',...
+    'Format','classic',...
+    'Dimensions',{'Latitude',length(CESMlat)},...
+    'Datatype','double')
+nccreate('CESM_topography.nc','Longitude',...
+    'Format','classic',...
+    'Dimensions',{'Longitude',length(CESMlon)},...
+    'Datatype','double')
+
+ncwrite('CESM_topography.nc','Topog',fliplr((int16(CESMtopo))'),[1 1])
+ncwrite('CESM_topography.nc','Latitude',CESMl,[1])
+ncwrite('CESM_topography.nc','Longitude',,[1])
+
+% nccreate('GLOBE_topography.nc','topog',...
+%                                       'Format','classic',...
+%                                       'Dimensions',{'Latitude',size(GLOBEtopo,2),'Longitude',size(GLOBEtopo,1)},...
+%                                       'Datatype','int16')
+% ncwrite('GLOBE_topography.nc','topog',fliplr((int16(CESMtopo))'),[1 1])
+
+%%
+% er=georasterref('Latlim',[-90 90]...
+%     ,'Lonlim',[0 360]...
+%     ,'Rastersize',size(topo)...
+%     ,'ColumnsStartFrom','north'...
+%     ,'RowsStartFrom','west');
+% 
+% grid2image(topo,er), axis equal tight

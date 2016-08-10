@@ -1,0 +1,59 @@
+clear all
+close all
+
+%% Load topography data
+
+%Notes on e array:
+%-10800 in lon, 4800 in lat
+%indexing starts from northwest corner
+%row == longitude == first index
+%column == latitude == second index
+
+fid=fopen('data/GLOBE_topography/b10g');
+eg=fread(fid,[10800 4800],'*uint16','l')';
+fclose(fid);
+eg(eg>10000)=nan;
+er=georasterref('Latlim',[50 90]...
+    ,'Lonlim',[-90 0]...
+    ,'Rastersize',size(eg)...
+    ,'ColumnsStartFrom','north'...
+    ,'RowsStartFrom','west');
+
+%% Load iceland glacier data
+
+load data/Iceland.mat;
+%find largest glacier (based on Area_km2)
+[y,i]=max([glc.Area_km2]);
+
+%% Map vectorized outline to logical grid corresponding to GLOBE elevation
+
+[gg,gr] = vec2mtx(glc(i).Y,glc(i).X,zeros(size(eg)),er,'filled');
+
+%idea: for each vector point, bilinearly interpolate elevation... then...
+%create georeferenced surface between points, to get hypsometry?
+
+%or: subsample globe data at very high res, with smooth cubic spline interpolation
+
+%or: get subset of high-res topography, so not using full grid all the time
+
+%% Plot glacier data
+
+figure
+grid2image(eg,er), axis equal tight
+
+figure
+grid2image(gg,gr), axis equal tight
+
+%% extract glacier elevation
+
+elev=nan(size(eg));
+elev(gg==0.)=eg(gg==0.); %this is weird, glacier is 0 while rest of non-glacier area is 2.  Perhaps direction of vec2mtx loop around polygon?
+
+ebins=0:50:2500;
+a=size(ebins,1);
+for e=1:length(ebins)-1;
+    a(e)=areamat( ((elev>ebins(e))&(elev<ebins(e+1))) , er , wgs84Ellipsoid('kilometers') );
+end
+%find extent of glacier
+ind=find(elev>0.);
+[i,j]=ind2sub(size(elev),ind);

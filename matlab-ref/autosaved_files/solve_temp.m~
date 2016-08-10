@@ -1,0 +1,81 @@
+% iterative procedure to solve for latitudinal temperature
+
+  function f_result = solve_temp (solar_mult,albedo_ice)
+   
+%--------------------------------------------------------------------------
+
+% global variables
+
+  global num_lat_zones lats lats_frac
+  global insolation albedo temp
+
+%--------------------------------------------------------------------------
+
+% display initial albedos and temps
+
+% plots_initial (lats, albedo, temp);                             
+                              
+%--------------------------------------------------------------------------
+
+% adjustable parameters
+
+  F = 3.80;                   % transport coefficient (in W/(m^2*degree C))
+  A = 204;                    % radiative-heat-loss coefficient
+  B = 2.17;                   % radiative-heat-loss coefficient
+  albedo_land = 0.30;         % albedo of land
+  temp_critical = -10;        % critical temperature (all ice)
+  
+%--------------------------------------------------------------------------  
+  
+% set up iterations
+
+  step_num = 1;                 % loop counter
+  max_temp_diff = 1.0E6;        % using large value insures loop executes once
+  tol_temp_diff = 0.05;         % max temp change before ending iteration
+  max_steps = 100;              % max steps during iteration before stopping
+  
+%--------------------------------------------------------------------------
+
+% iterative loop for static temperature distribution
+% until maximum temperature change is less than tolerance
+
+  while step_num < max_steps  & max_temp_diff > tol_temp_diff
+        temp_old = temp;
+        step_num = step_num + 1;
+
+        % albedo is either land albedo (T > temp_critical) or ice (T < temp_critical) 
+  
+        for j = 1:num_lat_zones
+            if temp_old(j) > temp_critical
+               albedo(j) = albedo_land;
+           else
+               albedo(j) = albedo_ice;
+           end   
+        end
+        
+        % update temperature (using eqn. 5)
+        
+        temp_avg = sum(lats_frac.*temp);
+        temp = (solar_mult*insolation.*(1-albedo) + F*temp_avg - A)/(B+F); 
+        max_temp_diff = max(abs(temp_old-temp));
+        
+%       [step_num temp_avg max_temp_diff]  % summary of iteration progress
+
+  end  % while 
+
+%--------------------------------------------------------------------------
+  
+  if (step_num >= max_steps)
+      error('Too many iterations - Try different parameters')
+  end
+
+  f_result = temp_avg;
+% disp(['Average Temperature is ' num2str(temp_avg) ' Degrees C']);
+  
+% display final albedos and temps
+
+% plots_final (lats, albedo, temp) 
+  
+%--------------------------------------------------------------------------
+  
+% EOF

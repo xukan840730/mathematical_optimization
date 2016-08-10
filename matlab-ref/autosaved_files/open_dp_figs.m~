@@ -1,0 +1,183 @@
+
+%% Figure generation m-file for Drake Passage manuscript
+reload = 1;
+if reload
+    clear all
+    reload=1;
+end
+close all
+
+%% Set figures to print to 1, and update data to 1 (if wanting to update)
+CO2_timeseries=                         0;
+DIC_timeseries=                         0;
+MOT_timeseries=                         0;
+carbon_evolution=                       1;
+
+% Sort out home directory (either at UVic, or at home)
+compname=strcat(getComputerName());
+%if strcmp(compname,'fyke-3.local')==0
+%    homedir='/net/mare/home1/jer/Drake/Open_Drake_free_cc_official_run.v2.4'
+%else
+homedir{1}='/Volumes/Mare/Drake/Open_Drake_free_cc_official_run.v2.4';
+homedir{2}='/Volumes/Hermes_scratch/gateway_experiments/Open_Drake_ice_on';
+
+%end
+
+%% Set path names and directories
+pas={'PoDc','PcDc'};
+iPoDc=1;iPcDc=2;iPoDo=3;iPcDo=4;
+
+%% Plot evolving timeseries
+if CO2_timeseries||DIC_timeseries||MOT_timeseries
+    color={'k','b','g','r'};
+    hf=figure;
+    co2min=2;
+    co2max=5;
+    if CO2_timeseries
+        vname='A_co2';
+        units='ppmv';
+    elseif DIC_timeseries
+        vname='O_dic';
+        units='mol/m3';
+    elseif MOT_timeseries
+        vname='O_motmax';
+        units='Sv';
+    end
+    dt=10.;
+    for co2=co2min:co2max;
+        subplot(4,1,co2-1)
+        hold on
+        for gate=1:2;
+            tsi_file_root=strcat(homedir{2},'/',num2str(co2),'/',pas{gate},'/');
+            tsi_files=dir(strcat(tsi_file_root,'tsi.*'));
+            var{co2,gate}=[];
+            for nfiles=1:length(tsi_files);
+                fname=strcat(tsi_file_root,tsi_files(nfiles).name);
+                %file_info=inquire_about_netcdf_file(fname);
+                var{co2,gate}=[var{co2,gate} rnc(fname,vname)'];
+            end
+            time=1:dt:dt*length(var{co2,gate});
+            plot(time,var{co2,gate},color{co2-1});
+            txt=strcat(pas{gate},num2str(co2),':',num2str(round(var{co2,gate}(end)-var{co2,gate}(1))),units);
+            text(length(var{co2,gate})*dt,var{co2,gate}(end),txt);
+            axis tight
+            ax=axis;
+            %       ax(3)=ax(4)-80;
+            %       ax(2)=ax(1)+10000;
+            %       axis(ax);
+        end
+        ylabel(vname)
+        hold off
+    end
+end
+%% Plot change in carbon inventories for ice/ice-free runs
+if carbon_evolution
+    leg={'Ocean','Atm','Land'};
+    iocn=1;
+    iatm=2;
+    ilan=3;
+    co2min=2;
+    co2max=5;
+    if reload;
+        for co2=co2min:co2max;
+            for gate=1:2;
+                for AIS=1:2;
+                    tsi_file_root=strcat(homedir{AIS},'/',num2str(co2),'/',pas{gate},'/');
+                    tsi_files=dir(strcat(tsi_file_root,'tsi.*'));
+                    for res=1:3
+                        c_inv{co2,gate,res,AIS}=[];
+                    end
+                    A_co2=[];
+                    for nfiles=1:length(tsi_files);
+                        %file_info=inquire_about_netcdf_file(fname);
+                        fname=strcat(tsi_file_root,tsi_files(nfiles).name);
+                        vname='O_totcarb';
+                        c_inv{co2,gate,iocn,AIS}=[c_inv{co2,gate,iocn,AIS} rnc(fname,vname)'];
+                        vname='A_totcarb';
+                        c_inv{co2,gate,iatm,AIS}=[c_inv{co2,gate,iatm,AIS} rnc(fname,vname)'];
+                        vname='L_totcarb';
+                        c_inv{co2,gate,ilan,AIS}=[c_inv{co2,gate,ilan,AIS} rnc(fname,vname)'];
+                        vname='A_co2';
+                        A_co2=[A_co2 rnc(fname,vname)'];
+                    end
+                    dco2{co2,gate,AIS}=A_co2(end)-A_co2(1);
+                    for res=1:3;
+                        dC_inv(co2,gate,res,AIS)=c_inv{co2,gate,res,AIS}(end)-c_inv{co2,gate,res,AIS}(1);
+                    end
+                    
+                    %Plot inventory evolutions
+                    %hf=figure;
+                    %       hold on
+                    %       h(1)=plot(O_totcarb{co2,gate}-O_totcarb{co2,gate}(1),'b');
+                    %       h(2)=plot(A_totcarb{co2,gate}-A_totcarb{co2,gate}(1),'r');
+                    %       h(3)=plot(L_totcarb{co2,gate}-L_totcarb{co2,gate}(1),'g');
+                    %       x1=length(A_totcarb{co2,gate});
+                    %       y1=0.;
+                    %       x2=x1;
+                    %       y2=A_totcarb{co2,gate}(end)-A_totcarb{co2,gate}(1);
+                    %       arrow([x1 y1],[x2 y2],'LineWidth',2)
+                    %       txt=text(x1,y1,strcat('CO_2 change=',num2str(round(co2diff)),'ppmv'));
+                    %       set(txt,'HorizontalAlignment','right');
+                    %       xlabel('Time (yr)');
+                    %       ylabel('Carbon inventory (Gt)');
+                    %       %title(strcat('Effect of DP opening on carbon cycle at: ',num2str(co2*280),' ppmv'))
+                    %       legend(h,leg)
+                    %       axis tight
+                    %       if gate==iPcDc
+                    %         ax_CAS_closed=axis;
+                    %       elseif gate==iPoDc
+                    %         ax_CAS_open=axis;
+                    %         ax_CAS_open(3:4)=ax_CAS_closed(3:4);
+                    %         axis(ax_CAS_open);
+                    %       end
+                    %       hold off
+                    %      exportfig(hf,strcat('open_dp_figs_storage/dp_open_response',num2str(co2),pas{gate}))
+                end
+            end
+        end
+    end
+    nplots=4;fig_format;
+    n=0;
+    for gate=2:-1:1;
+        for AIS=1:2;
+            n=n+1;
+            axes(ha(n));
+            clear var
+            var(:,:)=dC_inv(2:5,gate,:,AIS);
+            h=bar(var);
+            set(h(iocn),'facecolor','blue');
+            set(h(iatm),'facecolor','red');
+            set(h(ilan),'facecolor','green');
+            legend(h,leg,'Location','Northwest');
+            set(gca,'XTickLabel',[2 3 4 5]);
+            xlabel('Initial CO_2 concentration (PAL)');
+            for co2=co2min:co2max;
+                txt=text(co2-1.15,dC_inv(co2,gate,iatm,AIS),strcat(num2str(round(dco2{co2,gate,AIS}))));
+                set(txt,'HorizontalAlignment','right','FontAngle','italic');
+            end
+            axis([.5 4.5 -160 200]);
+            if n==1
+                title('CAS closed')
+                ylabel('Total carbon inventory change (Gt)');
+            elseif n==2
+                set(gca,'YTick',[])
+                title('CAS open')
+            end
+            
+            if n==3
+                
+            elseif n==4
+                
+            end
+            
+            if n==3 | n==4
+                set(gca,'YAxisLocation','right')
+            end
+            
+            print('-depsc','-cmyk','open_dp_figs_storage/dp_open_C_inventory_responses')
+        end
+    end
+end
+
+
+

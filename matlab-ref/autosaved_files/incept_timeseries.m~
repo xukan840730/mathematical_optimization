@@ -1,0 +1,107 @@
+%%
+clear all
+version=getversion;
+if version == 7.8  
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropbox/Manuscripts/GIS_future/incept
+else
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future/incept
+end
+%% Get catted timeseries files of Greenland data
+% !rm -r storage
+% !ssh jer@mare.seos.uvic.ca sh "PhD_output/GIS_incept/catscript"
+% !scp jer@mare.seos.uvic.ca:PhD_output/GIS_incept/tsicat.tar .
+% !tar -xvf tsicat.tar
+% !rm tsicat.tar
+
+%% Check tail files 
+% !ssh jer@mare.seos.uvic.ca "tail -n 3 PhD_output/GIS_incept/*/pr>PhD_output/GIS_incept/tail.txt"
+% !ssh jer@hermes.westgrid.ca "tail -n 3 GIS_incept/bracket_runs/*/pr>GIS_incept/tail.txt"
+% !scp jer@mare.seos.uvic.ca:PhD_output/GIS_incept/tail.txt ./defaulttail.txt
+% !scp jer@hermes.westgrid.ca:GIS_incept/tail.txt ./brackettail.txt
+% edit defaulttail.txt
+%% Load timeseries
+
+ run={'lgm' '1' '2' '3' '4' '5' '6' '7'};
+ ne=length(run);
+%%
+%load lgm run
+timeseries(1).smb=rnc(strcat('storage/',run{1},'.nc'),'L_icesmbN',0,1);
+timeseries(1).vol=rnc(strcat('storage/',run{1},'.nc'),'L_icevolN',0,1);
+%load previously saved 1xPAL run
+load('PrePALincept.mat')
+timeseries(2).smb=PrePAL.smb;
+timeseries(2).smb_high=PrePAL.smb_high;
+timeseries(2).smb_low=PrePAL.smb_low;
+timeseries(2).vol=PrePAL.vol;
+timeseries(2).vol_high=PrePAL.vol_high;
+timeseries(2).vol_low=PrePAL.vol_low;
+clear sim
+for n=3:ne;
+  timeseries(n).smb=rnc(strcat('storage/',run{n},'.nc'),'L_icesmbN',0,1);
+  timeseries(n).smb_high=rnc(strcat('storage/',run{n},'_high.nc'),'L_icesmbN',0,1);  
+  timeseries(n).smb_low=rnc(strcat('storage/',run{n},'_low.nc'),'L_icesmbN',0,1); 
+  timeseries(n).vol=rnc(strcat('storage/',run{n},'.nc'),'L_icevolN',0,1);
+  timeseries(n).vol_high=rnc(strcat('storage/',run{n},'_high.nc'),'L_icevolN',0,1);  
+  timeseries(n).vol_low=rnc(strcat('storage/',run{n},'_low.nc'),'L_icevolN',0,1);  
+end
+
+%% Plot timeseries
+
+%ice volume
+scnsize=get(0,'Screensize');
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize*.75);
+R=linspace(0,1,ne);
+B=linspace(1,0,ne);
+
+hold on
+for n=1:ne
+  co2{n}=strcat(run{n},'x PAL levels');
+  h(n)=plot(timeseries(n).vol(1:min(length(timeseries(n).vol),250000.)),'Color',[R(n),0,B(n)],'LineWidth',2,'Linestyle','-');
+  if n>1 %no LGM bracket runs exist, so don't plot them  
+    plot(timeseries(n).vol_high(1:min(length(timeseries(n).vol_high),250000.)),'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--'); 
+    plot(timeseries(n).vol_low(1:min(length(timeseries(n).vol_low),250000.)),'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--'); 
+  end
+end
+xlabel('Year' );
+ylabel('Volume (m^3)');
+hTitle=title('Inception suite GIS ice volumes (m^3)','FontName' , 'AvantGarde','FontSize', 15, 'FontWeight' , 'bold');
+legend(h(:),co2{:},'FontSize',10);
+axis tight
+ax = axis
+ax(4)=3.47e15;
+axis(ax)
+grid on
+hold off
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 inceptvol.eps
+
+%% smb
+scnsize=get(0,'Screensize');
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize*.75);
+R=linspace(0,1,ne);
+B=linspace(1,0,ne);
+hold on
+for n=1:ne
+  co2{n}=strcat(run{n},'x PAL levels');
+  h(n)=plot(timeseries(n).smb,'Color',[R(n),0,B(n)],'LineWidth',2,'Linestyle','-');
+  if n>1 %no LGM bracket runs exist, so don't plot them 
+    plot(timeseries(n).smb_high,'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--');  
+    plot(timeseries(n).smb_low,'Color',[R(n),0,B(n)],'LineWidth',1,'Linestyle','--'); 
+  end    
+end
+xlabel('Year' );
+ylabel('kg');
+hTitle=title('Inception suite GIS SMB (kg/yr)','FontName' , 'AvantGarde','FontSize', 15, 'FontWeight' , 'bold');
+legend(h(:),co2{:},'FontSize',10);
+axis tight
+
+grid on
+hold off
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 inceptsmb.eps

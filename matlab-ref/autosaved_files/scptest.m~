@@ -1,0 +1,8 @@
+clear all;
+ addpath /usr/bin
+ uname='jer@mare.seos.uvic.ca:';
+ fgetname='/net/mare/home1/jer/PhD_output/sensitivity_runs/preind/equilib/bias/tair_only/0m5/data/Greenland_restart.nc';
+ fputname='/Users/jer/test.nc';
+% STATUS  =  scpfrommatlab(USERNAME,copyFromhostName,copyTohostName,PASSWORD,copyFromfilename,copyTofilename);
+command=sprintf('scp %s %s.',strcat(uname,fgetname),fputname)
+system(command);

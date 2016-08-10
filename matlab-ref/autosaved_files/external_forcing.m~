@@ -1,0 +1,79 @@
+close all 
+clear all
+nt=1000000;
+t=linspace(0.,nt,nt);
+
+Q_avg=1370./4;
+Q_net(1:nt)=Q_avg;
+sc=5.67e-8;
+alb=0.3;
+dt=1.;
+fignum=1;
+plotlen=1000000;
+
+T=(Q_net/sc).^.25;
+plot(Q_net(1:plotlen),'Linewidth',2); axis tight
+fname=strcat('timeseries',num2str(fignum),'.png');
+fignum=fignum+1;
+print('-dpng',fname);clf
+%Add a longterm increase due to strength of sun
+Q_sun=(1-alb).*linspace(Q_avg.*0.9,Q_avg,nt);
+Q_net=Q_net+Q_sun;
+T=(Q_net/sc).^.25;
+plot(Q_net(1:plotlen),'Linewidth',2); axis tight
+fname=strcat('timeseries',num2str(fignum),'.png');
+fignum=fignum+1;
+print('-dpng',fname);clf
+
+%Add a longterm sinusoidal cycle to represent tectonics
+Q_tect=10.*sin(t/1000000.*dt.*2.*pi);
+Q_net=Q_net+Q_tect;
+T=(Q_net/sc).^.25;
+plot(Q_net(1:plotlen),'Linewidth',2); axis tight
+fname=strcat('timeseries',num2str(fignum),'.png');
+fignum=fignum+1;
+print('-dpng',fname);clf
+
+%Add a sinusoidal cycle to represent orbitals
+Q_orb1=5.*sin(t/10000.*dt*2*pi);
+Q_net=Q_net+Q_orb1;
+T=(Q_net/sc).^.25;
+plot(Q_net(1:plotlen),'Linewidth',2); axis tight
+fname=strcat('timeseries',num2str(fignum),'.png');
+fignum=fignum+1;
+print('-dpng',fname);clf
+
+%Add a second sinusoidal cycle to represent orbitals
+Q_orb2=4.*sin(t/41000.*dt*2*pi);
+Q_net=Q_net+Q_orb2;
+T=(Q_net/sc).^.25;
+plot(Q_net(1:plotlen),'Linewidth',2); axis tight
+fname=strcat('timeseries',num2str(fignum),'.png');
+fignum=fignum+1;
+print('-dpng',fname);clf
+
+%Add a third sinusoidal cycle to represent orbitals
+Q_orb3=3.*sin(t/19000.*dt*2*pi);
+Q_net=Q_net+Q_orb3;
+T=(Q_net/sc).^.25;
+plot(Q_net(1:plotlen),'Linewidth',2); axis tight
+fname=strcat('timeseries',num2str(fignum),'.png');
+fignum=fignum+1;
+print('-dpng',fname);clf
+
+%% Take Fourier transform
+clf
+hold on
+t=1:1.e6;
+Y = abs(fft(T));
+Y(1)=[];
+n=length(Y);
+power = abs(Y(1:floor(n/2)));
+freq = (1:n/2)/(n);
+plot(freq(1:150),power(1:150),'Linewidth',2)
+temp_power=power;
+%plot(index,'o')
+axis tight
+hold off
+xlabel('cycles/year')
+print('-dpng','FFT.png');clf

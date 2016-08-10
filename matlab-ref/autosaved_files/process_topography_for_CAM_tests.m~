@@ -1,0 +1,39 @@
+close all
+clear all
+
+load_from_original_data=1;
+
+if load_from_original_data
+
+    SpinupFile='/Volumes/Mare/GIS_inception_sens_to_resolution/phase_1b_synchronous_equilibration/280/5/Greenland_restart9500.nc';
+    DeglaciationFiles=dir('/Volumes/Mare/GIS_inception_sens_to_resolution/phase_2_deglaciation/840/5/Greenland_restart*');
+    
+    h=zeros(303,559,length(DeglaciationFiles)+1);
+    hb=zeros(303,559,length(DeglaciationFiles)+1);
+    usrf=zeros(303,559,length(DeglaciationFiles)+1);
+    h(:,:,1)=ncread(SpinupFile,'h');
+    hb(:,:,1)=ncread(SpinupFile,'hb');
+    for n=1:length(DeglaciationFiles)
+n
+        h(:,:,n+1)=ncread(strcat('/Volumes/Mare/GIS_inception_sens_to_resolution/phase_2_deglaciation/840/5/',DeglaciationFiles(n).name),'h');
+        hb(:,:,n+1)=ncread(strcat('/Volumes/Mare/GIS_inception_sens_to_resolution/phase_2_deglaciation/840/5/',DeglaciationFiles(n).name),'hb');
+    end
+    %generate 0-ice end-member case (use last bed topography)
+    h(:,:,end+1)=zeros(303,559);
+    hb(:,:,end+1)=hb(:,:,end);
+    save h_and_hb h hb
+else
+    load h_and_hb
+end
+%% Trim array to same size as Bill Sack's arrya
+
+
+
+vol0=sum( reshape ( squeeze ( h(:,:,1)),size(h,1).*size(h,2) , 1) );
+for n=1:size(h,3)
+    PercentVolumeRemaining(n)=sum( reshape ( squeeze ( h(:,:,n)),size(h,1).*size(h,2) , 1) )./vol0;
+end
+
+%% Write data
+
+wnc(PercentVolumeRemaining,'GIS_topographies','Percent_remaining','%')

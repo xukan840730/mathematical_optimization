@@ -1,0 +1,28 @@
+close all
+clear all
+
+isn={'Antarctica' 'Greenland'};
+r={'5','10'};
+iAIS=1;
+iGIS=2;
+i5=1;
+i10=2;
+
+nx(iAIS,i5)=282*2*2-1;
+ny(iAIS,i5)=282*2*2-1;
+nx(iAIS,i10)=282*2-1;
+ny(iAIS,i10)=282*2-1;
+
+nx(iGIS,i5)=76*2*2-1;
+ny(iGIS,i5)=140*2*2-1;
+nx(iGIS,i10)=76*2-1;
+ny(iGIS,i10)=140*2-1;
+
+for is=iAIS:iGIS
+    t=rnc(strcat('20km_',isn{is},'tsurf.nc'),'output');
+    for res=i5:i10;
+        [xi,yi] = meshgrid(linspace(1,size(t,2),nx(is,res)),linspace(1,size(t,1),ny(is,res)));
+        ti = interp2(t  ,  xi  , yi );
+        wnc(ti,strcat(r{res},'km_',isn{is},'tsurf.nc'),'output','C')
+    end
+end

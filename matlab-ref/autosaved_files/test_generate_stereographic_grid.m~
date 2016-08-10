@@ -1,0 +1,27 @@
+clear all
+close all
+
+x1=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_spinup_w_BG_forcing_1_stage_2/glc/hist/GIS_spinup_w_BG_forcing_1_stage_2.cism.h.3001-01-01-00000.nc','x1');
+y1=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/GIS_spinup_w_BG_forcing_1_stage_2/glc/hist/GIS_spinup_w_BG_forcing_1_stage_2.cism.h.3001-01-01-00000.nc','y1');
+rad=6378137.0;
+ecc=0.08181919;
+
+[X,Y]=meshgrid(x1,y1);
+
+[lat,lon]=polarstereo_inv(X,Y,rad,ecc,71,321);
+clear x1 y1 X Y rad ecc
+
+acab=ncread('/Volumes/Bluefire/CISM_validation/ptmp_links/jfyke/archive/short_term_GIS_spinup_w_BG_forcing_1/glc/hist/average_initial_conditions.nc','acab');
+
+% axesm('MapProjection','ortho',...
+%     
+%     'flatlimit',[-Inf 200],...
+%     'maplatlimit',[60 90]...
+%     )
+
+figure('Color','w')
+axesm('ortho','Origin',[71 321],'FLatLimit',,'FLonLimit',)
+axis off; framem on; gridm on; mlabel on; plabel on;
+setm(gca,'MLabelParallel',30,'PLabelMeridian',-30)
+h1=geoshow(lat,lon,acab');
+tightmap

@@ -1,0 +1,134 @@
+%% Generate animation of melting Greenland
+
+clear all 
+cd ~/Desktop/Sherpas
+
+%%
+a=exist('out.nc');
+if (a==0)
+  !scp mare.seos.uvic.ca:PhD_output/sensitivity_runs/highCO2/AIS_and_GIS/7_full/out.nc .
+end
+
+%% load bedrock and thickness data
+ncload('out.nc','h','hb');
+h_orig=h;
+hb_orig=hb;
+hs_orig=h_orig+hb_orig;
+clear h hs hb
+temp(:,:)=h_orig(3,:,:);
+%% interpolate data in time
+arrdim=size(h_orig);
+ifac=1.;
+time=arrdim(1)*ifac;
+h=zeros(time,arrdim(2),arrdim(3));
+hb=zeros(time,arrdim(2),arrdim(3));
+hs=zeros(time,arrdim(2),arrdim(3));
+wt=linspace(1.,1./ifac,ifac);
+% for n=1:arrdim(3)-1
+%   n_exp=(n-1)*ifac+1;
+%   for i=1:arrdim(1);
+%     for j=1:arrdim(2);
+%       vstrt=n_exp;
+%       vend=n_exp+ifac-1;
+%       h(i,j,vstrt:vend)=h_orig(i,j,n).*wt(:)+h_orig(i,j,n+1).*(1.-wt(:));
+%       hs(i,j,vstrt:vend)=hs_orig(i,j,n).*wt(:)+hs_orig(i,j,n+1).*(1.-wt(:));
+%       hb(i,j,vstrt:vend)=hb_orig(i,j,n).*wt(:)+hb_orig(i,j,n+1).*(1.-wt(:));
+%     end
+%   end
+% end
+
+for no=1:arrdim(1)-1
+  %set start point minus 1 for filling expanded array
+  n_expstrt=(no-1)*ifac
+    for ni=1:ifac;
+       %get time indice of expanded matrix to fill
+       ind=n_expstrt+ni;
+       h(ind,:,:)=h_orig(no,:,:)*wt(ni)+h_orig(no+1,:,:)*(1.-wt(ni));
+       hs(ind,:,:)=hs_orig(no,:,:)*wt(ni)+hs_orig(no+1,:,:)*(1.-wt(ni));    
+       hb(ind,:,:)=hb_orig(no,:,:)*wt(ni)+hb_orig(no+1,:,:)*(1.-wt(ni));
+    end
+end
+
+%% plot data
+
+%set all initial locations where elev is lower than sealev to 0.
+hs=max(0.,hs);
+
+%basic pan using camera and light pan/zoom arrays
+ azimuth=linspace(-50,3,time);
+ elevation=linspace(20,45,time);
+ zoom=linspace(1,2,time);
+ xlight=linspace(-10,2,time);
+ dx=linspace(0
+%get maximum and minimum hs values
+minh=min(min(min(hs)));
+maxh=max(max(max(hs)));
+
+%set number of color contours to total range in elevation
+ccontours=floor(maxh-minh);
+cmap(:,1)=linspace(200,255,ccontours);
+cmap(:,2)=linspace(255,255,ccontours);
+cmap(:,3)=linspace(255,255,ccontours);
+cmap(1,1:3)=[6 113 148]; %ocean blue
+cmap(2,1:3)=[158 128 110]; %land brown
+cmap=cmap/255.;
+%% Set figure size
+close all
+set(0,'Units','pixels');
+scnsize=get(0,'Screensize')
+fig1=figure;
+position = get(fig1,'Position')
+set(fig1,'Position',scnsize*.5)
+
+%% Generate movie frames
+for n=1:time;
+  temph(:,:)=h(n,:,:);
+  temphb(:,:)=hb(n,:,:);
+  temphs(:,:)=hs(n,:,:);
+  temph=rot90((temph));
+  temphb=rot90((temphb));
+  temphs=rot90((temphs)); 
+  
+  %set array that will be used to determine colors
+  temphscolor=temphs;
+  
+  %find bare land and drop to near bottom of scale
+  clear i
+  i=find(temph<=0.1);
+  temphscolor(i)=minh+1.5; 
+  %then drop ocean off bottom of scale
+  clear i
+  i=find(temphs==0.);
+  temphscolor(i)=minh-1; 
+
+  %pcolor(temph), shading flat;
+  zexag=5./1000.;
+  figh=surf(temphs*zexag,temphscolor);
+  daspect([8.3333    4.4444    1.0000])
+  caxis([minh maxh]);
+  colormap(cmap);
+  camlookat(figh)
+  camdolly(0,0,0,'targetmode')
+  camproj('perspective')
+
+  %view(azimuth(n),elevation(n))
+  %camzoom(zoom(n));
+  
+  light('Position',[xlight(n),-1,0.3],'Style','Infinite')
+  lighting phong
+  shading interp;
+  grid off
+  axis off
+  axis equal tight;
+  clear temph temphs temphb 
+  
+  A(n)=getframe(gcf);
+end
+
+%% create movie
+%movie2avi(A,'movie.avi','compression','None');
+%mpgwrite(A,hot,'movie');
+
+
+
+ 

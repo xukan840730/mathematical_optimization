@@ -1,0 +1,220 @@
+close all
+
+load_data = 0;
+load_parameters = 0;
+if load_data
+    clear all
+    load_data = 1;
+    load_parameters = 1;
+end
+
+plot_snapshots = 1;
+plot_volume_evolution = 1;
+plot_sat_evolution = 0;
+plot_volume_distribution = 1;
+plot_diagnostics_vs_parameters = 1;
+sp='/Volumes/Bugaboo/LHS_GIS_deglac_sens_to_polamp_and_alb/future/ensemble_v2';
+
+%% Load data
+
+%ranking is: 17 16 43 100 23
+
+enumbers=[16 17 23 43 100];
+
+enssz=40;
+
+if load_data
+    v=cell(5,enssz);
+    for e=1:5;
+        en=enumbers(e);
+        for mn=1:enssz;
+            disp(['Loading data from [en,mn]: ' num2str(en) ', ' num2str(mn)])
+            path=fullfile(sp,num2str(en),num2str(mn),'*.tsi');
+            files=dir(fullfile(sp,num2str(en),num2str(mn),'tsi.*'));
+            v{e,mn}=[];
+            a{e,mn}=[];
+            sat{e,mn}=[];
+            for nf=1:length(files)
+                v{e,mn}=[v{e,mn} ncread(fullfile(sp,num2str(en),num2str(mn),files(nf).name),'L_icevol')'];
+                a{e,mn}=[a{e,mn} ncread(fullfile(sp,num2str(en),num2str(mn),files(nf).name),'L_icearea')'];
+                sat{e,mn}=[sat{e,mn} ncread(fullfile(sp,num2str(en),num2str(mn),files(nf).name),'A_sat')'];
+            end
+        end
+    end
+    
+end
+
+%%
+%sed 's/\([a-z]*\).*/\1/'
+if load_parameters
+    
+    !rm adifftxt.tmp vcsfactxt.tmp
+    
+    for ee=1:1; %all LHS params for various ensembles are the same, so just extract from first ensemble
+        en=enumbers(ee);
+        for mn=1:enssz;
+            system(sprintf('grep "adiff" %s/%s/%s/control.in >> adifftxt.tmp',sp,num2str(en),num2str(mn)));
+            !sed -i "" "s/.*adiff=\([0-9]*\.[0-9]*\).*/\1/g" adifftxt.tmp
+            system(sprintf('grep "vcsfac" %s/%s/%s/control.in >> vcsfactxt.tmp',sp,num2str(en),num2str(mn)));
+            !sed -i "" "s/.*vcsfac=\([-]*[0-9]*\.[0-9]*\).*/\1/g" vcsfactxt.tmp
+        end
+        
+    end
+    LHSp(:,1)=load('adifftxt.tmp');
+    LHSp(:,2)=load('vcsfactxt.tmp');
+    
+    %convert vcsfac value to ECS value
+    load vcs_2_ECS.mat
+    %find nearest vcs point on calibration curve
+    for n=1:size(LHSp,1)
+        LHSp(n,2);
+        i=find(vcsfaci>LHSp(n,2),1);
+        LHSp(n,2)=sat_eqi(i)
+    end
+    
+end
+
+
+%% Plot output
+
+cl={'r' 'g' 'b' 'k' 'c'};
+clextrap={'r--' 'g--' 'b--' 'k--' 'c--'};
+
+emin=1;
+emax=5;
+
+if plot_volume_evolution
+    
+    figure
+    
+    hold on
+    for e=emin:emax
+        if e==1
+            mnstrt=3;  %Don't display scrambled output files (restart issue)
+        else
+            mnstrt=1;
+        end
+        for mn=mnstrt:enssz;
+            t=10:10:length(v{e,mn})*10;
+            plot(t,v{e,mn},cl{e},'linewidth',2)
+            slope=(v{e,mn}(end)-v{e,mn}(end-1))/10.;
+            b=v{e,mn}(end)-slope*t(end);
+            tend=-b/slope;
+            %plot([t(end) tend],[v{e,mn}(end) 0],clextrap{e},'linewidth',1) %%uncomment if you want extrapolated trends
+        end
+    end
+    
+    ax=axis
+    ax(3)=0.e15;
+    ax(1)=0.;
+    ax(2)=900.;
+    axis(ax)
+    ylabel('Ice volume (m^3)')
+    xlabel('Time (yr)')
+    grid on
+    hold off
+    
+end
+
+if plot_sat_evolution
+    
+    figure
+    
+    hold on
+    for e=emin:emax;
+        for mn=1:enssz;
+            t=10:10:length(sat{e,mn})*10;
+            plot(t,sat{e,mn},cl{e},'linewidth',2)
+            slope=(sat{e,mn}(end)-sat{e,mn}(end-1))/10.;
+            b=sat{e,mn}(end)-slope*t(end);
+            tend=-b/slope;
+        end
+    end
+
+    ax=axis
+    ax(2)=1000.;
+    axis(ax)
+    
+    hold off
+    
+end
+
+
+%Get minimum common time
+tmin=1.e20;
+for e=1:length(enumbers);
+    for mn=1:enssz;
+        tmin=min(tmin,length(v{e,mn}));
+    end
+end
+v_init=zeros(e,mn);
+v_end=zeros(e,mn);
+sat_init=zeros(e,mn);
+sat_end=zeros(e,mn);
+for e=1:length(enumbers);
+    for mn=1:enssz;
+        v_init(e,mn)=v{e,mn}(1);
+        v_end(e,mn)=v{e,mn}(tmin);
+        sat_init=sat{e,mn}(1);
+        sat_end(e,mn)=sat{e,mn}(tmin);
+    end
+end
+
+
+if plot_volume_distribution
+    
+    figure
+    
+    hist(v_end,10);
+    
+end
+
+if plot_diagnostics_vs_parameters
+
+    subplot(1,2,1),hold on
+    
+    for e=1:5;
+        percentage_loss=(v_end(e,:)-v_init(e,:))./v_init(e,:).*100.;
+        scatter(LHSp(:,1),percentage_loss,cl{e},'filled')
+        xlabel('Polar amplification')
+        ylabel(sprintf('Percent volume loss, year %i',tmin*10))
+        axis tight
+        lsline
+    end
+    axis tight
+    ax=axis;ax(3:4)=[-30 0];axis(ax)
+    hold off
+    subplot(1,2,2),hold on
+    for e=1:5;
+        percentage_loss=(v_end(e,:)-v_init(e,:))./v_init(e,:).*100.;
+        scatter(LHSp(:,2),percentage_loss,cl{e},'filled')
+        xlabel('Equilibrium climate sensitivity')
+        lsline
+    end
+    axis tight
+    ax=axis;ax(3:4)=[-30 0];axis(ax)
+    hold off
+    set(gca,'YTick',[])
+    
+    
+    figure
+    subplot(1,2,1),hold on
+    for e=1:5;
+        scatter(LHSp(:,1),sat_end(e,:),cl{e},'filled')
+        title('SAT polar amplification dependency')
+        lsline
+    end
+    axis tight
+    ax=axis;ax(3:4)=[289 294];axis(ax)
+    hold off
+    subplot(1,2,2),hold on
+    for e=1:5;
+        scatter(LHSp(:,2),sat_end(e,:),cl{e},'filled')
+        title('SAT ECS dependency')
+        lsline
+    end
+    axis tight
+    ax=axis;ax(3:4)=[289 294];axis(ax)
+    hold off
+    
+end

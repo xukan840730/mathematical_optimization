@@ -1,0 +1,221 @@
+function [CESMTopogTile,...
+    CESMLSmskTile,...
+    CESMPercentGlacier,...
+    CESMPercentIceSheet,...
+    TotalGlacierCoverage,...
+    TotalIceSheetCoverage]...
+    = process_topography_and_glacier_mask(t,f,lat_range,array_size,sf,offset,numbins,BinEdges,binres)
+
+global percent_complete...
+    generate_glc_pct_tiles...
+    display_progress_bar...
+    merge_bamber_data...
+    merge_UVic_ESCM_GIS_geometries
+
+%inputs
+%t=tile number
+%f=GLOBE file name
+%lat_range=latitude range of GLOBE tile (for area-weighting)
+%array_size=size of GLOBE tile (needed due to old-school fread statement)
+%sf=scale factor that determines the level of 'coarsening' (i.e. 2x means
+%   the CESM grid will be 1/2 resolution of GLOBE grid)
+%offset=half the lat/lon width across a square GLOBE gridcell.
+%numbins= # of vertical bins in the elev-glacier area mask
+%bin edge values for elevation bins
+
+
+disp(['Processing GLOBE/glacier tile ' f '...'])
+
+%% Load data
+
+%Load topography: this either loads the original ascii version and saves
+%this data to .mat file, or opens the .mat file (if it exists), for speed.
+disp('Loading topography...')
+fname=strcat('GLOBE_topography_data/',f);
+if exist(strcat(fname,'.mat'),'file')
+    disp(['Opening mat-version of topography tile' f])
+    load(strcat(fname,'.mat'))
+else
+    disp(['Opening ascii version of topography tile' f ' ,saving as mat for next time.'])
+    fid=fopen(fullfile('GLOBE_topography_data',f)); %Globe topography
+    GLOBETopogTile=single(fread(fid,array_size,'*uint16','l')'); %convert to floating point number for NaN calculation
+    save(fname,'GLOBETopogTile') %save to mat file for quicker loading next time
+    fclose(fid);
+end
+
+disp('Loading land ice and glacier masks...')
+load(strcat('Gardner_ice_mask_data/land_ice',f)) %Land ice % coverage on Globe grid (msk variable)
+IceSheetMask=msk; clear msk
+load(strcat('Gardner_ice_mask_data/glacier',f)) %Land ice % coverage on Globe grid (msk variable)
+GlacierMask=msk; clear msk
+IceSheetMask=IceSheetMask-GlacierMask; %remove glaciers from land ice mask, so only land ice mask remains
+
+% Optionally load updated Bamber/UVic ESCM topography over Greenland
+
+if t==2
+    if merge_bamber_data
+        disp('Loading Bamber Greenland topography')
+        TopoFile='Bamber_topography/bamber_30sec_derived.nc';
+    elseif merge_UVic_ESCM_GIS_geometries
+        disp('Loading UVic Greenland topography')
+        TopoFile='UVic_ESCM_topography/bamber_30sec_0.nc'; 
+    end
+    MergedTopog=ncread(TopoFile,'usrf')';
+    MergedTopogMask=ncread(TopoFile,'landmask')';
+imagesc(MergedTopogMask)
+    ilnd=find(MergedTopogMask==1); 
+    GLOBETopogTile(ilnd)=MergedTopog(ilnd);
+    iocn=find(MergedTopogMask==0.);
+    GLOBETopogTile(iocn)=max(GLOBETopogTile(:));
+    
+    if merge_bamber_data && generate_glc_pct_tiles %also read ice masks for pct_glc generation
+        msk=ncread(TopoFile,'pct_gic')';
+        GlacierMask(ilnd)=msk(ilnd);
+        GlacierMask(iocn)=0.;
+        msk=ncread(TopoFile,'pct_landice')';
+        IceSheetMask(ilnd)=msk(ilnd);
+        clear msk
+        IceSheetMask(iocn)=0.;
+        IceSheetMask=IceSheetMask-GlacierMask;
+    end
+end
+
+GLOBETopogTile(GLOBETopogTile>20000)=nan; %set GLOBE data to nan where over ocean
+%Where ocean occurs according to GLOBE, but Gardner data indicates
+%ice-sheet/glacier/iceshelf, set GLOBE to land, with elev = 0m.
+GLOBETopogTile( isnan(GLOBETopogTile) & (IceSheetMask>0. | GlacierMask>0.) )=0.;
+
+%% Generate latitude weighting
+
+%generate the cos of the latitude at the middle of each GLOBE cell
+coslat=cos ( deg2rad(linspace(lat_range(2)-offset,lat_range(1)+offset,size(GLOBETopogTile,1))) )';
+%replicate this coslat array across all longitudes
+coslat=repmat(coslat,1,size(GLOBETopogTile,2));
+coslat(isnan(GLOBETopogTile))=nan; %nan out coslan values that are ocean (from nan operation on GLOBEtopo)
+
+%% Aggregate to coarse grid
+
+CESMTopogTile=zeros(size(GLOBETopogTile)./sf); %Initialize CESM topography tile, with size reduction set by scale factor
+
+%calculate average CESM elevation based on non-ocean GLOBE elevations
+%underlying CESM grid cell area.
+
+CESMPercentGlacier=zeros(size(CESMTopogTile,1),size(CESMTopogTile,2),numbins,'single');
+CESMPercentIceSheet=zeros(size(CESMTopogTile,1),size(CESMTopogTile,2),numbins,'single');
+TotalGlacierCoverage=zeros(size(CESMTopogTile));
+TotalIceSheetCoverage=zeros(size(CESMTopogTile));
+if display_progress_bar
+    hprogress_bar=figure;
+    plot(percent_complete,'.','Markersize',100);
+    ax=axis;ax(4)=100;axis(ax)
+    ylabel('% processing complete')
+    xlabel('Tile #')
+end
+for i=1:size(CESMTopogTile,1);
+    if display_progress_bar
+        if mod(i,20)==0 %update progress plot every once and a while
+            linkdata(hprogress_bar,'on'); refreshdata
+            pc=i/size(CESMTopogTile,1)*100;
+            percent_complete(t)=pc;
+        end
+    end
+    for j=1:size(CESMTopogTile,2);
+        %create indices to extract GLOBE cells that underlie the (i,j)th CESM cell
+        is=(i-1).*sf + 1;
+        ie = is + sf - 1;
+        js=(j-1).*sf + 1;
+        je = js + sf -1;
+        TopogSubset=single(GLOBETopogTile( is:ie , js:je )); %extract GLOBE topography square that underlies CESM grid cell
+        AreaSubset=coslat( is:ie , js:je ); %get cos of latitudes for central GLOBE topography points
+        GlacierSubset=single(GlacierMask( is:ie , js:je )); %Alex's glacier mask
+        IceSheetSubset=single(IceSheetMask( is:ie , js:je )); %Alex's glacier mask
+        CESMTopogTile(i,j)=nansum(TopogSubset(:).*AreaSubset(:)) ./ nansum(AreaSubset(:)); %area-average non-ocean GLOBE data to generate one CESM topography value.
+        
+        if generate_glc_pct_tiles
+            if sum(~isnan(TopogSubset(:))) > 0 && (sum(GlacierSubset(:)) >0. || sum(IceSheetSubset(:)) > 0.) %if any GLOBE land has contributed and there is some glacial mask present, then find potential ice sheet elevations.
+                
+                TotalLandArea=nansum(AreaSubset(:)); %Sum up all non-NaN (i.e. non-ocean) areas.  Note that this inherits NaNs from original latitude vector
+                
+                %limit vertical search loop start and end to bound GLOBE relief
+                %within CESM grid space, with some buffer.  Ensure bounds don't go outside of elevation bin range.
+                minsearchel=floor(min(TopogSubset(:)./binres)) -1;
+                minsearchel=max(1,min(minsearchel,numbins));
+                maxsearchel=ceil(max(TopogSubset(:)./binres)) +1;
+                maxsearchel=max(1,min(maxsearchel,numbins));
+                
+                for k=minsearchel:maxsearchel
+                    %Find all cells in topography subset that are within
+                    %elevation
+                    BinMembers=find( TopogSubset>=BinEdges(k) & TopogSubset<BinEdges(k+1) );
+                    
+                    %sum available GIC-covered land area
+                    GlaciatedArea=nansum( AreaSubset(BinMembers)  .*  GlacierSubset(BinMembers)./100. );
+                    %Get the % of the total land in grid cell that is covered by glacier in this elevation bin.
+                    CESMPercentGlacier(i,j,k) = GlaciatedArea./TotalLandArea.*100.;
+                    
+                    %sum available ice-sheet-covered land area
+                    IceSheetArea=nansum( AreaSubset(BinMembers)  .*  IceSheetSubset(BinMembers)./100. );
+                    %Get the % of the total land in grid cell that is covered by ice sheet in this elevation bin.
+                    CESMPercentIceSheet(i,j,k) = IceSheetArea./TotalLandArea.*100.;
+                    
+                    % SOME OUTPUT
+                    %                     disp(['Glacier area at elevation band =' num2str(glaciated_area)])
+                    %                     disp(['Total land area at elevation band =' num2str(tot_area)])
+                    %                     disp(['glacier fraction area at elevation band =' num2str(glaciated_area./tot_area)])
+                    %                     '*********'
+                end
+                
+                TotalGlacierCoverage(i,j)=nansum(CESMPercentGlacier(i,j,:));
+                TotalIceSheetCoverage(i,j)=nansum(CESMPercentIceSheet(i,j,:));
+                
+                %sanity checks
+                
+                if ((GlaciatedArea + IceSheetArea) - TotalLandArea ) > 0.0001
+                    disp(['tile=' num2str(f) ', location=' num2str(i) num2str(j)])
+                    disp(['GlaciatedArea=' num2str(GlaciatedArea)])
+                    disp(['IceSheetArea=' num2str(IceSheetArea)])
+                    disp(['AreaSubset=' num2str(TotalLandArea)])
+                    error('Ice-covered area ins sub-tile is significantly greater than total sub-tile area!')
+                elseif TotalGlacierCoverage(i,j) > 100.0001
+                    disp(['tile=' num2str(f) ', location=' num2str(i) num2str(j)])
+                    disp(['TotalGlacierCoverage=' num2str(TotalGlacierCoverage(i,j))])
+                    error('Glaciated area is greater than 100% coverage!')
+                elseif TotalIceSheetCoverage(i,j) > 100.0001
+                    disp(['tile=' num2str(f) ', location=' num2str(i) num2str(j)])
+                    disp(['TotalIceSheetCoverage=' num2str(TotalIceSheetCoverage(i,j))])
+                    error('Ice sheet area is greater than 100% coverage!')
+                end
+                
+                %for cases where round-off error produces slightly-greater-than
+                %100% coverage (but below error threshold which is caught
+                %above), reduce bin with greatest area by roundoff error.
+                if TotalGlacierCoverage(i,j) > 100.
+                    ExcessArea=TotalGlacierCoverage(i,j) - 100.;
+                    TempCol=CESMPercentGlacier(i,j,:);
+                    TempCol(TempCol==max(TempCol))=max(TempCol)-ExcessArea;
+                    CESMPercentGlacier(i,j,:)=TempCol;
+                end
+                if TotalIceSheetCoverage(i,j) > 100.
+                    ExcessArea=TotalIceSheetCoverage(i,j) - 100.;
+                    TempCol=CESMPercentIceSheet(i,j,:);
+                    TempCol(TempCol==max(TempCol))=max(TempCol)-ExcessArea;
+                    CESMPercentIceSheet(i,j,:)=TempCol;
+                end
+            end
+        end
+    end
+end
+
+if display_progress_bar
+    linkdata(hprogress_bar,'off');
+    close(hprogress_bar)
+end
+%% Organize output
+
+%generate CESM binary mask, where 0=ocean, 1=land (set to land wherever any
+%GLOBE land at all exists underneath CESM grid cell).
+CESMLSmskTile=uint16(~isnan(CESMTopogTile));
+
+%convert GLOBE tile back to integer before passing out.  This reverts NaNs
+%to zero.
+GLOBETopogTile=uint16(GLOBETopogTile);

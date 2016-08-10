@@ -1,0 +1,981 @@
+%% Figure generation m-file for Drake Passage manuscript
+close all
+clear all
+%% Set figures to print to 1.
+%Note that indented numbers imply reliance on the most-recent major option
+%above.
+CAS_SAT_effect_on_Drake_closed=           0;
+CAS_SAT_effect_on_Drake_opening=          0;
+SAT_diff=                                 0;
+Depth_averaged_DIC=                       0;
+Basin_averaged_depth_averaged_DIC=     0;
+Depth_integrated_DIC=                     0;
+average_DIC_vertical_profile=             0;
+apparent_oxygen_utilization=              1;
+CAS_land_carbon_response_to_Drake_opening=0;
+spinup_equilibrium_test=                  0;
+global_DIC_diff=                          0;
+global_temp_diff=                         0;
+horiz_streamfunction=                     0;
+meridional_streamfunction=                0;
+globalsf=                             0;
+atlanticsf=                           0;
+pacificsf=                            0;
+indiansf=                             0;
+bathymetry_diff=                          0;
+
+%% Set path names and directories
+pas={'PoDo','PoDc','PcDo','PcDc'};
+pastitle={'CAS, DP open','CAS open, no DP','no CAS, DP open','no CAS, no DP'};
+iPoDo=1;iPoDc=2;iPcDo=3;iPcDc=4;
+%mounted_directory='/Volumes/Mare/Drake/spinup_output';
+mounted_directory='/Volumes/Hermes_scratch/gateway_experiments/spinup_no_ice';
+%% Set CO2 and gate parameter space to access
+co2min=2;
+co2max=2;
+gatemin=3;
+gatemax=3;
+%% Load SAT output
+if CAS_SAT_effect_on_Drake_closed ||...
+   SAT_diff ||...
+   CAS_SAT_effect_on_Drake_opening;
+
+    for gate=gatemin:gatemax;
+        for co2=co2min:co2max;
+            vname='A_sat';
+            file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+            clear files,files=dir(strcat(file_root,'tavg*'));
+            fname=strcat(file_root,files(length(files)).name);
+            vari{co2,gate}=rnc(fname,vname);
+            vari{co2,gate}=vari{co2,gate}';
+        end
+        vname='G_kmt';
+        kmt{gate}=rnc(fname,vname);
+        kmt{gate}(kmt{gate}>1)=1;
+        kmt{gate}=kmt{gate}';
+    end
+end
+
+%% Plot pre-Drake-opening surface air temperature difference, as function
+%% of CAS
+if CAS_SAT_effect_on_Drake_closed
+    %plot PoDc vs PcDc: difference Panama makes to global temperature with
+    %Drake closed
+    for co2=co2min:co2max;
+        pv=vari{co2,iPoDc}-vari{co2,iPcDc};
+        
+        nplots=1;fig_format
+        
+        hold on
+        crange=[-1 3./30. 1];
+        
+        global_contour_map;
+        
+        caxis([crange(1) crange(3)]);
+        cb=colorbar;
+        colormap(rbcbar(crange(1),crange(3)));
+        caxis([crange(1) crange(3)]); 
+        ylabel(cb,'Temperature difference ({^\circ}C)');
+        
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/PoDc_m_PcDc_SAT_at_',num2str(co2),'CO2'))
+        hold off
+    end
+end
+
+%% Plot pre/post-Drake-opening surface air temperature differences, as function of CAS
+if CAS_SAT_effect_on_Drake_opening
+    
+    %plot SAT diff with CAS closed (e.g. Sijp case) and open.
+    for co2=co2min:co2max;
+        nplots=2;fig_format
+        crange=[-8 17./30 8];
+        n=0;
+        gd_title={'CAS opened','CAS closed'};
+        for gd=[1 3];
+            n=n+1;
+            axes(ha(n));
+            pv=(vari{co2,gd}-vari{co2,gd+1});
+            hold on
+            
+            global_contour_map
+            
+            caxis([crange(1) crange(3)]);
+            colormap(rbcbar(crange(1),crange(3)));
+            cb=colorbar;
+            title(gd_title{n});
+            hold off
+        end
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/SATdiff',num2str(co2),'CO2'))
+    end
+
+end
+
+%% plot effect of opened Drake on SAT: open-CAS minus close-CAS difference.
+    %Thus, a negative value indicates that the CAS-open case warms less/cools
+    %more than the CAS-closed case, while a positive value indicates that the
+    %region warms more/cools less with CAS open.
+if SAT_diff
+        
+    for co2=co2min:co2max;
+        
+        nplots=1;fig_format
+        
+        pv=(vari{co2,iPoDo}-vari{co2,iPoDc})-(vari{co2,iPcDo}-vari{co2,iPcDc});
+        hold on
+        
+        crange=[-2.5 7./30. 2.5];
+        
+        global_contour_map;
+        
+        caxis([crange(1) crange(3)]);
+        cb=colorbar;
+        colormap(rbcbar(crange(1),crange(3)));
+        caxis([crange(1) crange(3)]);
+        
+        ylabel(cb,'Temperature difference ({^\circ}C)');
+        
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/Switch_DP_SATdiff_as_func_of_CAS_at_',num2str(co2),'CO2'))
+        hold off
+        
+    end
+    
+end
+%% Load DIC data and associated data for following DIC plots
+if Depth_averaged_DIC ||...
+   Depth_integrated_DIC ||...
+   Basin_averaged_depth_averaged_DIC ||...
+   average_DIC_vertical_profile 
+
+    for gate=gatemin:gatemax;
+        for co2=co2min:co2max;
+            file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+            clear files;files=dir(strcat(file_root,'tavg*'));
+            vname='O_dic';
+            fname=strcat(file_root,files(length(files)).name);
+            vari{co2,gate}=rnc(fname,vname);
+            vari{co2,gate}=permute(vari{co2,gate},[2 1 3]);
+            vari{co2,gate}(vari{co2,gate}>1.e10)=nan; %nan out non-ocean values.
+        end
+        vname='G_kmt';
+        kmt{gate}=rnc(fname,vname);
+        kmt{gate}=kmt{gate}';
+        kmt_copy{gate}=kmt{gate};
+        kmt{gate}(kmt{gate}>1)=1;
+    end
+    vname='G_areaT';
+    g_area=rnc(fname,vname);
+    vname='G_dzt';
+    dzt(1,1,:)=rnc(fname,vname);
+    
+    vname='G_mskhr';
+    mskhr=rnc(fname,vname)';
+    %Modify mskhr to create Atl/Arctic (AA) and Pac/Ind/SO (PIS) masks
+    iAAt=1;
+    iPIS=2;
+    bname={'Atlantic','Pacific/Indian/Southern'};
+    mskhr(kmt{iPcDc}==4)=0;
+    for i=1:size(mskhr,1)
+        for j=1:size(mskhr,2)
+            if (mskhr(i,j)==3) || (mskhr(i,j)>0 && i<20);
+                mskhr(i,j)=2;
+            end
+        end
+    end
+    
+end
+%% Plot depth-averaged DIC maps
+if Depth_averaged_DIC
+    
+    for co2=co2min:co2max;
+        for gate=gatemin:gatemax;
+            avgDICconc{co2,gate}=zeros(100,100);
+            for i=1:100
+                for j=1:100
+                    %get average DIC in each ocean column (mol/m^3)
+                    if kmt_copy{gate}(i,j)>0
+                        d=kmt_copy{gate}(i,j);
+                        avgDICconc{co2,gate}(i,j)=nansum(vari{co2,gate}(i,j,1:d).*dzt(1:d))./sum(dzt(1:d));
+                    end
+                end
+            end 
+        end        
+
+        %plot CAS opened/CAS closed depth-averaged DIC
+        
+        nplots=4;fig_format;
+        for n=1:4
+            axes(ha(n))
+            hold on
+            pv=avgDICconc{co2,n};
+            Drake_mask=zeros(100,100);
+            Drake_mask(kmt_copy{iPcDo}~=kmt_copy{iPcDc})=1;
+            pv(Drake_mask==1)=1.;
+            crange=[2.25 0.025 2.45];
+            
+            global_contour_map;
+            
+            caxis([crange(1) crange(3)]);
+            colormap(rbcbar(crange(1),crange(3)));
+            
+            if n==1 || n==2
+                set(gca,'Xticklabel','')
+            end
+            if n==2 || n==4
+                set(gca,'Yticklabel','')
+            end
+            if n==1
+                title('DP open')
+                ylabel('CAS open')
+            elseif n==2
+                title('DP closed')                
+            end
+            if n==3
+                ylabel('CAS closed')
+            end
+            if n==4
+                axpos=get(gca,'Position');
+                cb=colorbar;colormap(rbcbar(2.2,2.5));
+                ylabel(cb,'mol/m^3')
+                set(gca,'Position',axpos)
+            end
+            hold off
+        end
+        
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/avgDICmap_at_',num2str(co2),'CO2'))
+        
+    end
+    
+end
+
+%% Plot basin average DIC
+if Basin_averaged_depth_averaged_DIC
+    
+    for co2=co2min:co2max;
+        for gate=gatemin:gatemax;
+            %Generate and plot values for average Atl/Arct DIC and Pac/Ind/SO DIC
+            %for all cases by averaging column-averaged DIC values obtained
+            %above
+
+            for b=iAAt:iPIS;                  
+                avg_sum=0.;
+                a_sum=0.;
+                for i=1:size(mskhr);
+                    for j=1:size(mskhr);
+                        if mskhr(i,j)==b;
+                            avg_sum=avg_sum + ( avgDICconc{co2,gate}(i,j) .* g_area(i,j) ) ;
+                            a_sum= a_sum + g_area(i,j) ;
+                        end
+                    end
+                end
+                mDICconc(co2,gate,b)=avg_sum ./ a_sum;
+            end
+            
+ 
+         end
+        
+        nplots=2;fig_format
+        n=0;
+        gd_title={'CAS opened','CAS closed'}
+
+        for gd = [1 3];
+            n=n+1;
+            hold on
+            axes(ha(n));
+            pvar=squeeze(mDICconc(co2,gd:gd+1,1:2));
+            plot(pvar,'-x','Markersize',20,'Linewidth',2);
+            axis([0.8 2.2 2.2 2.45]);
+            set(gca,'Xtick',[1 2],'Xticklabel',{'Atl/Arct';'Pac/Ind/Sth'})
+            legend({'DP opened','DP closed'},'Location','SouthEast')
+            title(gd_title{n})
+            ylabel('DIC (mol/m^3)')
+            box on
+            hold off
+        end
+        
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/DIC_gradient_at_',num2str(co2),'CO2'))        
+        
+    end
+end
+
+%% Plot total column DIC difference between Drake open/closed, as function of CAS
+if Depth_integrated_DIC
+    
+    for co2=co2min:co2max;
+        for gate=gatemin:gatemax;
+            depth=zeros(100,100);
+            totDIC{co2,gate}=zeros(100,100);
+            totDICconc{co2,gate}=zeros(100,100);
+            for i=1:100
+                for j=1:100
+                    %get total DIC in each ocean column (mol/m^2)
+                    totDIC{co2,gate}(i,j)=nansum(vari{co2,gate}(i,j,:).*dzt);
+                    if kmt_copy{gate}(i,j)>0
+                        depth=sum(dzt(1:kmt_copy{gate}(i,j)));
+                        totDICconc{co2,gate}(i,j)=totDIC{co2,gate}(i,j)/depth;
+                    end
+                end
+            end
+        end
+
+        n=0;
+        gd_title={'CAS opened','CAS closed'};
+        nplots=2;fig_format;
+        for gd=[1 3];
+            n=n+1;
+            axes(ha(n));
+            hold on
+            pv=totDIC{co2,gd}-totDIC{co2,gd+1};
+            %zero-out altered bathymetry values
+            Drake_mask=zeros(100,100);
+            Drake_mask(kmt_copy{iPcDo}~=kmt_copy{iPcDc})=1;
+            pv(Drake_mask==1)=1.;
+            crange=[-600 50 600];
+            
+            global_contour_map;
+            
+            caxis([crange(1) crange(3)]);
+            colormap(rbcbar(crange(1),crange(3)));
+            
+            title(gd_title{n});
+            if n==2
+                axpos=get(gca,'Position');
+                cb=colorbar;
+                ylabel(cb,'mol/m^3')
+                set(gca,'Position',axpos)
+            end
+            hold off
+        end
+        
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/dDIC_at_',num2str(co2),'CO2'))
+        
+    end
+
+%% Plot basin-average vertical profiles of DIC
+if average_DIC_vertical_profile
+    
+    %plot basin-average DIC depth profiles, along with profiles
+    %corresponding to 1 STD on either side.
+    for co2=co2min:co2max;
+        for gate=gatemin:gatemax;
+            for basin=iAAt:iPIS;
+                %find all columns that go to a deep level (set by mkmt) in each basin,
+                %and flag them
+                mkmt=18;
+                %preallocate column array
+                colDIC=zeros( length(mskhr==basin & kmt_copy{gate}>=mkmt) , mkmt );
+                ar=zeros( length(mskhr==basin & kmt_copy{gate}>=mkmt) , 1 );
+                nn=0;
+                for i=1:size(mskhr);
+                    for j=1:size(mskhr);
+                        if mskhr(i,j)==basin && kmt_copy{gate}(i,j)>=mkmt;
+                            nn=nn+1;
+                            %add column DIC to array of columns, weighted
+                            %by horizontal area of column
+                            colDIC(nn,:)=vari{co2,gate}(i,j,1:mkmt);
+                            ar(nn)=g_area(i,j);
+                        end
+                    end
+                end
+                ncolumns{co2,gate,basin}=nn;
+                mcol{co2,gate,basin}=zeros(1,mkmt);
+                mcolm{co2,gate,basin}=zeros(1,mkmt);
+                mcolp{co2,gate,basin}=zeros(1,mkmt);
+                for k=1:mkmt;
+                    mcol{co2,gate,basin}(k)=sum(colDIC(:,k).*ar)./sum(ar);
+                    sdev=sqrt( var(colDIC(:,k) , ar./sum(ar)) );
+                    mcolm{co2,gate,basin}(k)=mcol{co2,gate,basin}(k)-sdev;
+                    mcolp{co2,gate,basin}(k)=mcol{co2,gate,basin}(k)+sdev;
+                end
+                
+            end
+        end
+        
+        %CAS-closed/opened basin-average DIC profiles
+        igate{1}=[1 2];
+        igate{2}=[3 4];
+        
+        fig_format
+        %scnsize(1,4)=scnsize(1,4)/2;
+        set(hf,'Position',scnsize(1,:));
+        ha=tight_subplot(2, 2, [0.02 0.02], 0.1, [0.05 0.1]);
+        for gd=[1 3]; %do CAS-open and CAS-closed
+            for basin=iAAt:iPIS;
+                axes(ha(basin+gd-1))
+                hold on
+                
+                interp_fac=10;
+                
+                z=-squeeze(cumsum(dzt(1:mkmt)));
+                plot(mcol{co2,gd,basin},z,'r','Linewidth',2)
+                plot(mcolm{co2,gd,basin},z,'r--','Linewidth',1,'HandleVisibility','off')
+                plot(mcolp{co2,gd,basin},z,'r--','Linewidth',1,'HandleVisibility','off')
+                plot(mcol{co2,gd+1,basin},z,'b','Linewidth',2)
+                plot(mcolm{co2,gd+1,basin},z,'b--','Linewidth',1,'HandleVisibility','off')
+                plot(mcolp{co2,gd+1,basin},z,'b--','Linewidth',1,'HandleVisibility','off')
+                axis tight
+                if basin==1
+                    if gd==1
+                        ylabel('CAS open')
+                    else
+                        ylabel('CAS closed')
+                    end
+                else basin==2
+                    set(gca,'Ytick',[-5000:1000:0],'Yticklabel',[-5000:1000:0],'YAxisLocation','right')
+                    ylabel('Depth (m)')
+                end
+                ax=axis;ax(1:2)=[2 2.5],axis(ax);
+                if gd ==3
+                    set(gca,'Xtick',[2:0.1:2.5],'Xticklabel',[2:0.1:2.5])
+                    xlabel('DIC (mol/m^3)')
+                else
+                    title(bname(basin))
+                end
+                legend({'DP opened','DP closed'},'Location','Southwest')
+                %text(2.01,-3500,strcat('# columns=',num2str(ncolumns{co2,gate,basin})))
+                hold off
+                box on
+            end
+        end
+
+    end
+    print('-depsc','-cmyk',strcat('spin_up_figs_storage/basin_DIC_profiles',num2str(co2),'CO2'))    
+end
+
+end
+
+%% Plot AOU maps
+if  apparent_oxygen_utilization
+  
+    %plot basin-average DIC depth profiles, along with profiles
+    %corresponding to 1 STD on either side.
+    for co2=co2min:co2max;
+        for gate=gatemin:gatemax;
+            for basin=iAAt:iPIS;
+                %find all columns that go to a deep level (set by mkmt) in each basin,
+                %and flag them
+                mkmt=18;
+                %preallocate column array
+                colDIC=zeros( length(mskhr==basin & kmt_copy{gate}>=mkmt) , mkmt );
+                ar=zeros( length(mskhr==basin & kmt_copy{gate}>=mkmt) , 1 );
+                nn=0;
+                for i=1:size(mskhr);
+                    for j=1:size(mskhr);
+                        if mskhr(i,j)==basin && kmt_copy{gate}(i,j)>=mkmt;
+                            nn=nn+1;
+                            %add column DIC to array of columns, weighted
+                            %by horizontal area of column
+                            colDIC(nn,:)=vari{co2,gate}(i,j,1:mkmt);
+                            ar(nn)=g_area(i,j);
+                        end
+                    end
+                end
+                ncolumns{co2,gate,basin}=nn;
+                mcol{co2,gate,basin}=zeros(1,mkmt);
+                mcolm{co2,gate,basin}=zeros(1,mkmt);
+                mcolp{co2,gate,basin}=zeros(1,mkmt);
+                for k=1:mkmt;
+                    mcol{co2,gate,basin}(k)=sum(colDIC(:,k).*ar)./sum(ar);
+                    sdev=sqrt( var(colDIC(:,k) , ar./sum(ar)) );
+                    mcolm{co2,gate,basin}(k)=mcol{co2,gate,basin}(k)-sdev;
+                    mcolp{co2,gate,basin}(k)=mcol{co2,gate,basin}(k)+sdev;
+                end
+                
+            end
+        end
+        
+        %CAS-closed/opened basin-average DIC profiles
+        igate{1}=[1 2];
+        igate{2}=[3 4];
+        
+        fig_format
+        %scnsize(1,4)=scnsize(1,4)/2;
+        set(hf,'Position',scnsize(1,:));
+        ha=tight_subplot(2, 2, [0.02 0.02], 0.1, [0.05 0.1]);
+        for gd=[1 3]; %do CAS-open and CAS-closed
+            for basin=iAAt:iPIS;
+                axes(ha(basin+gd-1))
+                hold on
+                
+                interp_fac=10;
+                
+                z=-squeeze(cumsum(dzt(1:mkmt)));
+                plot(mcol{co2,gd,basin},z,'r','Linewidth',2)
+                plot(mcolm{co2,gd,basin},z,'r--','Linewidth',1,'HandleVisibility','off')
+                plot(mcolp{co2,gd,basin},z,'r--','Linewidth',1,'HandleVisibility','off')
+                plot(mcol{co2,gd+1,basin},z,'b','Linewidth',2)
+                plot(mcolm{co2,gd+1,basin},z,'b--','Linewidth',1,'HandleVisibility','off')
+                plot(mcolp{co2,gd+1,basin},z,'b--','Linewidth',1,'HandleVisibility','off')
+                axis tight
+                if basin==1
+                    if gd==1
+                        ylabel('CAS open')
+                    else
+                        ylabel('CAS closed')
+                    end
+                else basin==2
+                    set(gca,'Ytick',[-5000:1000:0],'Yticklabel',[-5000:1000:0],'YAxisLocation','right')
+                    ylabel('Depth (m)')
+                end
+                ax=axis;ax(1:2)=[2 2.5],axis(ax);
+                if gd ==3
+                    set(gca,'Xtick',[2:0.1:2.5],'Xticklabel',[2:0.1:2.5])
+                    xlabel('DIC (mol/m^3)')
+                else
+                    title(bname(basin))
+                end
+                legend({'DP opened','DP closed'},'Location','Southwest')
+                %text(2.01,-3500,strcat('# columns=',num2str(ncolumns{co2,gate,basin})))
+                hold off
+                box on
+            end
+        end
+        
+%    for gate=gatemin:gatemax;
+%         for co2=co2min:co2max;
+%             file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+%             clear files,files=dir(strcat(file_root,'tavg*'));
+%             fname=strcat(file_root,files(length(files)).name);
+%             vname='O_o2';
+%             vari=rnc(fname,vname);
+%             vari(vari>1.e20)=nan;
+%             vari=permute(vari,[2 1 3]); %1=lat, 2=lon, 3=depth
+%             o2=vari;
+%             vname='O_temp';
+%             vari=rnc(fname,vname);
+%             vari(vari>1.e20)=nan;
+%             vari=permute(vari,[2 1 3]); %1=lat, 2=lon, 3=depth
+%             t=vari; 
+%             vname='O_sal';
+%             vari=rnc(fname,vname);
+%             vari(vari>1.e20)=nan;
+%             vari=permute(vari,[2 1 3]); %1=lat, 2=lon, 3=depth
+%             s=vari;
+%             AOU=o2-o2sat(t,s);
+%         end
+%         contourf(-rot90(squeeze(AOU(:,50,:)))),shading flat, colorbar
+%                 axis_labels
+%         
+%     end 
+end
+
+%% Plot total column land carbon difference between Drake open/closed, as function of CAS
+if CAS_land_carbon_response_to_Drake_opening
+    for gate=gatemin:gatemax;
+        for co2=co2min:co2max;
+            file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+            clear files,files=dir(strcat(file_root,'tavg*'));
+            fname=strcat(file_root,files(length(files)).name);
+            vname='L_vegcarb';
+            vari{co2,gate}=sum(rnc(fname,vname),3);
+            vname='L_soilcarb';
+            vari{co2,gate}=vari{co2,gate}+rnc(fname,vname);
+            %vari{co2,gate}=rnc(fname,vname);
+            vari{co2,gate}(vari{co2,gate}>1.e20)=nan;
+            vari{co2,gate}=vari{co2,gate}';
+        end
+        vname='G_kmt';
+        kmt{gate}=rnc(fname,vname);
+        kmt{gate}=kmt{gate}';
+        kmt{gate}(kmt{gate}>1)=1;
+    end
+    
+    for co2=co2min:co2max;
+        nplots=2;fig_format;
+        n=0;
+        gd_title={'CAS opened','CAS closed'}
+        for gd=[1 3];
+            n=n+1;
+            axes(ha(n));
+            hold on
+            pv=vari{co2,gd}-vari{co2,gd+1};
+            pv=pv*1000./12.011; %convert from kg/m^2 to to mols C/m^2
+            pv(abs(pv)>1.e20)=nan; %omit Drake difference 
+            crange=[-1000 2001/50 1000];
+            
+            global_contour_map
+            
+            caxis([crange(1) crange(3)]);
+            colormap(rbcbar(crange(1),crange(3)));
+            
+            if n==2
+                axpos=get(gca,'Position');
+                cb=colorbar;
+                ylabel(cb,'Land C difference (mol/m^2)');
+                set(gca,'Position',axpos)
+            end
+            
+            title(gd_title{n});
+            axis tight
+            hold off
+        end
+        
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/dland_carbon_at_',num2str(co2),'CO2'))
+        
+    end
+end
+%% Plot drift to equilibrium, based on ocean DIC
+if spinup_equilibrium_test
+    color={'k','b','g','r'};
+    hf=figure;
+    vname='O_motmax';
+    for co2=co2min:co2max;
+        subplot(4,1,co2-1)
+        hold on
+        for gate=gatemin:gatemax;
+            file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+            files=dir(strcat(file_root,'tsi.*'));
+            vari{co2,gate}=[];
+            for nfiles=1:length(files);
+                %for nfiles=length(files):length(files);
+                fname=strcat(file_root,files(nfiles).name);
+                vari{co2,gate}=[vari{co2,gate} rnc(fname,vname)'];
+            end
+            plot(vari{co2,gate},color{co2-1});
+            
+            text(length(vari{co2,gate}),vari{co2,gate}(end),strcat(pas{gate},num2str(co2)));
+            axis tight
+            ax=axis;
+            ax(2)=10000;
+            %      ax(2)=200;
+            axis(ax);
+        end
+        ylabel(vname)
+        hold off
+    end
+    %exportfig(hf,'spin_up_figs_storage/DIC_spinup_dtimeseries')
+end
+%% Plot final global average DIC/temperature concentration values
+if global_DIC_diff || global_temp_diff
+    point={'r+','r+','b+','b+'};
+    line={'r-','r--','b-','b--'};
+    if global_DIC_diff
+        vname='O_dic';
+    elseif global_temp_diff
+        vname='O_temp';
+    end
+    for co2=2:5;
+        for gate=gatemin:gatemax;
+            file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+            files=dir(strcat(file_root,'tsi*'));
+            vari{co2,gate}=[];
+            for nfiles=length(files);
+                fname=strcat(file_root,files(nfiles).name);
+                vari{co2,gate}=[vari{co2,gate} rnc(fname,vname)'];
+            end
+            gvari(co2,gate)=vari{co2,gate}(end);
+        end
+    end
+    nplots=1;fig_format
+    hold on
+    co2lev=[2 3 4 5];
+    for gate=gatemin:gatemax;
+        p=polyfit(co2lev,gvari(2:5,gate)',2);
+        plot(co2lev,gvari(2:5,gate),point{gate},'linewidth',2,'Markersize',20);
+        hl(gate)=plot(2:0.1:5,polyval(p,2:0.1:5),line{gate},'linewidth',2)
+    end
+    leg=legend(hl,pastitle{:},'Location','Southeast')
+    legend boxoff
+    axis tight
+    
+    ax=axis;
+    ax(1)=ax(1)-0.2;
+    ax(2)=ax(2)+0.2;
+    if global_DIC_diff
+        ax(3)=ax(3)-0.005;
+        ax(4)=ax(4)+0.005;
+        set(gca,'ytick',2.3:0.02:2.42,'yticklabel',2.3:0.02:2.42)
+    elseif global_temp_diff
+        ax(3)=ax(3)-1;
+        ax(4)=ax(4)+1;
+        set(gca,'ytick',2.:2.:10.,'yticklabel',2.:2.:10.) 
+    end
+    axis(ax);
+    
+    set(gca,'xtick',[2 3 4 5],'xticklabel',[2 3 4 5])
+    xlabel('CO_2 concentration (PAL)')
+    
+    if global_DIC_diff
+        ylabel('DIC (mol/m^3)');
+        fname='spin_up_figs_storage/DIC_diff';
+    elseif global_temp_diff
+        ylabel('Temperature (C)');
+        fname='spin_up_figs_storage/temp_diff';
+    end
+
+    hold off
+    print('-depsc','-cmyk',fname)
+    
+    CAS_open_DIF_diff=mean(gvari(2:5,iPoDc)-gvari(2:5,iPoDo))
+    CAS_closed_DIF_diff=mean(gvari(2:5,iPcDc))-mean(gvari(2:5,iPcDo))
+    
+end
+%% Plot surface streamlines
+if horiz_streamfunction
+    for gate=gatemin:gatemax;
+        for co2=co2min:co2max;
+            vname='O_psi';
+            file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+            clear files,files=dir(strcat(file_root,'tavg*'));
+            fname=strcat(file_root,files(length(files)).name);
+            vari{co2,gate}=rnc(fname,vname);
+            vari{co2,gate}=vari{co2,gate}';
+            vari{co2,gate}=vari{co2,gate}/1.e6; %to sverdrups
+        end
+        vname='G_kmt';
+        kmt{gate}=rnc(fname,vname);
+        kmt{gate}=kmt{gate}';
+        kmt_copy{gate}=kmt{gate};
+        kmt{gate}(kmt{gate}>1)=1;
+    end
+    for gate=gatemin:gatemax;
+        for co2=co2min:co2max;
+            pv=vari{co2,gate};
+            pv(kmt{gate}<1)=nan;
+            hf=figure;
+            hold on
+            cs=contour(pv,-200:10:200);shading flat;
+            cb=colorbar;
+            ylabel(cb,'Transport streamfunction (Sv)');
+            contour(kmt{gate},[0.5 0.5],'Linecolor','k'),shading flat;
+            title(strcat(num2str(co2),pas{gate},' Streamfunction'));
+            hold off
+            axis tight
+            axis_labels
+        end
+    end
+    Drake_mask=zeros(100,100);
+    Drake_mask(kmt{iPoDc}~=kmt{iPoDo})=1;
+    for co2=co2min:co2max;
+        %CAS closed
+        pv=vari{co2,iPcDo}-vari{co2,iPcDc};
+        d1=pv;
+        pv(Drake_mask==1)=nan;
+        hf=figure;
+        hold on
+        cs=contour(pv);shading flat;
+        cb=colorbar;
+        ylabel(cb,'Transport streamfunction difference (Sv)');
+        contour(kmt{gate},[0.5 0.5],'Linecolor','k'),shading flat;
+        title(strcat('iPcDo minus iPcDc Streamfunction difference'));
+        hold off
+        axis tight
+        axis_labels
+        
+        %CAS open
+        pv=vari{co2,iPoDo}-vari{co2,iPoDc};
+        d2=pv;
+        pv(Drake_mask==1)=nan;
+        hf=figure;
+        hold on
+        cs=contour(pv);shading flat;
+        cb=colorbar;
+        ylabel(cb,'Transport streamfunction difference (Sv)');
+        contour(kmt{gate},[0.5 0.5],'Linecolor','k'),shading flat;
+        title(strcat('iPoDo minus iPoDc Streamfunction difference'));
+        hold off
+        axis tight
+        axis_labels
+        
+        %Difference
+        pv=(d2-d1);
+        hf=figure;
+        hold on
+        cs=contour(pv,-10:1:10);
+        cb=colorbar;
+        ylabel(cb,'Transport streamfunction difference (Sv)');
+        contour(kmt{gate},[0.5 0.5],'Linecolor','k'),shading flat;
+        title(strcat('CAS-open minus CAS-closed Drake Streamfunction % difference'));
+        hold off
+        axis tight
+        axis_labels
+    end
+end
+%% Plot meridional streamfunction
+if meridional_streamfunction
+    for gate=gatemin:gatemax;
+        for co2=co2min:co2max;
+            file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+            clear files,files=dir(strcat(file_root,'tavg*'));
+            fname=strcat(file_root,files(length(files)).name);
+            vname='O_velY';
+            vari{co2,gate}=rnc(fname,vname);
+            vari{co2,gate}=permute(vari{co2,gate},[2 1 3]); %1=lat, 2=lon, 3=depth
+            vname='G_mskhr';
+            mskhr=rnc(fname,vname)';
+            
+            vari{co2,gate}(vari{co2,gate}>1.e30)=nan; %nan out non-ocean values.
+            
+            %nan out masked values (1=Atl, 2=Pac, 3=Ind)
+            msk=zeros(size(mskhr));
+            if (globalsf+atlanticsf+pacificsf+indiansf)>1 || (globalsf+atlanticsf+pacificsf+indiansf)==0;
+                error('None, or more than one MOC cross-section requested!')
+            end
+            if globalsf
+                region='Global';
+            else
+                if atlanticsf
+                    msk(mskhr==1)=1;
+                    region='Atlantic';
+                elseif pacificsf
+                    msk(mskhr==2)=1;
+                    region='Pacific';
+                elseif indiansf
+                    msk(mskhr==3)=1;
+                    region='Indian';
+                end
+                for i=1:100;
+                    for j=1:100;
+                        if msk(i,j)~=1
+                            vari{co2,gate}(i,j,:) = nan;
+                        end
+                    end
+                end
+            end
+        end
+    end
+    vname='G_lonU';
+    temp=rnc(fname,vname);
+    xu=temp(:,1);
+    vname='G_latU';
+    temp=rnc(fname,vname);
+    yu=temp(1,:);
+    vname='G_dzt';
+    zdiff=rnc(fname,vname);
+    vname='depth_W';
+    zw=rnc(fname,vname);
+    
+    
+    for lat=1:100;
+        xdiff(lat) = 6371000.*cos(yu(lat)/180*pi).*(xu(3)-xu(2))/180*pi;
+    end
+    
+    for co2=co2min:co2max;
+        nplots=4;fig_format;
+        for gate=gatemin:gatemax;
+            axes(ha(gate));
+            My = zeros(100,19);
+            for lat = 1:100
+                for z=1:19
+                    My(lat,z)=nansum(vari{co2,gate}(lat,:,z)).*xdiff(lat);
+                end
+            end
+            gmoc{co2,gate} = nan(100,19);
+            
+            for lat = 1:100
+                sumpsi=0.;
+                for z = 1:19
+                    sumpsi = sumpsi+My(lat,z).*zdiff(z);
+                    if My(lat,z)~=0.
+                        gmoc{co2,gate}(lat,z) = sumpsi;
+                    end
+                end
+            end
+            pv=gmoc{co2,gate}'/1.e6;
+            hold on
+            contourf(yu,-zw,pv,30),shading flat;
+            set(gca,'Color',[0 0 0]);
+            axis tight
+            box on
+            
+            set(gca,'Tickdir', 'out')
+
+            if gate==3||gate==4
+                axis_labels;
+            end
+            if gate==1 || gate==2
+                set(gca,'Xticklabel','')
+            end
+            if gate==2 || gate==4
+                set(gca,'YTick',[-6000:2000:2000],'YTicklabel',{'6' '4' '2'},'YAxisLocation','right');
+                ylabel('Depth (km)');
+            end
+            
+            
+            if gate==1
+                title('DP open')
+                ylabel('CAS open')
+            elseif gate==2
+                title('DP closed')                
+            end
+            if gate==3
+                ylabel('CAS closed')
+            end
+            
+            caxis([-20 20])
+            
+            if gate==4
+                axpos=get(gca,'Position');
+                colormap(rbcbar(-20,20));
+                cb=colorbar;
+                ylabel(cb,'MOC (Sv)')
+                set(gca,'Position',axpos)
+            end
+            
+            if gate==4
+                cb=colorbar;
+                set(cb,'Ycolor',[0.01 0.01 0.01]); %fucking annoying kluge... 0 0 0 doesnt work (invisible)
+                hlab=ylabel(cb,strcat(region,' ocean MOC (Sv)'));
+                set(gca,'Position',axpos)
+            end
+            
+            hold off
+        end
+        set(gcf, 'Color',[1 1 1]);
+        set(gcf, 'inverthardcopy', 'off')
+        %
+        print('-depsc','-cmyk',strcat('spin_up_figs_storage/MOC',num2str(co2),'CO2_',region))
+    end
+end
+%% Plot bathymetry differences
+if bathymetry_diff
+    co2=3; %arbitrary
+    for gate=gatemin:gatemax;
+        file_root=strcat(mounted_directory,'/',num2str(co2),'/',pas{gate},'/');
+        clear files;files=dir(strcat(file_root,'tavg*'));
+        fname=strcat(file_root,files(length(files)).name);
+        vname='G_kmt';
+        kmt{gate}=rnc(fname,vname);
+        kmt{gate}=kmt{gate}';
+        vname='G_dzt';
+        dzt(1,1,:)=rnc(fname,vname);
+        %convert to depth (km)
+        for i=1:100;
+            for j=1:100;
+                kmt{gate}(i,j)=sum(dzt(1:kmt{gate}(i,j)))/1000.;
+            end
+        end
+    end
+    hf=figure;
+    %set figure to full screen
+    scnsize=get(0,'Monitorpositions');
+    scnsize(1,3)=scnsize(1,3)/2;
+    set(hf,'Position',scnsize(1,:));
+    set(hf, 'PaperPositionMode', 'auto');
+    
+    %make subplots, depending on # of figures
+    ha=tight_subplot(1,4, 0.05, 0.2, [0.1 0.15]);
+
+    
+    for n=1:4
+        pv=kmt{n};
+        axes(ha(n));
+        hold on
+        contour(-pv(5:80,70:90),'linewidth',2),shading flat
+        pv(pv>0)=nan;
+        pcolor(pv(5:80,70:90)),shading flat
+        axis equal tight
+        box on
+        set(gca,'LooseInset',get(gca,'TightInset'))
+        set(gca,'XTicklabels','','YTicklabels','');
+        ylabel(pastitle{n})
+        if n==4
+            axpos=get(gca,'Position');
+            cb=colorbar;
+            ylabel(cb,'Bathymetry (km)');
+            set(gca,'Position',axpos)
+        end
+        hold off
+    end
+    print('-depsc',strcat('spin_up_figs_storage/kmt_diff'))
+    
+end

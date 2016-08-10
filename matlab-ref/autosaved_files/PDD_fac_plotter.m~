@@ -1,0 +1,148 @@
+%% plot annual PDD trends
+reload=1;
+if reload
+  close all
+  clear all
+  reload=1;
+end
+average_pdd_factor              =0;
+specific_PDD_factor_timeseries  =0;
+plot_all_PDD_factor_timeseries  =1;
+
+%% If necessary, reload data
+if reload
+  mounted_directory='/Volumes/Mare/playground/PDD_fac/';
+  for co2=[1 2 3 4];
+    file_root=strcat(mounted_directory,num2str(co2));
+    fname=strcat(file_root,'/seasonal_ism_diagnostics.nc');
+    pdd_fac{co2}=rnc(fname,'pdd_fac');
+    pdd_fac{co2}=pdd_fac{co2}(:,:,1:end-1);
+    temp=rnc(fname,'mbalmelt');
+    %clear any small smb losses, which are noisy
+    for t=1:size(temp,3)-1
+      mts=temp(:,:,t+1)-temp(:,:,t);    
+      mts(mts>-2.&mts<0.)=0.;
+      dmbal{co2}(:,:,t)=mts;
+    end    
+    dmbal{co2}(:,:,end)=dmbal{co2}(:,:,end-1);
+
+    temp=rnc(fname,'hsnoliE');
+    %clear any small snow losses, which are noisy
+    for t=1:size(temp,3)-1
+      mts=temp(:,:,t+1)-temp(:,:,t);    
+      mts(mts>-2.&mts<0.)=0.;
+      dhsno{co2}(:,:,t)=mts;
+    end    
+    dhsno{co2}(:,:,end)=dhsno{co2}(:,:,end-1);
+  end 
+end
+
+fig_format
+al=72;
+%% Get average PDD factors for ice and snow
+if average_pdd_factor
+for co2=[1 2 3 4];
+    %Get average snow PDD factor
+    avg_pdd=zeros(1,al);
+    for t=1:al
+      dh(:,:)=dhsno{co2}(:,:,t);
+      pdd(:,:)=pdd_fac{co2}(:,:,t);
+      %nan out where no snow loss occurs
+      pdd(dh==0)=0;
+      i=pdd>0;
+      ttt(t)=mean(pdd(i));
+    end
+    snow_pdd_fac(co2)=nanmean(ttt);
+    
+    %Get average ice PDD factor
+    avg_pdd=zeros(1,al);
+    for t=1:al
+      dh(:,:)=dmbal{co2}(:,:,t);
+      pdd(:,:)=pdd_fac{co2}(:,:,t);
+      %nan out where no ice loss occurs
+      pdd(dh==0)=0;
+      i=pdd>0;
+      ttt(t)=mean(pdd(i));
+    end
+    ice_pdd_fac(co2)=nanmean(ttt);   
+end
+
+hf=figure;
+hold on
+plot(snow_pdd_fac,'b*')
+plot(ice_pdd_fac,'r*')
+axis([1 4 0 18]);
+hold off
+end
+%% Plot timeseries of PDD factors for snow and ice melt
+if specific_PDD_factor_timeseries
+time=5:5:360;
+pv=zeros(1,al);
+dmbalv=zeros(1,al);
+ls={'PDD factor, snow melt','PDD factor, ice melt'};
+%hand-pick points to plot for each CO2 level: where only snow melts ([ij]_os) and where both
+%ice and snow melts ([ij]_ips).
+
+i_os(1)=17;j_os(1)=51;
+i_ips(1)=11;j_ips(1)=46;
+
+i_os(2)=26;j_os(2)=37;
+i_ips(2)=24;j_ips(2)=51;
+
+i_os(3)=42;j_os(3)=49;
+i_ips(3)=41;j_ips(3)=56;
+
+i_os(4)=26;j_os(4)=15;
+i_ips(4)=22;j_ips(4)=18;
+
+hf=figure;
+ha=tight_subplot(2,2,0.1,0.1,0.1);
+for co2=[1 2 3 4];
+    axes(ha(co2))
+    hold on
+    %first plot pdd factor where just snow melt occurs
+    i=i_os(co2);
+    j=j_os(co2);
+    pv(:)=pdd_fac{co2}(i,j,1:al);
+    fm=find(pv,1,'first');
+    em=find(pv,1,'last');
+    h(1)=plot(time(fm:em),pv(fm:em),'b*');
+    
+    %for snow+ice melt, find where ice melt begins
+    i=i_ips(co2);
+    j=j_ips(co2);
+    dmbalv(:)=dmbal{co2}(i,j,:);
+    fm=find(dmbalv,1,'first')+1;
+    em=find(dmbalv,1,'last')-1;
+    pv(:)=pdd_fac{co2}(i,j,1:al);
+    h(2)=plot(time(fm:em),pv(fm:em),'r*');  
+    hold off
+    legend(h,ls);
+    ax=[160 260 0 20];
+    axis(ax);
+    set(ha(co2),'Xtick',time,'Xticklabel',time,'Ytick',0:2:20,'Yticklabel',0:2:20)
+end
+end
+%% Plot all PDD timeseries on same graph
+if plot_all_PDD_factor_timeseries
+   pv=zeros(1,al);
+   ha=tight_subplot(2,2,0.1,0.1,0.1);
+   for co2=[1 2 3 4];
+       pdf_arr=reshape(pdd_fac{co2},1,1,numel(pdd_fac{co2}));
+       dhsno_arr=reshape(dhsno{co2},1,1,numel(pdd_fac{co2}));
+       dmbal_arr=reshape(dmbal{co2},1,1,numel(pdd_fac{co2}));
+       pdf_arr(dmbal_ar~=0. & dhsno_arr~=0.)
+       arr=nonzeros(pdf_arr);
+       axes(ha(co2));
+       [N,X]=hist(arr,0:0.25:35);
+       bar(X,N./sum(N),1);
+       axis tight
+       ax=axis;
+       ax(2)=36.;
+       axis(ax)
+       
+       title(strcat('Distribution of Degree Day factors, CO_2=',num2str(co2*280)));       
+   end
+end
+
+

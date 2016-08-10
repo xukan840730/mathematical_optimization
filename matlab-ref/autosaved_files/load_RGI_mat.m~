@@ -1,0 +1,15 @@
+%%
+close all
+clear all
+%set regions to read
+minreg=1;
+maxreg=19;
+maxreg=min(maxreg,19); %no higher than 19!
+
+files=dir('data/*.mat');
+
+%% Inquire about/load data
+for r=minreg:maxreg;
+    r
+    reg(r)=load(strcat('data/',files(r).name));
+end

@@ -1,0 +1,87 @@
+%% Visualize difference between intermediate-depth ocean temperatures for
+%% different simulations.
+clear all
+close all
+cd /Users/jer/School/Manuscripts/GMD_mod_dev/SH_ocean_temps
+
+%% Load restarts from different time slices
+mroot='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/sensitivity_runs/refreeze/';
+tslice={'eemian' 'preind'};
+numtslices=length(tslice);
+expname='bias_ref';
+for n=1:numtslices 
+  getloc=strcat(mroot,tslice{n},'/',expname,'/data/restart.nc');
+  putloc=strcat(tslice{n},expname,'restart.nc');
+  exists=exist(putloc,'file');
+  if (exists==0)
+    clear command
+    command=sprintf('scp %s %s',getloc,putloc);
+    system(command);
+  end
+  %set indices
+  clear command
+  command=strcat('i',tslice{n},'=',num2str(n),';');
+  eval(command);
+end
+
+%% load ocean temperatures
+for n=1:numtslices;
+  ncload(strcat(tslice{n},expname,'restart.nc'),'temp2','kmt');
+  data(n).ocntemp=temp2;
+  clear temp2
+end
+
+%set depths to bottom of grid boxes
+zw=[50. 130. 240. 380. 550. 750. 980. 1240. 1530. 1850. 2200. 2580. 2990. 3430. 3900. 4400. 4930. 5490. 6080.];
+    
+%% get temperature difference
+diffocntemp = data(ieemian).ocntemp-data(ipreind).ocntemp;
+%get depth inteval to average over
+tavg=zeros(100,100);
+dstart=3;
+dend=6;
+for i=2:101;
+  for j=2:101;
+    z=0.;
+    t=0.;
+    for n=dstart:dend;
+      if (kmt(i,j)>=n);
+        z=z+zw(n);
+        t=t+diffocntemp(n,i,j)*zw(n);
+      end
+    end
+    tavg(i-1,j-1)=t/z;
+  end
+end
+close all
+%make colorbar white at zero blue below and red above
+maxt=max(max(tavg));
+mint=min(min(tavg));
+numcontours=20.;
+contour_levels=linspace(mint,maxt,numcontours);  
+cmlength=numcontours;
+maxwt=maxt/(maxt-mint);
+minwt=1.-maxwt;
+maxwt=round(maxwt*cmlength);
+minwt=round(minwt*cmlength);
+cmcold=ones(minwt,3);
+cmwarm=ones(maxwt,3);  
+cmcold(:,1)=linspace(0,1,minwt);
+cmcold(:,2)=linspace(0,1,minwt);  
+cmwarm(:,2)=linspace(1,0,maxwt);
+cmwarm(:,3)=linspace(1,0,maxwt); 
+scrsz = get(0,'ScreenSize');
+figure('Position',[1 scrsz(4) scrsz(3) scrsz(4)]);
+lat_array=linspace(-90.,90);lon_array=linspace(0,360); 
+[Plg,Plt]=meshgrid(lon_array,lat_array);
+m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 30);
+[C,h]=m_contourf(Plg,Plt,tavg);shading flat;
+clabel(C)
+m_coast('color','k','linewidth',1.5);  
+colormap([cmcold;cmwarm])
+axis square
+set(gca,'Visible','off')
+colorbar
+% print('-depsc2',strcat('/Users/jer/Dropbox/Public/Manuscripts/GMD_mod_desc/figures/SHeemianMpreindtempdiff');
+
+ 

@@ -1,0 +1,46 @@
+close all 
+clear all
+
+if exist('/Volumes/Bugaboo','dir')
+    %paths to run output
+    sd='/Volumes/Bugaboo/VCS_calibration';
+else
+    error('Gotta Macfusion to Bugaboo')
+end
+vcsfac=-2000:500:1000;
+%load tsi sat data from vcs calibration runs
+l=1.e10;
+for nm=1:7
+    f=dir(fullfile(sd,strcat('vcs_calib_',num2str(nm)),'tsi*'));
+    dsat{nm}=[286.45]; %from final state of preindustrial run
+    for n=1:length(f);
+        file=fullfile(sd,strcat('vcs_calib_',num2str(nm)),f(n).name);
+        dsat{nm}=[dsat{nm} ncread(file,'A_sat')'];
+    end
+    dsat{nm}=dsat{nm}-dsat{nm}(1);
+    l=min(l,length(dsat{nm}))
+end
+
+%% get sat for latest available common output
+hold on
+for nm=1:7
+    sat_eq(nm)=dsat{nm}(l);
+    plot(dsat{nm}); 
+end
+%interpolate sat_eq, vscfac vectors to length of 1000, find vcsfac values
+%that give ecs between 2 and 5
+vcsfaci=linspace(vcsfac(1),vcsfac(end),1000)
+sat_eqi=interp1(vcsfac,sat_eq,vcsfaci,'spline')
+i=find(sat_eqi>2,1);
+vcs_low=vcsfaci(i)
+i=find(sat_eqi>5,1);
+vcs_high=vcsfaci(i)
+
+eby
+
+hold off
+figure
+plot(vcsfaci,sat_eqi)
+
+
+    

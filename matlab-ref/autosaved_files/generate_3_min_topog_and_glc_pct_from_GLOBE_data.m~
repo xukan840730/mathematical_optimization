@@ -1,0 +1,406 @@
+clear all
+close all
+
+global percent_complete...
+    generate_glc_pct_tiles...
+    display_progress_bar...
+    merge_bamber_data...
+    merge_UVic_ESCM_GIS_geometries...
+    generate_topography_tiles
+
+update_glacier_tiles = 0;
+display_progress_bar = 1;
+
+generate_glc_pct_tiles = 0;
+generate_topography_tiles = 1;
+merge_bamber_data = 0;
+merge_UVic_ESCM_GIS_geometries = 1;
+if merge_bamber_data && merge_UVic_ESCM_GIS_geometries
+    error('Cannot have both merge_bamber_data and merge_UVic_ESCM_GIS_geometries.')
+end
+if merge_UVic_ESCM_GIS_geometries && generate_glc_pct_tiles
+    error('Code not set up to generate glc_pct with UVic ESCM geometries.')
+end
+
+output_topography_files =          1;
+output_pct_glc_files =             0;
+
+%% Set elevation bin boundaries for elevation-glacier mask
+
+%generate fractional glacial areas at constant 100m intervals in CESM grid cell,
+%based on GLOBE topography and glacier mask data.
+binres=100.;
+ebinmin=0;
+ebinmax=6000;
+NumBins=ebinmax./binres;
+BinEdges=linspace(ebinmin,ebinmax,NumBins+1);
+%increase bin/edge count by one to acount for ice above top bin
+%elevation
+NumBins=NumBins+1;
+BinEdges(end+1)=1.e6;
+
+%% Load topography data
+
+%Notes on e array:
+%-10800 in lon, 4800/6000 in lat
+%indexing starts from northwest corner
+%row == longitude == first index
+%column == latitude == second index
+
+scalefac=6.; %6 reduction in resolution (from 30" to 3 MINUTES in this case).
+%set lon/lat grid size, arrays for GLOBE array
+GLOBElatres=[4800 6000 6000 4800]; %set # of latitudes for the GLOBE tiles.  Note uneven spacing.
+GLOBElonres=[10800 10800 10800 10800];%set # of longitudes for the GLOBE tiles.
+
+%if GLOBE latitudes/longitudes (for any tile) do not fit evenly into coarser grid (coarsening defined by scalefac), throw error.
+if sum(mod(GLOBElatres,scalefac))>0
+    error('Some GLOBE grid latitudes do not divide evening into aggregated grid.  Check variable scalefac.')
+elseif sum(mod(GLOBElonres,scalefac))>0
+    error('Some GLOBE grid longitudes do not divide evening into aggregated grid.  Check variable scalefac.')
+end
+
+GLOBEis=1;
+GLOBEjs=1;
+GLOBEnlon=[ repmat(GLOBElonres(1),1,4) repmat(GLOBElonres(2),1,4) repmat(GLOBElonres(3),1,4) repmat(GLOBElonres(4),1,4) ];
+GLOBEnlat=[ repmat(GLOBElatres(1),1,4) repmat(GLOBElatres(2),1,4) repmat(GLOBElatres(3),1,4) repmat(GLOBElatres(4),1,4) ];
+GLOBEoffset=1./60./60.*30./2;
+
+%initialize CESM topography and land mask arrays
+CESMtopo=zeros(sum(GLOBElatres)/scalefac,sum(GLOBElonres)/scalefac,'uint16');
+CESMlsmsk=zeros(sum(GLOBElatres)/scalefac,sum(GLOBElonres)/scalefac,'single');
+
+CESMnlon=GLOBEnlon./scalefac;
+CESMnlat=GLOBEnlat./scalefac;
+CESMoffset=GLOBEoffset.*scalefac;
+
+CESMlat=linspace(-90+CESMoffset,90-CESMoffset,size(CESMtopo,1));
+CESMlat2D=repmat(CESMlat',1,size(CESMtopo,2));
+CESMlon=linspace(-180+CESMoffset,180-CESMoffset,size(CESMtopo,2));
+CESMlon2D=repmat(CESMlon,size(CESMtopo,1),1);
+
+%generate latitude ranges for each tile.  This is used in the
+%area-weighting procedure.  CHECK: for each tile, is it indexed from south to
+%north?
+latrange(1,:)=[repmat(50.,1,4) repmat(0.,1,4) repmat(-50.,1,4) repmat(-90.,1,4)]; %set initial latitude for each tile
+latrange(2,:)=[repmat(90.,1,4) repmat(50.,1,4) repmat(0.,1,4) repmat(-50.,1,4)]; %set final latitude for each tile
+
+f=dir('GLOBE_topography_data/*10g');
+
+%% if update to glacier tiles needed, reload and recreated tiled version of Gardner data.
+
+if update_glacier_tiles
+    update_glacier_mask_tiles(f,GLOBEnlon,GLOBEnlat,GLOBEis,GLOBEjs);
+end
+
+%% Process data
+
+CESMis=1;
+CESMjs=1;
+
+if merge_UVic_ESCM_GIS_geometries %run 6 times, once for each UVic topography
+    nstart=0;
+    nend=5;
+else
+    nstart=1;
+    nend=1;
+end
+
+for nstart:nend
+    
+    if generate_topography_tiles || generate_glc_pct_tiles
+        
+        percent_complete=squeeze(zeros(1,16));
+        
+        for t=1:16;
+            
+            %call core tile generation code
+            [CESMTopogTile,...
+                CESMLSmskTile,...
+                CESMPercentGlacier,...
+                CESMPercentIceSheet,...
+                TotalGlacierCoverage,...
+                TotalIceSheetCoverage]...
+                = process_topography_and_glacier_mask(t,f(t).name,latrange(:,t),[GLOBEnlon(t) GLOBEnlon(t)],scalefac,GLOBEoffset,NumBins,BinEdges,binres);
+            
+            CESMtopo(CESMis:CESMis+CESMnlat(t)-1,CESMjs:CESMjs+CESMnlon(t)-1) = CESMTopogTile;
+            CESMlsmsk(CESMis:CESMis+CESMnlat(t)-1,CESMjs:CESMjs+CESMnlon(t)-1) = CESMLSmskTile;
+            
+            %if plc_pct tiles have been updated, then save them for later re-tiling
+            if generate_glc_pct_tiles
+                disp('Saving tiles...')
+                for z=1:NumBins
+                    tile=squeeze(CESMPercentGlacier(:,:,z));
+                    save(strcat('tile_storage/',f(t).name,'_GlacierZtile_',num2str(z)),'tile'); %SAVE TILE TO FILE in individual layers, INSTEAD OF TRYING TO CAT THEM ALL TOGETHER HERE.
+                    tile=squeeze(CESMPercentIceSheet(:,:,z));
+                    save(strcat('tile_storage/',f(t).name,'IceSheetZtile_',num2str(z)),'tile'); %SAVE TILE TO FILE in individual layers, INSTEAD OF TRYING TO CAT THEM ALL TOGETHER HERE.
+                end
+                clear CESMPercentGlacier CESMPercentIceSheet
+            end
+            
+            %shift GLOBE/CESM indices along row to new tile location
+            [GLOBEis,GLOBEjs] = shift_tiles(t,GLOBEis,GLOBEjs,GLOBEnlat(t),GLOBEnlon(t));
+            [CESMis,CESMjs]   = shift_tiles(t,CESMis,CESMjs,CESMnlat(t),CESMnlon(t));
+            
+        end
+        
+        disp('Done processing data.')
+        
+        if generate_topography_tiles
+            %Save topo and land mask to file for later use.
+            save('tile_storage/CESMtopo','CESMtopo')
+            save('tile_storage/CESMlsmsk','CESMlsmsk')
+        end
+        
+    end
+    
+    %% Output final processed files in netcdf form
+    
+    if merge_bamber_data
+        OutputDir='output_bamber_merged';
+    elseif merge_UVic_ESCM_GIS_geometries
+        OutputDir='output_UVic_merged';
+    else
+        OutputDir='output_unmerged';
+    end
+    
+    if output_topography_files
+        %Output 3-min fields of topography, land-sea mask, lat and lon.%%%%
+        %load topography from .mat file (this is done so that if Matlab dies, I don't have to re-run entire processing to get here again).
+        load tile_storage/CESMtopo
+        load tile_storage/CESMlsmsk
+        
+        disp('Defining topography file...')
+        fn='TOPOGRAPHY.nc';
+        fname=fullfile(OutputDir,fn);
+        delete(fname);
+        
+        nccreate(fname,'TOPO_ICE',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','int16')
+        nccreate(fname,'LANDMASK',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','int16')
+        nccreate(fname,'LAT',...
+            'Format','64bit',...
+            'Dimensions',{'lat',size(CESMtopo,1)},...
+            'Datatype','single')
+        nccreate(fname,'LON',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2)},...
+            'Datatype','single')
+        nccreate(fname,'LATIXY',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','single')
+        nccreate(fname,'LONGXY',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','single')
+        
+        disp('Writing topography file...')
+        
+        ncwrite(fname,'TOPO_ICE',fliplr(int16(CESMtopo)'),[1 1])
+        ncwriteatt(fname,'TOPO_ICE','Data_Description','Global topography aggregated from 30-second GLOBE topography, constructed by Jeremy Fyke (fyke@lanl.gov) and Bill Sacks.  Topography values represent area-weighted mean elevation of all GLOBE land elevation data (including floating ice shelves) contained within grid cell.')
+        ncwriteatt(fname,'TOPO_ICE','units','meters')
+        ncwriteatt(fname,'TOPO_ICE','long_name','Ice Upper Surface Elevation')
+        ncwrite(fname,'LANDMASK',fliplr(int16(CESMlsmsk)'),[1 1])
+        ncwriteatt(fname,'LANDMASK','Data_Description','Binary land-sea mask generated using GLOBE elevation (if any GLOBE land exists in grid cell, LANDMASK(i,j)=1).  Floating ice shelves are defined as land - ice shelf data from Alex Gardner 30" land ice coverage data.')
+        ncwriteatt(fname,'LANDMASK','units','unitless')
+        ncwriteatt(fname,'LANDMASK','long_name','land-sea mask')
+        ncwrite(fname,'LAT',single(CESMlat),1)
+        ncwriteatt(fname,'LAT','units','degrees north')
+        ncwriteatt(fname,'LAT','long_name','latitude north')
+        ncwrite(fname,'LON',single(CESMlon),1)
+        ncwriteatt(fname,'LON','units','degrees east')
+        ncwriteatt(fname,'LON','long_name','latitude east')
+        ncwrite(fname,'LATIXY',single(CESMlat2D)',[1 1])
+        ncwriteatt(fname,'LATIXY','units','degrees north')
+        ncwriteatt(fname,'LATIXY','long_name','latitude north-2d')
+        ncwrite(fname,'LONGXY',single(CESMlon2D)',[1 1])
+        ncwriteatt(fname,'LONGXY','units','degrees east')
+        ncwriteatt(fname,'LONGXY','long_name','latitude east-2d')
+        
+        disp('Writing topography file done.')
+    end
+    
+    if output_pct_glc_files
+        % Output 3-D glacier coverage map
+        
+        disp('Defining PCT_GLC_supporting_data file...')
+        
+        fn='PCT_GLC_supporting_data.nc';
+        fname=fullfile(OutputDir,fn);
+        delete(fname); %remove file if it exists
+        %Define and write supporting data.
+        
+        nccreate(fname,'BIN_EDGES',...
+            'Format','64bit',...
+            'Dimensions',{'z_edge',62},...
+            'Datatype','single')
+        BinCenters=BinEdges(1:end-1)+binres./2;
+        nccreate(fname,'BIN_CENTERS',...
+            'Format','64bit',...
+            'Dimensions',{'z',61},...
+            'Datatype','single')
+        nccreate(fname,'LAT',...
+            'Format','64bit',...
+            'Dimensions',{'lat',size(CESMtopo,1)},...
+            'Datatype','single')
+        nccreate(fname,'LON',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2)},...
+            'Datatype','single')
+        nccreate(fname,'LATIXY',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','single')
+        nccreate(fname,'LONGXY',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','single')
+        nccreate(fname,'LANDMASK',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','int16')
+        
+        disp('Defining PCT_GLC_supporting_data file done.')
+        disp('Writing PCT_GLC_supporting_data file...')
+        
+        ncwrite(fname,'BIN_EDGES',single(BinEdges),1)
+        ncwriteatt(fname,'BIN_EDGES','Data_Description','Bin edges represent elevation bin boundaries.  Note: top elevation boundary is very high to capture all residual elevations above top defined elevation.')
+        ncwriteatt(fname,'BIN_EDGES','units','meters')
+        
+        ncwrite(fname,'BIN_CENTERS',single(BinCenters),1)
+        ncwriteatt(fname,'BIN_CENTERS','Data_Description','Bin centers represent the central elevation of each elevation bin.  Note: final central elevation is not true, since all elevations above highest elevation bin are aggregated into this bin.')
+        ncwriteatt(fname,'BIN_CENTERS','units','meters')
+        
+        ncwrite(fname,'LAT',single(CESMlat),1)
+        ncwriteatt(fname,'LAT','units','degrees north')
+        ncwriteatt(fname,'LAT','long_name','latitude north')
+        
+        ncwrite(fname,'LON',single(CESMlon),1)
+        ncwriteatt(fname,'LON','units','degrees east')
+        ncwriteatt(fname,'LON','long_name','latitude east')
+        
+        ncwrite(fname,'LATIXY',single(CESMlat2D)',[1 1])
+        ncwriteatt(fname,'LATIXY','units','degrees north')
+        ncwriteatt(fname,'LATIXY','long_name','latitude north-2d')
+        
+        ncwrite(fname,'LONGXY',single(CESMlon2D)',[1 1])
+        ncwriteatt(fname,'LONGXY','units','degrees east')
+        ncwriteatt(fname,'LONGXY','long_name','latitude east-2d')
+        
+        ncwrite(fname,'LANDMASK',fliplr(int16(CESMlsmsk)'),[1 1])
+        ncwriteatt(fname,'LANDMASK','Data_Description','Binary land-sea mask generated using GLOBE elevation (if any GLOBE land exists in grid cell, LANDMASK(i,j)=1).  Floating ice shelves are defined as land - ice shelf data from Alex Gardner 30" land ice coverage data.')
+        ncwriteatt(fname,'LANDMASK','units','unitless')
+        ncwriteatt(fname,'LANDMASK','long_name','land-sea mask')
+        
+        % Output percent coverage by elevation maps
+        
+        disp('Defining PCT_GLC_GIC.nc...')
+        
+        fn='PCT_GLC_GIC.nc';
+        fname=fullfile(OutputDir,fn);
+        delete(fname); %remove file if it exists
+        
+        nccreate(fname,'PCT_GLC_GIC',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1),'z',Inf},...
+            'Datatype','single')
+        
+        disp('Writing attributes for PCT_GLC_GIC.nc...')
+        ncwriteatt(fname,'PCT_GLC_GIC','Data_description','Global glacier coverage dataset constructed by Jeremy Fyke (fyke@lanl.gov) and Bill Sacks using Alex Gardner 30" land ice coverage data and equivalent GLOBE topography.  Value at (lat,lon,z) denotes fraction of total land area in grid cell that is covered by glacier/ice caps which occur at that elevation band.  BinCenter values represent central elevations for each elevation band.  Bin boundaries sit midway between BinCenter values.  Summing vertically will give total fractional coverage for (i,j) point.')
+        ncwriteatt(fname,'PCT_GLC_GIC','units','percent')
+        ncwriteatt(fname,'PCT_GLC_GIC','long_name','Glacier/ice cap areal coverage by elevation')
+        
+        pctTotal=zeros(size(CESMtopo),'single');
+        
+        for z=1:NumBins
+            
+            disp(['Writing glacier % file, level ' num2str(z) '...'])
+            
+            fGIC=dir(strcat('tile_storage/*10g_GlacierZtile_',num2str(z),'.mat'));
+            
+            pctGIC=zeros(size(CESMtopo),'single');
+            lat_start=1;
+            lon_start=1;
+            %Load all tiles for vertical layer z and concatenate.
+            for t=1:16
+                load(strcat('tile_storage/',fGIC(t).name));
+                pctGIC( lat_start:lat_start+CESMnlat(t)-1 , lon_start:lon_start+CESMnlon(t)-1 ) = tile;
+                [lat_start,lon_start] = shift_tiles(t,lat_start,lon_start,CESMnlat(t),CESMnlon(t));
+            end
+            
+            ncwrite(fname,'PCT_GLC_GIC',fliplr(pctGIC'),[1 1 z])
+            
+            pctTotal=pctTotal+pctGIC;
+            
+        end
+        
+        disp('Writing PCT_GLC_GIC file done.')
+        
+        disp('Defining PCT_GLC_ICESHEET.nc...')
+        
+        fn='PCT_GLC_ICESHEET.nc';
+        fname=fullfile(OutputDir,fn);
+        delete(fname); %remove file if it exists
+        
+        nccreate(fname,'PCT_GLC_ICESHEET',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1),'z',Inf},...
+            'Datatype','single')
+        
+        disp('Writing attributes for PCT_GLC_ICESHEET.nc...')
+        
+        ncwriteatt(fname,'PCT_GLC_ICESHEET','Data_description','Global ice sheet coverage dataset constructed by Jeremy Fyke (fyke@lanl.gov) and Bill Sacks using Alex Gardner 30" land ice coverage data and equivalent GLOBE topography.  Value at (lat,lon,z) denotes fraction of total land area in grid cell that is covered by ice sheets which occur at that elevation band.  BinCenter values represent central elevations for each elevation band.  Bin boundaries sit midway between BinCenter values.  Summing vertically will give total fractional coverage for (i,j) point.')
+        ncwriteatt(fname,'PCT_GLC_ICESHEET','units','percent')
+        ncwriteatt(fname,'PCT_GLC_ICESHEET','long_name','Ice sheet areal coverage by elevation')
+        
+        for z=1:NumBins
+            
+            disp(['Writing ice sheet % file, level ' num2str(z) '...'])
+            fIS=dir(strcat('tile_storage/*10gIceSheetZtile_',num2str(z),'.mat'));
+            
+            pctIS=zeros(size(CESMtopo),'single');
+            lat_start=1;
+            lon_start=1;
+            %Load all tiles for vertical layer z and concatenate.
+            for t=1:16
+                load(strcat('tile_storage/',fIS(t).name));
+                pctIS( lat_start:lat_start+CESMnlat(t)-1 , lon_start:lon_start+CESMnlon(t)-1 ) = tile;
+                [lat_start,lon_start] = shift_tiles(t,lat_start,lon_start,CESMnlat(t),CESMnlon(t));
+            end
+            
+            ncwrite(fname,'PCT_GLC_ICESHEET',fliplr(pctIS'),[1 1 z])
+            
+            pctTotal=pctTotal+pctIS;
+            
+        end
+        
+        ncwrite(fname,'PCT_GLC_ICESHEET',fliplr(pctIS'),[1 1 z])
+        
+        disp('Writing PCT_GLC_ICESHEET file done.')
+        
+        disp('Defining PCT_GLACIER.nc...')
+        
+        fn='PCT_GLACIER.nc';
+        fname=fullfile(OutputDir,fn);
+        delete(fname); %remove file if it exists
+        
+        nccreate(fname,'PCT_GLACIER',...
+            'Format','64bit',...
+            'Dimensions',{'lon',size(CESMtopo,2),'lat',size(CESMtopo,1)},...
+            'Datatype','single')
+        
+        disp('Writing total land ice cover field')
+        ncwrite(fname,'PCT_GLACIER',fliplr(pctTotal'),[1 1])
+        
+        ncwriteatt(fname,'PCT_GLACIER','Data_description','Percent of grid cell that is covered by land ice (either glaciers, ice caps, ice sheet, or ice shelves.  This field is the sum of both PCT_GLC_GIC and PCT_GLC_ICESHEET fractions, integrated over all elevation bins.')
+        ncwriteatt(fname,'PCT_GLACIER','units','percent')
+        ncwriteatt(fname,'PCT_GLACIER','long_name','Total land ice areal coverage')
+        
+        disp('Writing PCT_GLACIER file done.')
+    end
+end

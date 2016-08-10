@@ -1,0 +1,95 @@
+%%
+clear all
+cd /Users/jer/School/Manuscripts/GMD_mod_dev/raw_vs_bias_corr
+addpath /usr/bin
+
+%%
+iais=1;
+igis=2;
+
+ieemian=1;
+ilgm=2;
+ipreind=3;
+
+ibias=1;
+iraw=2;
+
+ih=1;
+ihb=2;
+ihs=3;
+
+mroot='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/sensitivity_runs/';
+
+is={'ais','gis'};
+islong={'Antarctica','Greenland'};
+numsheets=length(islong);
+
+tslice={'eemian','lgm','preind'};
+numtslices=length(tslice);
+
+mpname={'/bias/tair_only/0m5/data/','/no_bias/0m5/data/'};
+expname={'bias','no_bias'};
+numexps=length(expname);
+
+coloraxis={[0 4500],[0 3500]};
+
+%%
+for i=1:numsheets;
+   for j=1:numtslices;
+      for k=1:numexps;
+         getloc=strcat(mroot,tslice{j},'/equilib',mpname{k},islong{i},'_restart.nc');
+         putloc=strcat(is{i},tslice{j},expname{k},'.nc');
+         exists=exist(putloc,'file');
+         if (exists==0)
+            clear command
+            command=sprintf('scp %s %s',getloc,putloc)
+            system(command);
+         end
+      end
+    end
+end
+
+%% Extract fields
+
+%extract fields from netcdf files and store in matlab structure (kinda like
+%fortran DDTs)
+
+for i=1:numsheets;
+  for j=1:numtslices;
+     for k=1:numexps;
+        ncload(strcat(is{i},tslice{j},expname{k},'.nc'),'h','hb','hs');
+        isn(i).tslice(j).expname(k).array{ih(:,:)}=h(:,:);
+        isn(i).tslice(j).expname(k).array{ihb(:,:)}=hb(:,:);
+        isn(i).tslice(j).expname(k).array{ihs(:,:)}=hs(:,:);  
+       clear h hb hs
+     end
+   end
+end
+
+%% Plot difference field between bias and corrected h
+close all
+for i=1:numsheets;
+  for j=1:numtslices;
+    for k=1:numexps;
+    %for each ice sheet, each timeslice and each case (raw/bias corrected/obs), plot hs, where
+    %ice thickness is greater than 0, superimposed over a different-colored
+    %plot of bare land elevation, where it is greater than sealevel   
+     hs=isn(i).tslice(j).expname(k).array{ihs};
+     i=find(isn(i).tslice(j).expname(k).array{ih}<=0.0000000001);
+     hs(i)=0.;
+     i=find(isn(i).tslice(j).expname(k).array{ih}<=0.0000000001 & isn(i).tslice(j).expname(k).array{ihb}<=0.);
+     hs(i)=nan;
+     figure
+     hold on
+     surface(hs), shading interp
+       set(gca,'Visible','off'); axis equal tight
+       caxis(coloraxis{i});
+       colormap(jet(10000));cmap=colormap;cmap(1,:,:)=[153/255 102/255 0/255];colormap(cmap)
+       colorbar
+       print('-depsc',strcat('/Users/jer/Dropbox/Public/Manuscripts/GMD_mod_desc/figures/',...
+                                        strcat(is{i},tslice{j},expname{k})));
+       hold off
+       close all  
+     end
+  end
+end

@@ -1,0 +1,40 @@
+close all
+clear all
+
+ZonalAverage=zeros(78,72,2880);
+
+for en = 0:77
+sprintf('tas_Amon_ens_rcp85_%02d_zonalmean.nc',en)
+  ZonalAverage(en+1,:,:)=ncread(sprintf('tas_Amon_ens_rcp85_%02d_zonalmean.nc',en),'tas');
+end
+
+%%
+close all
+ClimatologicalPeriod=30.; %years
+PresentClimateYrS=1970.;
+FutureClimateYrS=2070.;
+MS=2880-1560+1
+ME=MS+ClimatologicalPeriod*12.-1
+FS=2880-360+1
+FE=FS+ClimatologicalPeriod*12.-1
+
+%Generate modern and future mean zonal averages for all ensemble members
+ModernMeanT=mean(ZonalAverage(:,:,MS:ME),3);
+FutureMeanT=mean(ZonalAverage(:,:,FS:FE),3);
+
+%Generate zonal dT for each ensemble member
+dT=FutureMean-ModernMean;
+
+%Generate normalized warming (relative to global average warming)
+dTGlobalAvg=mean(dT,2);
+dTn=bsxfun(@rdivide,dT,dTGlobalAvg);
+
+dTnmin=min(dTn,[],1);
+dTnmax=max(dTn,[],1);
+dTnmean=mean(dTn,1);
+LatArr=-88.75:2.5:88.75;
+hold on 
+plot(dTnmean,'k')
+jbfill(LatArr,dTnmax,dTnmin,[0.5 0.5 0.5],[0.5 0.5 0.5],0.5);
+hold off
+

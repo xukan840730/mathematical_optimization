@@ -1,0 +1,188 @@
+clear all
+close all
+
+%% Determine run to load: gradual melt run, or 100 m/yr melt run
+%run='/net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice2/';
+run='/net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/';
+
+%% Get timeseries of ice volume, overturning
+%get control timeseries
+command='scp mare.seos.uvic.ca:PhD_output/blow_away_shelves2/control2/tsi.24201.01.01.nc .';
+system(command);
+controlvol=rnc('tsi.24201.01.01.nc','L_icevolS',0,1);
+controlot=rnc('tsi.24201.01.01.nc','O_motmax',0,1);
+ot_init=mean(controlot)
+!rm tsi.24201.01.01.nc
+
+%get transient timeseries
+command=strcat('scp mare.seos.uvic.ca:',run,'tsi.24201.01.01.nc .');
+system(command);
+vol=rnc('tsi.24201.01.01.nc','L_icevolS',0,1);
+ot=rnc('tsi.24201.01.01.nc','O_motmax',0,1);
+!rm tsi.24201.01.01.nc
+
+%generate FW flux based on volume change
+year2sec=365*24*60*60;
+rhoice=0.913;
+flux=vol(2:end)-vol(1:end-1);%calculate flux based on difference to yearly ice volumes
+flux=-flux*rhoice/year2sec/1.e6;%convert flux from m/yr ice to Sv water
+
+%convert overturning to Sv anomaly
+ot=(ot - ot_init)/1.e6;
+
+%% Calculate SLR
+
+command=sprintf('ssh jer@mare.seos.uvic.ca "%sh_hb_script"',run)
+system(command);
+command=sprintf('scp jer@mare.seos.uvic.ca:%s../h_hb.nc .',run)
+system(command);
+h=rnc('h_hb.nc','h',0,1);
+hb=rnc('h_hb.nc','hb',0,1);
+darea=rnc('darea.nc','darea',0,1);
+version =getversion;
+if version==7.8
+else
+  display('Permuting...')
+  h=permute(h,[3 2 1]);
+  hb=permute(hb,[3 2 1]);  
+end
+dimsize=size(h);
+rhoice=913.;
+rhosw=1020.;
+
+!scp mare.seos.uvic.ca:AIS_mask.txt .
+AIS_mask=dlmread('AIS_mask.txt',',');
+%% Get initial total ice volumes
+
+h_init(:,:)=h(:,:,1);
+hb_init(:,:)=-hb(:,:,1);
+h_displace_ocean(:,:)=zeros(size(h_init));
+
+%get floating ice volume
+i=find(h_init>0. & h_init>hb_init*rhosw/rhoice);
+h
+
+%filter floating ice, divide into WAIS and EAIS
+iEAIS=find(h_init>0. & h_init>hb_init*rhosw/rhoice & AIS_mask==1);
+iWAIS=find(h_init>0. & h_init>hb_init*rhosw/rhoice & AIS_mask==2);
+i=find(h_init>0. & h_init>hb_init*rhosw/rhoice);
+
+%calculate volume that would contribute to SLR.
+h_displace_ocean=max(0.,hb_init.*rhosw/rhoice);
+temp(:,:)=zeros(size(h_init));temp(i)=h_displace_ocean(i);figure;pcolor(temp),shading flat;colorbar
+vol_init_EAIS=sum( (h_init(iEAIS)-h_displace_ocean(iEAIS)).*darea(iEAIS) );
+vol_init_WAIS=sum( (h_init(iWAIS)-h_displace_ocean(iWAIS)).*darea(iWAIS) );
+%vol_init_EAIS=sum( (h_init(iEAIS)-h_displace_ocean(iEAIS))*20000*20000 );
+%vol_init_WAIS=sum( (h_init(iWAIS)-h_displace_ocean(iWAIS))*20000*20000 );
+
+%calculated thickness of ice that would not contribute to SLR.  Note if
+%hb_pre goes neg, implies bed above SLR
+% 
+% h_no_shelf=zeros(size(h_init));
+% h_no_shelf(i)=h(i);
+%subplot(2,1,1);pcolor(flipud(h_no_shelf-h_displace_ocean)),shading flat;axis equal tight;caxis([1 3500])
+%subplot(2,1,2);pcolor(flipud(h_no_shelf)),shading flat;axis equal tight;caxis([1 3500])
+
+%%
+
+ocnarea=361000000.*1000*1000; %m
+for n=2:dimsize(3)
+  display(strcat('Processing slice ',num2str(n)))
+  clear i
+  h_tmp(:,:)=h(:,:,n);
+  hb_tmp(:,:)=-hb(:,:,n);
+  h_displace_ocean(:,:)=zeros(size(h_tmp));
+  
+  %filter floating ice
+  iEAIS=find(h_tmp>0. & h_tmp>hb_tmp*rhosw/rhoice & AIS_mask==1);
+  iWAIS=find(h_tmp>0. & h_tmp>hb_tmp*rhosw/rhoice & AIS_mask==2);
+  %calculated thickness of ice that would not contribute to SLR.  Note if
+  %hb_pre goes neg, implies bed above SLR
+  h_displace_ocean=max(0.,hb_tmp.*rhosw/rhoice);
+  
+  %calculate volume that would contribute to SLR.
+  vol_tmp_EAIS=sum( (h_tmp(iEAIS)-h_displace_ocean(iEAIS)).*darea(iEAIS) );
+  vol_tmp_WAIS=sum( (h_tmp(iWAIS)-h_displace_ocean(iWAIS)).*darea(iWAIS) );
+  %vol_tmp_EAIS=sum( (h_tmp(iEAIS)-h_displace_ocean(iEAIS)).*20000*20000 );
+  %vol_tmp_WAIS=sum( (h_tmp(iWAIS)-h_displace_ocean(iWAIS)).*20000*20000 );  
+  %calculate SLR
+  SLR_EAIS(n-1)=(vol_init_EAIS-vol_tmp_EAIS)*rhoice/rhosw/ocnarea;
+  SLR_WAIS(n-1)=(vol_init_WAIS-vol_tmp_WAIS)*rhoice/rhosw/ocnarea;
+  SLR(n-1)=SLR_EAIS(n-1)+SLR_WAIS(n-1);
+end
+
+%% plot everything
+
+t=[1 length(vol)];
+fs=10.;
+scnsize=get(0,'Screensize');
+scnsize(3)=scnsize(3)/3.;
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize)
+
+hl(1)=subplot(4,1,1)
+plot(vol(t(1):t(2)),'LineWidth',1)
+ylabel('V_A_I_S (m^3)','Fontsize',fs);
+axis tight
+ax=axis;
+axis(ax);
+text(-800,ax(4),'a)','Fontsize',fs+2)
+
+hl(2)=subplot(4,1,2)
+plot(flux(t(1):t(2)-1),'LineWidth',1)
+ylabel('dV_A_I_S/dt (Sv)','Fontsize',fs);
+axis tight
+ax=axis;
+ax(3)=0.;
+text(-800,ax(4),'b)','Fontsize',fs+2)
+
+hl(3)=subplot(4,1,3)
+plot(ot(t(1):t(2)),'LineWidth',1)
+ylabel('Overturn. anom. (Sv)','Fontsize',fs);
+axis tight
+ax=axis;
+text(-800,ax(4),'c)','Fontsize',fs+2)
+
+set(hl,'XtickLabel','')
+
+subplot(4,1,4)
+time=linspace(0,10000,50);
+hold on
+hl(1)=area(time,SLR,'Edgecolor',[1 0 0],'Facecolor',[1 0 0]);
+hl(2)=area(time,SLR_EAIS,'Edgecolor',[0 0 1],'Facecolor',[0 0 1]);
+hl(3)=plot(time,SLR,'k','Linewidth',1)
+hleg=legend(hl,'WAIS','EAIS','Total');
+set(hleg,'Location','NorthWest')
+axis tight
+xlabel('Time (years)');
+ylabel('SLR (m)','Fontsize',fs);
+axis tight
+box on
+ax=axis;
+text(-800,ax(4),'d)','Fontsize',fs+2)
+
+
+set(gcf, 'PaperPositionMode', 'auto')
+print -depsc2 AISshelfloss.eps
+%close all
+%!open AISshelfloss.eps
+!cp AISshelfloss.eps ~/Dropbox/Manuscripts/Thesis/chaps/in_progress_figs
+
+%%
+
+!rm AIS_dist*.eps
+for n=1:10:dimsize(3)
+  year=num2str((n-1)*200);
+  hs_tmp(:,:)=((h(:,:,n)+hb(:,:,n)))';
+  i=find(hs_tmp<0.);
+  hs_tmp(i)=nan;
+  pcolor(hs_tmp),shading flat
+  text(10,260,year)
+  set(gca,'XtickLabel','','YtickLabel','');
+  axis equal tight
+  set(gcf, 'PaperPositionMode', 'auto')
+  fname=strcat('AIS_dist',year);
+  print('-depsc2',fname)
+end
+!cp AIS_dist*.eps ~/Dropbox/Manuscripts/Thesis/chaps/in_progress_figs

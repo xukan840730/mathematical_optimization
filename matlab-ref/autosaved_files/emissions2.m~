@@ -1,0 +1,24 @@
+function e = emissions2(yr)
+
+%Emissions (Gt C/yr) are specified for particular years, with the total time-range
+%stretching from 0 AD to 10000 AD.  Sampling frequency increases 1990-2100.
+
+%Immediate cessation at year 2100
+%t_yr =     [0.00 1850 1990 2000 2010 2020  2030  2040  2050  2060  2070  2080  2090  2100  2101  2300 10000];
+%e_GtC_yr = [ 0.00 0.00 6.87 8.12 9.37 12.50 14.37 16.25 17.50 19.75 21.25 23.12 26.25 28.75 0.00  0.00 0.00];
+
+%Constant at year 2100 values after 2100
+t_yr =     [0.00 1850 1990 2000 2010 2020  2030  2040  2050  2060  2070  2080  2090  2100  2101  2300 10000];
+e_GtC_yr = [ 0.00 0.00 6.87 8.12 9.37 12.50 14.37 16.25 17.50 19.75 21.25 23.12 26.25 28.75 28.75 28.75  ];
+
+%Constant at year 2000 values after 2100
+t_yr =     [0.00 1850 1990 2000 2010 2020  2030  2040  2050  2060  2070  2080  2090  2100  2101  2300 10000];
+e_GtC_yr = [ 0.00 0.00 6.87 8.12 9.37 12.50 14.37 16.25 17.50 19.75 21.25 23.12 26.25 28.75 0.00  0.00 0.00];
+
+%Linear decrease to 0 from 2100-2300
+t_yr =     [0.00 1850 1990 2000 2010 2020  2030  2040  2050  2060  2070  2080  2090  2100  2101  2300 10000];
+e_GtC_yr = [ 0.00 0.00 6.87 8.12 9.37 12.50 14.37 16.25 17.50 19.75 21.25 23.12 26.25 28.75 0.00  0.00 0.00];
+
+%Emission for arbitrary year yr (where 0<yr<10000) found by linear interpolation between bracketing years. 
+e = interp1(t_yr , e_GtC_yr , yr , 'linear');
+

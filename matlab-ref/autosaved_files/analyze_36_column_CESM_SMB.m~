@@ -1,0 +1,418 @@
+%%%%%%%%% Perform analyses of the CESM-generated surface mass balance fields on multiple elevation classes. %%%%%%%%%
+
+close all
+
+%flag to refresh data.
+%LoadFreshData=1: will clear workspace and load all data from scratch
+%LoadFreshData=1: won't clear workspace or load fresh data
+LoadFreshData = 1;
+if LoadFreshData;
+    clear all
+    LoadFreshData = 1;
+end
+
+re_transfer_files_from_bluefire=0;
+
+%flags for various analyses.
+plot_SMB_zones=0; %plot grid cells with ablation+accumulation zones, only ablation zones, and only accumulation zones.
+calculate_smb_time_series=1; %generate annual/winter/summer SMB timeseries.
+plot_ELA_hypsometry_offset=0; %generate 2x2 plots with cell-integrated hypsometry, CESM SMB column, ELA elevation, grid cell location
+plot_ELA_bias_map=0; 
+
+%%%%%%%%%%%%%% DATA LOADING %%%%%%%%%%%%%%
+if LoadFreshData
+    
+    %load mask that is 1 where ice sheets exists - to mask these out for the glacier analysis.
+    %also used to preallocate balance arrays which is why it is loaded
+    %first.
+    if ~exist('IceSheetMask.mat','file')
+        error('Need IceSheetMask.mat in local directory (copy exists on Dropbox).')
+    else
+        disp('Loading ice sheet mask')
+        load IceSheetMask
+    end
+    
+    %
+    TotalYears=45; %total years to run analsis over
+    yrs=1960; %start year of analysis
+    yre=yrs+TotalYears-1; %end year of analysis
+    yr=yrs:yre;
+    nvertlevs=36; %manually set number of vertical levels that exist in file
+
+    sec2year=60.*60.*24.*365.;
+    km22m2=1.e6;
+    rhoice=0.913;
+    kg2m3ice=1.e-3./rhoice;
+    kg2m3water=1.e-3;
+    %conversion from kg/m^2/s to m/yr WE
+    UnitConversion=kg2m3water.*sec2year;
+
+    LocalStorageDir='36_column_seasonal_averages';
+    if re_transfer_files_from_bluefire
+        %%% Transfer files from Bluefire to local machine %%%
+        BlueFireDir=strcat('/glade/home/jfyke/scratch/process_36_column_seasonal_averages/seasonal_averages');
+        disp('SCPing new averages from bluefire')
+        %if storage directory exists, remove it and all it's contents (.nc files or .nc.gz files), and make new directory
+        if exist(LocalStorageDir,'dir')
+            delete(strcat(LocalStorageDir,'/*.nc*'));
+            rmdir(LocalStorageDir,'s');
+        end;
+        mkdir(LocalStorageDir)
+        %scp files to local directory
+        command=sprintf('scp jfyke@bluefire.ucar.edu:%s/*.nc* %s',BlueFireDir,LocalStorageDir);
+        system(command);
+        %unzip files if they were zipped
+        disp('Unzipping zipped files that were transferred from Bluefire.')
+        gunzip(strcat(LocalStorageDir,'/*.gz'));
+        delete(strcat(LocalStorageDir,'/*.gz')); 
+
+    end
+
+    %%% Load local files into Matlab workspace %%%
+    
+    %zero balance arrays, find indexes nearest to 75S, 75N
+    CESMAnnualBalance=zeros([size(IceSheetMask) nvertlevs length(yr)],'single');
+    CESMSummerBalance=zeros([size(IceSheetMask) nvertlevs length(yr)],'single');
+    CESMWinterBalance=zeros([size(IceSheetMask) nvertlevs length(yr)],'single');
+    i75S=knnsearch(linspace(-90,90,size(IceSheetMask,1))',-75); %get nearest index of latitude band nearest to 75S
+    i75N=knnsearch(linspace(-90,90,size(IceSheetMask,1))',75); %get nearest index of latitude band nearest to 75N
+    ieq=knnsearch(linspace(-90,90,size(IceSheetMask,1))',0); %get nearest index of equatorial latitude band
+    
+    % calculate fraction of year spent in each season (for high/low lat cases).  Calculation done for NH, but lengths should be same for SH.
+    HighLatWinterLength=(datenum('31-Apr-0001')-datenum('01-Sep-0000'))./365;
+    LowLatWinterLength =(datenum('31-Mar-0001')-datenum('01-Oct-0000'))./365;
+    HighLatSummerLength=1.-HighLatWinterLength;
+    LowLatSummerLength=1.-LowLatWinterLength;
+
+    for t=1:TotalYears
+        disp(['Loading SMB for year: ' num2str(yr(t))])
+        for nlev=1:nvertlevs
+            %load annual SMB files to generate annual and seasonal balances.
+            %these are read in via multiple slabs from different input files, to capture different latitutinal definitions of summer/winter.
+            %see ncread documentation for details, and note start/stride arguments in call to ncread.
+            %Also, at this stage, seasonal balances are scaled by the fractional length of the year (annual implicitly scaled by 1), and converted to units of meters WE accumulated over the period.
+            %Apologies for long lines!  But easier to comprehend what's going on I think.
+
+            %CESMAnnualBalance(1:ieq,:,nlev,t)     =single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_SH_annual.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 1 1],[288 ieq 1])').*UnitConversion;
+            %CESMAnnualBalance(ieq+1:end,:,nlev,t) =single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_NH_annual.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 ieq+1 1],[288 192-ieq 1])').*UnitConversion;
+                        
+            CESMWinterBalance(1:i75S,:,nlev,t)    =single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_SH_high_lat_winter.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 1 1],[288 i75S 1])').*HighLatWinterLength.*UnitConversion;
+            CESMWinterBalance(i75S+1:ieq,:,nlev,t)=single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_SH_low_lat_winter.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 i75S+1 1],[288 ieq-i75S 1])').*LowLatWinterLength.*UnitConversion;
+            CESMWinterBalance(ieq+1:i75N,:,nlev,t)=single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_NH_low_lat_winter.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 ieq+1 1],[288 i75N-ieq 1])').*LowLatWinterLength.*UnitConversion;
+            CESMWinterBalance(i75N+1:end,:,nlev,t)=single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_NH_high_lat_winter.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 i75N+1 1],[288 192-i75N 1])').*HighLatWinterLength.*UnitConversion;
+            
+            CESMSummerBalance(1:i75S,:,nlev,t)    =single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_SH_high_lat_summer.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 1 1],[288 i75S 1])').*HighLatSummerLength.*UnitConversion;
+            CESMSummerBalance(i75S+1:ieq,:,nlev,t)=single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_SH_low_lat_summer.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 i75S+1 1],[288 ieq-i75S 1])').*LowLatSummerLength.*UnitConversion;
+            CESMSummerBalance(ieq+1:i75N,:,nlev,t)=single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_NH_low_lat_summer.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 ieq+1 1],[288 i75N-ieq 1])').*LowLatSummerLength.*UnitConversion;
+            CESMSummerBalance(i75N+1:end,:,nlev,t)=single(ncread(strcat(LocalStorageDir,'/',num2str(yr(t)),'_NH_high_lat_summer.nc'),sprintf('s2x_Fgss_qice%2.2d',nlev),[1 i75N+1 1],[288 192-i75N 1])')*HighLatSummerLength.*UnitConversion;
+
+            CESMAnnualBalance=CESMWinterBalance + CESMSummerBalance ;
+
+        end
+    end
+    
+    %load elevation data: elevations correspond to heights at which SMB values are generated
+    CESMElevations=zeros([size(IceSheetMask) nvertlevs]);
+    disp('Loading elevation data.')
+    for nlev=1:nvertlevs
+        CESMElevations(:,:,nlev)=single(ncread(strcat(LocalStorageDir,'/','ice_elevations.nc'),sprintf('s2x_Ss_topo%2.2d',nlev))');
+    end
+    
+    % load gridded RGI data.  Recall hypsometries and reference elevations are in cell arrays.
+    if ~exist('RGI_gridded_to_CESM.mat','file')
+        error('Need RGI_gridded_to_CESM.mat in local directory (copy exists on Dropbox).')
+    else
+        disp('Loading RGI data.  Takes a minute or so.')
+        load('RGI_gridded_to_CESM','Gridded*')
+    end
+    
+end
+
+%% %%%%%%%%%%%% DATA PROCESSING %%%%%%%%%%%%%%
+
+%create a local figs directory if one doesn't exist
+if ~exist('figs','file')
+    mkdir('figs')
+end;
+
+%get climatological annual balance
+MeanCESMAnnualBalance=nanmean(CESMAnnualBalance,4);
+SMBmax=max(MeanCESMAnnualBalance,[],3);
+SMBmin=min(MeanCESMAnnualBalance,[],3);
+
+if plot_SMB_zones
+  %plot global map with different colors representing regions where ELA exists/doesn't exist.
+  %ELAs are based on climatological mean SMBs (MeanCESMAnnualBalance).
+
+    %SMBZones is a mask with different values for the different criteria, below.
+    SMBZones=nan(size(SMBmax));
+    SMBZones(SMBmin>=0. & IceSheetMask == 0)=1; %no ablation zone
+    SMBZones(SMBmax<=0. & IceSheetMask == 0)=2; %no accumulation zone
+    SMBZones(SMBmin<0. & SMBmax>0. & IceSheetMask ==0)=3; %both ablation and accumulation zones
+    SMBZones(SMBmax==SMBmin)=nan;
+    NoAblationSMBProfiles=[];
+    NoAccumSMBProfiles=[];
+    GoodSMBProfiles=[];
+    %accumulate SMB profiles, if you want to plot them all on top of each other (actually not that useful).
+    for i=1:size(MeanCESMAnnualBalance,1)
+        for j=1:size(MeanCESMAnnualBalance,2)
+            if IceSheetMask(i,j) == 0
+                if SMBZones(i,j)==1
+                    NoAblationSMBProfiles=[NoAblationSMBProfiles squeeze(MeanCESMAnnualBalance(i,j,:))];
+                end
+                if SMBZones(i,j)==2
+                    NoAccumSMBProfiles=[NoAccumSMBProfiles squeeze(MeanCESMAnnualBalance(i,j,:))];
+                end
+                if SMBZones(i,j)==3
+                    GoodSMBProfiles=[GoodSMBProfiles squeeze(MeanCESMAnnualBalance(i,j,:))];
+                end
+            end
+        end
+    end
+    NoAblationSMBProfiles=squeeze(NoAblationSMBProfiles);
+    NoAccumSMBProfiles=squeeze(NoAccumSMBProfiles);
+    GoodSMBProfiles=squeeze(GoodSMBProfiles);
+    
+    %Plot map of where the different SMB zones are generated in CESM.
+    colormap(jet(3))
+    pcolor(SMBZones),shading flat
+    axpos=get(gca,'Position');
+    labels={'no ablation zone' 'no accum zone' 'ablation & accum zones'};
+    lcolorbar(labels,'Location','horizontal','Fontsize',12)
+    set(gca,'Position',axpos)
+    set(gca,'Xtick',[],'Ytick',[])
+    print('-dpng','figs/Location_of_SMB_column_types.png')
+    
+end
+
+%% accumulate region-wide SMB timeseries for winter, summer, and average
+
+if plot_ELA_hypsometry_offset || plot_ELA_bias_map || calculate_smb_time_series
+    %Run the processing of CESM SMB against RGI glaciers.
+    %To save space, the part of the 2x2 hypsometry-ELA-SMB profile plot that plots glacier ranges (if you turn on plot_ELA_hypsometry_offset)
+    %is plotted as the model proceeds.
+
+    close all
+
+    %Set some values that are needed later.
+    InterpType='linear';
+    CESMMinElev=nanmin(CESMElevations,[],3);
+    CESMMaxElev=nanmax(CESMElevations,[],3);
+    AAReq=0.57;
+    NRGIRegions=19;
+
+    %zero some stuff
+    nGlaciersinRGIRegion=0;
+    nGridcellsWithRGIGlaciers=0;
+    TotalAreainRGIRegion=zeros(NRGIRegions,1);
+    RGIELA=zeros(size(IceSheetMask));
+    CESMELA=zeros(size(IceSheetMask));
+    RGIELASTD=zeros(size(IceSheetMask));
+    if calculate_smb_time_series
+        AnnualBalance=zeros(NRGIRegions,TotalYears);
+        SummerBalance=zeros(NRGIRegions,TotalYears);
+        WinterBalance=zeros(NRGIRegions,TotalYears);
+    end
+    
+    %set starting and ending RGI regions to cycle through. 
+        %NOTE: 10-column model doesn't calculate SMB above existing ice elevation (from old ice dataset) anywhere except Greenland.
+        %So, you will likely get an error in non-monotonicity in the interpolation if you run other places than Greenland.  This is
+        %because in addition to not calculating SMB, the mean elevation in the elevation bin is not calculated (so left at 0). 
+        %This screws up the call to interp1 which causes a crash.  I've included a pre-emptive error that describes the problem 
+        %in more detail, below.  For the 10-column run,
+        %I think Greenland peripheral (RGI region 8) is the only really safe analysis because the columns were explicitly calculated 
+        %right to the top only there, for the ice sheet.  But this could be explored and probably circumvented.
+    rgis=1;
+    rgie=1;
+
+    for i=1:size(IceSheetMask,1)
+        disp(sprintf('I have processed %0.3g of the CESM grid.',i/size(IceSheetMask,1)*100.))
+        for j=1:size(IceSheetMask,2)
+            
+            for nrgi=rgis:rgie;
+                %If the CESM grid cell is part of an RGI region, and the range in annual balance is greater than zero 
+                %(to filter out a few mismatches where RGI says glaciers exist, but old mask used in CESM disagrees (I think), enter loop.
+                if GriddedGlacierRegion(i,j) == nrgi && range(squeeze(CESMAnnualBalance(i,j,:,1))) >0;
+                    
+                    %Kill analysis if no SMB exists at height (this screws up interpolation).
+                    if min(squeeze(CESMElevations(i,j,:))) ==0.;
+                        error('The present SMB column is not calculated at higher levels - this means mean bin elevation also is not calculated - this will screw up interpolation.  This could be circumvented with some thinking.  Explore the variables at this crashpoint to see what I mean, particularly squeeze(CESMElevations(i,j,:)) and squeeze(MeanCESMAnnualBalance(i,j,:)).  For now, with the 10-column model, I suspect (though could be wrong) that Greenland (region 8) is the only definite safe bet.  Remove this error if you want to see the actual crash during the interpolation.')
+                    end
+
+                    %calculate where average CESM ELA is at this (i,j) point, at 10-meter interpolated vertical resolution
+                    ElevRange=CESMMinElev(i,j):10:CESMMaxElev(i,j);
+                    FullSMBColumn=interp1(squeeze(CESMElevations(i,j,:)),squeeze(MeanCESMAnnualBalance(i,j,:)),ElevRange);
+                    CESMELA(i,j)=ElevRange(knnsearch(FullSMBColumn',0)); %get elevation with nearest-to-zero annual SMB (i.e., the ELA)
+                    
+                    %initialize/increment some gridpoint-specific things
+                    TotalHypsInGridCell=zeros(1000,1);
+                    ElevLevels=5:10:9995;
+                    nGlaciersinCESMGridCell=0;
+                    RGIELAColumn=nan(10000,1);
+                    nGridcellsWithRGIGlaciers=nGridcellsWithRGIGlaciers+1;
+                    
+                    %if plotting the 2x2 ELA/hypsometry/SMB profile plot, start the plotting now, to plot glacier elevation ranges
+                    %as lines as processing proceeds.
+                    if plot_ELA_hypsometry_offset
+                        subplot(2,2,1)
+                        cla
+                        hold on
+                    end
+                    
+                    for glc=1:size(GriddedHypsometry,3)%Loop over all glaciers that exist within CESM grid cell
+                        if ~isempty(GriddedHypsometry{i,j,glc}) %if hypsometry exists in cell array, enter loop (for some reason, there are a few glaciers with 0 hypsometry, should check this)
+
+                            %increment counters
+                            nGlaciersinCESMGridCell=nGlaciersinCESMGridCell+1;
+                            nGlaciersinRGIRegion=nGlaciersinRGIRegion+1;
+                            %extract glacier hypsometry and elevation vectors from cell array
+                            hyps=[GriddedHypsometry{i,j,glc}].*km22m2; %convert hysometry to square meters
+                            elev=[GriddedElevationBins{i,j,glc}]'; %note '
+
+                            %accumulate total hypsometry over (i,j) grid cell:
+                            %find the level in the large elevation level vector where the glacier hypsometry starts
+                            iLevel=find(ElevLevels==elev(1)); 
+                            %accumulate the total hypsometry by adding this glacier's hypsometry onto the pile
+                            TotalHypsInGridCell(iLevel:iLevel+length(hyps)-1)=TotalHypsInGridCell(iLevel:iLevel+length(hyps)-1)+hyps;
+                            %accumulate glaciated area in the RGI region
+                            TotalAreainRGIRegion(nrgi)=TotalAreainRGIRegion(nrgi)+sum(hyps); 
+                            
+                            %calculate RGI ELA, based on Bahr AAReq=0.57 approach
+                            iELA=find( (cumsum(hyps)/sum(hyps)) > (1.-AAReq), 1);
+                            RGIELAColumn(nGlaciersinCESMGridCell)=elev(iELA);
+                            
+                            if plot_ELA_hypsometry_offset
+                                %Plot minimum/maximum ice elevations of the glacier as a vertical line
+                                line([glc glc],[min(elev) max(elev)],'linewidth',1);
+                            end
+                            
+                            if calculate_smb_time_series
+                                for t=1:TotalYears
+                                    %generate annual, winter, and summer, balance timeseries for each glacer.
+                                    %use interpolation to extract a vertical SMB profile for the glacier from the coarse CESM SMB profile
+                                    annbal=interp1(squeeze(CESMElevations(i,j,:)),squeeze(CESMAnnualBalance(i,j,:,t)),elev,InterpType);
+                                    AnnualBalance(nrgi,t)=AnnualBalance(nrgi,t)+sum(annbal.*hyps);
+                                    winbal=interp1(squeeze(CESMElevations(i,j,:)),squeeze(CESMWinterBalance(i,j,:,t)),elev,InterpType);
+                                    WinterBalance(nrgi,t)=WinterBalance(nrgi,t)+sum(winbal.*hyps);
+                                    sumbal=interp1(squeeze(CESMElevations(i,j,:)),squeeze(CESMSummerBalance(i,j,:,t)),elev,InterpType);
+                                    SummerBalance(nrgi,t)=SummerBalance(nrgi,t)+sum(sumbal.*hyps);
+                                end
+                            end
+                        end
+                    end
+                    
+                    if plot_ELA_hypsometry_offset
+                        %finish off formatting elevation range plot (which was accumulated as processing proceeded)
+                        axis tight
+                        ax=axis;ax(3:4)=[CESMMinElev(i,j) CESMMaxElev(i,j)];axis(ax);
+                        line(ax(1:2),[CESMELA(i,j) CESMELA(i,j)],'LineStyle','--','Color','r');
+                        xloc=ax(1)+0.1*(ax(2)-ax(1));
+                        yloc=ax(3)+0.95*(ax(4)-ax(3));
+                        text(xloc,yloc,strcat('# of glaciers in cell: ',num2str(nGlaciersinCESMGridCell)),'FontSize',20)
+                        hold off
+                        
+                        %plot total glacier hypsometry in CESM grid cell
+                        subplot(2,2,2)
+                        plot(TotalHypsInGridCell,ElevLevels)
+                        ax=axis;ax(3:4)=[CESMMinElev(i,j) CESMMaxElev(i,j)];axis(ax);
+                        line(ax(1:2),[CESMELA(i,j) CESMELA(i,j)],'LineStyle','--','Color','r');
+                        xloc=ax(1)+0.1*(ax(2)-ax(1));
+                        yloc=ax(3)+0.95*(ax(4)-ax(3));
+                        text(xloc,yloc,sprintf('Total glacier area: %0.3g km^2',sum(TotalHypsInGridCell./km22m2)),'FontSize',20)
+                        set(gca,'YTick',[])
+                        
+                        %plot CESM SMB profile
+                        subplot(2,2,3)
+                        plot(squeeze(MeanCESMAnnualBalance(i,j,:)),squeeze(CESMElevations(i,j,:)))
+                        ax=[SMBmin(i,j) SMBmax(i,j) CESMMinElev(i,j) CESMMaxElev(i,j)];axis(ax);
+                        line(ax(1:2),[CESMELA(i,j) CESMELA(i,j)],'LineStyle','--','Color','r');
+                        line([0 0],[0 CESMELA(i,j)],'LineStyle','--','Color','k')
+                        set(gca,'YTick',[])
+                        xloc=ax(1)+0.1*(ax(2)-ax(1));
+                        yloc=CESMELA(i,j)+0.02*(ax(4)-ax(3));
+                        %text(xloc,yloc,'CESM ELA ','Color','r','FontSize',20)
+                        
+                        %plot where this occurs on global map
+                        subplot(2,2,4)
+                        landmask=nan(size(SMBmax));
+                        landmask(SMBmax<1.e20)=1;
+                        hold on
+                        imagesc(landmask),shading flat, axis equal tight;
+                        scatter(j,i,300,'filled','r');
+                        set(gca,'XTick',[],'YTick',[])
+
+                        print('-dpng',strcat('figs/cell',num2str(nGridcellsWithRGIGlaciers),'.png'))
+                        
+                    end
+                    
+                    %remove unused values from column
+                    RGIELAColumn(isnan(RGIELAColumn))=[];
+                    %calculate mean and standard deviation of glacier ELAs in the grid cell, using the glaciers that were gridded from the RGI.
+                    RGIELA(i,j)=mean(RGIELAColumn);
+                    RGIELASTD(i,j)=std(RGIELAColumn);
+                end
+            end
+            
+        end
+    end
+    
+    %%
+  
+    if plot_ELA_bias_map
+        %Plot RGI ELAs (based on hypsometry/AAR approach) and CESM ELAs (based on where the SMB=0 is vertically in the annual balance)
+        %Then plot regression of RGI ELAs onto CESM ELAs, and difference map.
+        RGIELA(RGIELA==0.)=nan;
+        CESMELA(CESMELA==0.)=nan;
+        
+        subplot(2,2,1)
+        pcolor(RGIELA),shading flat
+        caxis([0 3200]);
+        title('Average RGI ELAs ')
+        freezeColors
+        
+        subplot(2,2,2)
+        pcolor(CESMELA),shading flat
+        caxis([0 3200]);
+        title('CESM ELAs ')
+        freezeColors
+        
+        subplot(2,2,3)
+        i=find(~isnan(RGIELA));
+        errorbar(RGIELA(i),CESMELA(i),RGIELASTD(i),'.')
+        ax=axis;ax(2)=ax(4);ax(3)=ax(1);axis(ax);
+        line(ax(1):ax(2),ax(3):ax(2),'Color','k')
+        axis square
+        xlabel('RGI ELA (m) ')
+        ylabel('CESM ELA (m) ')
+        
+        subplot(2,2,4)
+        ELAdiff=CESMELA-RGIELA;
+        pcolor(ELAdiff),shading flat
+        cmin=min(ELAdiff(:));cmax=max(ELAdiff(:));
+        colormap(rbcbar(cmin,cmax))
+        colorbar
+        title('ELA difference (red=CESM ELA is higher)     ')
+        set(gca,'XTick',[],'YTick',[])
+        
+        print('-dpng','figs/CESM_ELA_bias')
+        
+        
+    end
+    %%
+    if calculate_smb_time_series
+        %Plot time series of winter/summer/annual balance timeseries for analyzed period.
+        close all
+        for nrgi=rgis:rgie
+            %subplot(4,5,nrgi)
+            hold on
+            h(1)=plot(yr,squeeze(WinterBalance(nrgi,:)./TotalAreainRGIRegion(nrgi)),'b');
+            h(2)=plot(yr,squeeze(SummerBalance(nrgi,:)./TotalAreainRGIRegion(nrgi)),'r');
+            h(3)=plot(yr,squeeze(AnnualBalance(nrgi,:)./TotalAreainRGIRegion(nrgi)),'k');
+            xlabel('Years')
+            ylabel('Mass balance (m WE)')
+            legend(h,{'Winter Balance','Summer Balance','Annual Balance'})
+            hold off
+        end
+    end
+    print('-dpng','figs/SMB_time_series')
+end

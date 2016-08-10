@@ -1,0 +1,13 @@
+close all
+clear all
+
+%time
+t=linspace(0:100);
+
+%co2
+co2_init=280.;
+co2_pert=560.;
+DQ=5.35*log(co2_pert/co2_init);
+
+%lambda=
+

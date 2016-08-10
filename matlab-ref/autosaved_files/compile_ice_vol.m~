@@ -1,0 +1,50 @@
+%% 
+cd /Users/jer/School/analysis/icevolevol
+clear all
+!rm *.nc
+
+%%
+mroot = 'jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/sensitivity_runs/refreeze/storage/';
+tname = {'eemian','lgm','preind','modern'};
+expname = {'bias_ref','bias_no_ref','bias_ref_c_alb','no_bias_ref'};
+n=0;
+for ts=1:4
+   for exp=1:4
+      n=n+1;
+      fname=strcat(tname{ts},'_',expname{exp},'.nc')
+      getloc=strcat(mroot,fname);
+      putloc=fname;
+      exists=exist(putloc,'file');
+      clear command
+      command=sprintf('scp %s %s',getloc,putloc);
+      system(command);
+      ncload(fname,'L_icevolN','L_icevolS','L_icesmbN','L_icesmbS','L_iceareaN','L_iceareaS')
+      data(n).L_icevolN=L_icevolN;
+      data(n).L_icevolS=L_icevolS;
+      data(n).L_smbN=L_icesmbN;
+      data(n).L_smbS=L_icesmbS;
+      data(n).L_areaN=L_iceareaN;
+      data(n).L_areaS=L_iceareaS;
+      data(n).name=fname;
+      clear L_icevolN L_icevolS L_icesmbN L_icesmbS
+    end
+end
+
+%%
+close all
+clear hplot hleg legtext
+expstart=9;
+expend=12;
+dexp=expend-expstart+1;
+figure
+hold on
+for rec=expstart:expend;
+   nrec=rec-expstart+1;
+   legtext{nrec}=data(rec).name;
+   r(rec)=1.-(rec-expstart)/dexp;
+   b(rec)=0.+(rec-expstart)/dexp;
+   hplot(nrec)=plot(data(rec).L_areaN,'LineWidth',2,'Color',[r(rec) 0 b(rec)]);
+end 
+hold off
+hleg=legend(hplot,legtext);
+

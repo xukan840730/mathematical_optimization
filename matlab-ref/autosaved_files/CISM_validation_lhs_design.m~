@@ -1,0 +1,26 @@
+%% Generate parameter set for CISM optimization runs
+close all
+clear all
+
+%Set median values
+n= 0 ;
+n=n+1 ; iparam1 = n ; lb(n) = -2 ; ub(n) = 2 ;  %
+n=n+1 ; iparam2 = n ; lb(n) = -2 ; ub(n) = 2 ;  %
+n=n+1 ; iparam3 = n ; lb(n) = -2 ; ub(n) = 2 ;  %
+n=n+1 ; iparam4 = n ; lb(n) = -2 ; ub(n) = 2 ;  %
+n=n+1 ; iparam5 = n ; lb(n) = -2 ; ub(n) = 2 ;  %
+
+%generate parameter arrays
+
+n_samples = 100 ;
+
+disp(['Generating Latin Hypercube with ' num2str(n_samples) ' samples...'])
+xn = lhsdesign(n_samples,n);
+x  = bsxfun(@plus,lb,bsxfun(@times,xn,(ub-lb)));
+dlmwrite('model_parameters.dat',x)
+
+%lapse rate
+%ice albedo
+%snow albedo
+%enhancement factor
+%

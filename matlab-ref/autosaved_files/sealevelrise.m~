@@ -1,0 +1,19 @@
+%% Calculate a sea level rise, given a change in ICE VOLUME (km^3).
+clear all
+cd /Users/jer/School/Manuscripts/GMD_mod_dev/sealevelrise
+
+% Set ice volumes manually
+icevol1=3.4e6;
+icevol2=2.2e6;
+
+%Get difference in ice volume
+dicevol=icevol1-icevol2;
+
+%Convert to water volume (use UVic ESCM ice density)
+dwvol=dicevol*0.913;
+
+%Calculate SLR, assuming no significant transgression/regression of
+%coastlines and using UVic ESCM modern-day area for exposed ocean
+ocnar=
+SLR=dwvol/
+

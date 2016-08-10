@@ -1,0 +1,26 @@
+%%
+clear all
+version=getversion;
+if version == 7.8   
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropbox/Manuscripts/GIS_future/equilib
+else
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future/equilib
+end
+
+%% Get catted timeseries files of Greenland data
+% %!rm -rf animate_storage
+% %!ssh jer@mare.seos.uvic.ca sh "PhD_output/future_equilib/animate_catscript"
+% %!scp -r jer@mare.seos.uvic.ca:PhD_output/future_equilib/animate_storage .
+
+%% Load h,hs array
+for n=4:4
+  h=rnc(strcat('animate_storage/',num2str(n),'.nc'),'h',0,1); 
+  hs=rnc(strcat('animate_storage/',num2str(n),'.nc'),'hs',0,1);
+  if version == 7.8   
+  else
+    h=permute(h,[3 2 1]);
+    hs=permute(hs,[3 2 1]);    
+  end
+  fname=strcat('./movies/',num2str(n),'.mpg');
+  animate_ice(h,hs,fname);
+end

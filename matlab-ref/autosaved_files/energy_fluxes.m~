@@ -1,0 +1,7 @@
+%%
+close all
+clear all
+
+%% Set figures to print to 1, and update data to 1 (if wanting to update)  
+GIS_energy_flux_evolution=                   1;
+

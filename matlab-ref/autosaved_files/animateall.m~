@@ -1,0 +1,16 @@
+%% animate hs from all run
+clear all
+close all
+Editor = com.mathworks.mlservices.MLEditorServices;
+Editor.closeAll;
+
+version=getversion;
+if version == 7.8   
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropbox/Manuscripts/GIS_future
+else
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future
+end
+
+%% 
+
+

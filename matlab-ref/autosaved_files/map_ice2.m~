@@ -1,0 +1,32 @@
+%%
+clear all
+close all
+
+root='/Users/jer/Dropbox/Projects/GIS_future/hysteresis_loop/';
+
+%%
+for n=1:6;
+  gis{n}=rnc(strcat(root,'deglac_dist/',num2str(n),'.nc'),'hs')';
+  
+end
+for n=7:12
+  gis{n}=rnc(strcat(root,'incept_dist/',num2str(n-6),'.nc'),'hs')';
+  gis{n}(gis{n}==0)=nan;
+end
+
+%%
+hf=figure
+for n=1:6;
+  clf
+  contourf(gis{n},10);
+  caxis([0 3500]);  
+  axis tight equal off  
+  fname=strcat('deglac',num2str(n));
+end
+for n=7:12;
+  clf
+  contourf(gis{n});
+  caxis([0 3500]);  
+  axis tight equal off  
+  fname=strcat('deglac',num2str(n));
+end

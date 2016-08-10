@@ -1,0 +1,39 @@
+close all
+clear all
+fig1=figure;
+%set(fig1,'Position',get(0,'Screensize'))
+preind_co2=rnc('co2ccn.nc','co2ccn');
+preind_time=rnc('co2ccn.nc','time');
+postind_co2=rnc('5120.nc','A_co2');
+postind_co2=postind_co2(1:10000);
+postind_time=linspace(2001,12000,10000);
+co2=[preind_co2' postind_co2'];
+time=[preind_time' postind_time];
+plot(time/1000,co2,'k','Linewidth',2)
+hl(1)=xlabel('Time (kyr before/after present)');
+hl(2)=ylabel('Carbon dioxide concentration (ppmv)');
+set(hl,'Fontsize',30)
+set(gca,'Fontsize',30)
+axis tight
+ax=axis;
+ax(3)=0;
+ax(4)=2200;
+axis(ax);
+
+%% calculate dCO2dt
+temp=zeros(size(preind_time));
+temp(preind_time>0.)=1;
+k=ind2sub(find(temp,1,'first');
+
+dpredt=(preind_co2(2:end)-preind_co2(1:end-1))./(preind_time(2:end)-preind_time(1:end-1))
+dpostdt=(postind_co2(2:end)-postind_co2(1:end-1))./(postind_time(2:end)-postind_time(1:end-1))'
+
+dpredt(isinf(dpredt)==1)=0.;
+
+dpredtmax=max(abs(dpredt))
+dpostdtmax=max(abs(dpostdt))
+
+
+%set(gcf, 'PaperPositionMode', 'auto');
+%print -depsc2 CO2_timeseries.eps
+%print -depsc2 CO2_timeseries_for_talk.eps

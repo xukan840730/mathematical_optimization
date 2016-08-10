@@ -1,0 +1,54 @@
+function wnc(var,fname,vname,uname,dnames)
+%%Load data from workspace to netCDF file.
+%Syntax:
+%wnc(var,fname,vname,uname)
+%var=variable array
+%fname=name of netcdf file (in quotations, i.e. 'example.nc')
+%vname=name of variable (also in quotations)
+%uname=name of variable units (also in quotations)
+%dnames=names of dimensions
+var=double(var);
+if ~existfile(fname)
+ncid = netcdf.create(fname,'NC_CLOBBER');
+dims=ndims(var);
+dimsize=size(var);
+
+for ndim=1:length(dimsize)
+    dimID(ndim)=netcdf.defDim(ncid,dnames{ndim},dimsize(ndim));
+end
+varid = netcdf.defVar(ncid,vname,'double',dimID);
+
+% if dims == 1
+%   idim = netcdf.defDim(ncid,dnames{1},dimsize(1));
+%   varid = netcdf.defVar(ncid,vname,'double',[idim]);   
+% elseif dims == 2 
+%   idim = netcdf.defDim(ncid,dnames{1},dimsize(1));
+%   jdim = netcdf.defDim(ncid,dnames{2},dimsize(2));
+%   varid = netcdf.defVar(ncid,vname,'double',[idim,jdim]);   
+% elseif dims == 3 
+%   idim = netcdf.defDim(ncid,dnames{1},dimsize(1));
+%   jdim = netcdf.defDim(ncid,dnames{2},dimsize(2));
+%   kdim = netcdf.defDim(ncid,dnames{3},dimsize(3));
+%   varid = netcdf.defVar(ncid,vname,'double',[idim,jdim,kdim]);
+% elseif dims == 4
+%   idim = netcdf.defDim(ncid,dnames{1},dimsize(1));
+%   jdim = netcdf.defDim(ncid,dnames{2},dimsize(2));
+%   kdim = netcdf.defDim(ncid,dnames{3},dimsize(3));
+%   ldim = netcdf.defDim(ncid,dnames{4},dimsize(4));
+%   varid = netcdf.defVar(ncid,vname,'double',[idim,jdim,kdim,ldim]);
+% elseif dims == 5
+%   idim = netcdf.defDim(ncid,dnames{1},dimsize(1));
+%   jdim = netcdf.defDim(ncid,dnames{2},dimsize(2));
+%   kdim = netcdf.defDim(ncid,dnames{3},dimsize(3));
+%   ldim = netcdf.defDim(ncid,dnames{4},dimsize(4));
+%   mdim = netcdf.defDim(ncid,dnames{5},dimsize(5));
+%   varid = netcdf.defVar(ncid,vname,'double',[idim,jdim,kdim,ldim,mdim]);
+% else
+%     message='Error: array sent to wnc is not 1,2,3,4, or 5 dimensions.'
+% end
+
+netcdf.endDef(ncid)
+netcdf.putVar(ncid,varid,var)
+netcdf.reDef(ncid)
+netcdf.putAtt(ncid,varid,'units',uname)
+netcdf.close(ncid)

@@ -1,0 +1,55 @@
+%%
+close all
+fig_format
+%% Plot polar_amp inception runs, at 1-2X PAL
+reload=                                     1;
+if reload
+    clear all;reload=1;
+end
+GIS_incept_volume_evol=                     1;
+
+md='/Volumes/Mare/playground/polar_amp/';
+co2={'200' '1' '350' '420' '490'};    
+rp= {'_no_amp_incept/' '_amp_incept/' '_high_amp_incept/'};
+if reload
+  maxX=0.;
+  maxY=0.;
+  for i=1:length(co2);
+    for j=1:length(rp);
+       froot=strcat(md,co2{i},rp{j});
+       f=dir(strcat(froot,'tsi.*'));
+       var{i,j}=[];
+       for n=1:length(f);
+         fn=strcat(froot,f(n).name);
+         var{i,j}=[var{i,j} rnc(fn,'L_icevolN')'];
+         maxX=max(maxX,length(var{i,j}));
+         maxY=max(maxY,max(var{i,j}));
+       end
+    end
+  end
+end
+cmap=zeros(length(co2),3);
+cmap(:,3)=linspace(1,0,length(co2));
+cmap(:,1)=linspace(0,1,length(co2));
+hf=figure;
+ha=tight_subplot(2,2,0.1,0.1,0.1);
+
+for i=1:4;  
+    axes(ha(i));
+    hold on
+    plot(var{i,1},'Color',cmap(i,:),'Linestyle','--')
+    plot(var{i,2},'Color',cmap(i,:),'Linestyle','-')
+    plot(var{i,3},'Color',cmap(i,:),'Linestyle','-.')
+    ax=axis;
+    ax(2)=maxX;inte
+    ax(4)=maxY;
+    axis(ax);
+    set(ha(i),'XTicklabel',(0:maxX/10:maxX)*10.);
+    set(ha(i),'YTicklabel',(0:maxY/10:maxY));
+    ylabel('GIS volume (m^3)');
+    if i~=2; text(10,maxY-(maxY*.1),strcat(co2{i}, 'ppmv CO_2'));end
+    if i==2; text(10,maxY-(maxY*.1),strcat('280 ppmv CO_2'));end
+    hold off
+end
+exportfig(hf,'1_to_2xPAL_inception')
+

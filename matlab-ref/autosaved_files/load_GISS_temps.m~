@@ -1,0 +1,7 @@
+close all 
+clear all
+
+fid = fopen('./tj.4_observLOTI_12_1971_2010_1971_2000-0.dat')
+frewind(fid)
+tit=fread(fid,80,'uint8=>integer')'
+nums=fread(fid,4,'')

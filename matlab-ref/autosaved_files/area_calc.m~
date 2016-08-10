@@ -1,0 +1,50 @@
+%%
+close all
+clear all
+% Load shapefile data
+files=dir('RGIV1_20120305/*.shp')
+  %set regions to read
+minreg=10; %Greenland
+maxreg=10; %no higher than 19!
+%%
+for r=minreg:maxreg;
+    display([files(r).name 'number=' num2str(r)]);
+    %info(r)=shapeinfo(fullfile('RGIV1_20120305/',files(r).name));
+    reg(r).glc=shaperead(fullfile('RGIV1_20120305/',files(r).name));
+end
+
+%% Hardcode variable name changes, so all regions use same nomenclature
+% reg(1).glc=RenameField(reg(1).glc,'XXX','a')
+% reg(2).glc=RenameField(reg(2).glc,'XXX','a')
+% reg(3).glc=RenameField(reg(3).glc,'XXX','a')
+% reg(4).glc=RenameField(reg(4).glc,'XXX','a')
+% reg(5).glc=RenameField(reg(5).glc,'XXX','a')
+% reg(6).glc=RenameField(reg(6).glc,'XXX','a')
+% reg(7).glc=RenameField(reg(7).glc,'XXX','a')
+% reg(8).glc=RenameField(reg(8).glc,'XXX','a')
+% reg(9).glc=RenameField(reg(9).glc,'XXX','a')
+reg(10).glc=RenameField(reg(10).glc,'area_km2','a')
+reg(11).glc=RenameField(reg(11).glc,'XXX','a')
+reg(12).glc=RenameField(reg(12).glc,'XXX','a')
+reg(13).glc=RenameField(reg(13).glc,'XXX','a')
+reg(14).glc=RenameField(reg(14).glc,'XXX','a')
+reg(15).glc=RenameField(reg(15).glc,'XXX','a')
+reg(16).glc=RenameField(reg(16).glc,'XXX','a')
+reg(17).glc=RenameField(reg(17).glc,'XXX','a')
+reg(18).glc=RenameField(reg(18).glc,'XXX','a')
+reg(19).glc=RenameField(reg(19).glc,'XXX','a')
+
+%% Calculate cumulative area over each glacier.
+figure
+nbins=100;
+bin_lims=linspace(0,6.e9,nbins);
+tot_area=zeros(nbins,1);
+for n=2:nbins
+   tot_area(n-1)=sum ( glacier_area( glacier_area>bin_lims(n-1) & glacier_area<=bin_lims(n) ) ) ;
+end
+bar(tot_area)
+xlabel('Glacier area bin area (km^2)')
+ylabel('Global glacier area in each bin (km^2)')
+set(gca,'Xtick',[1 nbins/2 nbins],'Xticklabel',round(bin_lims([2 nbins/2 nbins])))
+axis tight
+

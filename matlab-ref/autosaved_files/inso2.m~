@@ -1,0 +1,49 @@
+close all
+clear all
+
+vlat=linspace(-pi/2,pi/2,90);
+vday=linspace(1,365,365);
+[lat,day]=meshgrid(vlat,vday);
+lat=lat';
+day=day';
+ecc=1
+So=1371;
+obliq=linspace(0,pi/2,10);
+
+for n=1:10;
+  delta=sin(day/365.*2*pi)*obliq(n);
+  Ho=acos(-tan(lat).*tan(delta));
+  Ho(tan(lat).*tan(delta)>1)=pi;
+  Ho(tan(lat).*tan(delta)<-1)=0;
+  I{n}=abs(So/pi*( Ho.*sin(lat).*sin(delta) + cos(lat).*cos(delta).*sin(Ho) ));
+end
+
+%%
+
+fig1=figure
+set(fig1,'Position',get(0,'ScreenSize'))
+ha=tight_subplot(2,5,0.01,0.01,[0.01 0.1]);
+for n=1:10;
+  axes(ha(n));
+  pcolor(I{n}),shading flat
+  axis off
+  caxis([0 So]);
+  if n==10;
+     axpos=get(gca,'Position')
+     colorbar
+     set(gca,'Position',axpos)
+  end
+end
+print -dpng insol_obliq.png
+
+%%
+figure
+hold on
+for n=1:9;
+  max(I{n}')-min(I{n}'
+  plot(vlat,),'Linewidth',2)
+  axis tight
+  text(vlat(end),
+end
+hold off
+

@@ -1,0 +1,39 @@
+%open file
+ncid=netcdf.open('1800modsat.nc','WRITE');
+%get variable
+varid = netcdf.inqVarID(ncid,'A_sat');
+%assign variable to a matlab array
+sat1800=netcdf.getVar(ncid,varid);
+%close file
+netcdf.close(ncid)
+
+sat1800=sat1800-273.15;
+%calculate change in monthly averaged temperature, for each month, between 1800 and 1970-2001 long-term mean. 
+uvic_sat_diff=uvic_satltm-sat1800;
+obs1800sat=obs_satltm_on_uvic_grid-uvic_sat_diff;
+
+close all
+figure
+hold on
+caxis([min(min(min(uvic_sat_diff))) max(max(max(uvic_sat_diff)))])
+for n=1:12
+  temp(:,:)=uvic_sat_diff(:,:,n);
+  temp(:,:)=rot90(fliplr(temp)); 
+  subplot(2,6,n),pcolor(temp), shading flat
+  title(num2str(n))
+end
+hold off
+
+
+%% Write to netcdf file
+ncid = netcdf.create(strcat(strcat(dataset),'1800sat.nc'), 'CLOBBER');
+imtdim = netcdf.defDim(ncid,'xt',100);
+jmtdim = netcdf.defDim(ncid,'yt',100);
+timedim = netcdf.defDim(ncid,'month',12);
+varid = netcdf.defVar(ncid,'sat','double',[imtdim,jmtdim,timedim]);
+netcdf.endDef(ncid)
+netcdf.putVar(ncid,varid,obs1800sat)
+netcdf.reDef(ncid)
+netcdf.putAtt(ncid,varid,'units','dT')
+netcdf.close(ncid)
+

@@ -1,0 +1,90 @@
+close all
+clear all
+%%
+%!scp mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/dynsal.nc .
+%%
+%!scp mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/blow_away_shelves2/control2/controlsal.nc .
+%%
+fs=30;
+dsal=rnc('dynsal.nc','O_sal');
+dsal=permute(dsal,[2 1 3 4]);
+dsal(dsal>100)=nan;
+csal=rnc('controlsal.nc','O_sal');
+csal=permute(csal,[2 1 3 4]);
+csal(csal>100)=nan;
+dz=rnc('dynamic_snap.nc','G_dzt');
+for n=2:19;
+  dz(n)=dz(n)+dz(n-1);
+end
+dz=flipud(-dz);
+lat=linspace(-90,90,100);
+dimsize=size(dsal); %sal dims: lat,lon,depth,time
+mdsal=nanmean(dsal,2);
+mcsal=nanmean(csal,2);
+%% Plot representative overturning based on salinity
+scnsize=get(0,'Screensize');
+fig1=figure;
+mnsz=min(scnsize(3:4));
+set(fig1,'Position',[1 1 mnsz*0.6 mnsz*0.5]);
+temp(:,:)=mcsal(:,1,:,50);
+temp=rot90(temp);
+contourf(lat(1:50),dz,temp(:,1:50),20);
+arrow([-65,-3800],[-60,-5100],'Linewidth',3);text(-60,-5100,'AABW+CDW','Fontsize',fs);
+arrow([-60,-200],[-45,-800],'Linewidth',3);text(-45,-800,'AAIW','Fontsize',fs);
+arrow([-15,-3400],[-35,-2900],'Linewidth',3);text(-53,-2900,'NADW','Fontsize',fs);
+caxis([35.3 35.6]);
+cb=colorbar;
+xlabel('latitude','Fontsize',fs-5)
+ylabel('depth (mbsl)','Fontsize',fs-5)
+ylabel(cb,'salinity (psu)','Fontsize',fs-5);
+clear temp
+set(gca,'Fontsize',fs-10)
+
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 deepwater_diagram.eps
+
+%% Plot snapshots of salinity differences
+close all
+tslice=[1 10 20 30 40 50];
+scnsize=get(0,'Screensize');
+fig1=figure;
+mnsz=min(scnsize(3:4));
+set(fig1,'Position',[1 1 mnsz*.7 mnsz*0.5]);
+ha=tight_subplot(2,3,0.01,[0.1 0.01],[0.01 0.15]);
+for n=1:6
+  clear temp
+  axes(ha(n));
+  temp(:,:)=mdsal(:,1,:,tslice(n))-mcsal(:,1,:,tslice(n));
+  temp=rot90(temp);
+  contourf(lat,dz,temp,20);
+  mincv=-.1;
+  maxcv=.1;
+  dval=maxcv-mincv;
+  nc=640;
+  b2r=ones(nc,3);
+  zp=floor(abs(nc*(mincv/dval)));
+  b2r(1:zp,1)=linspace(0,1,zp);
+  b2r(1:zp,2)=linspace(0,1,zp);
+  b2r(zp:nc,3)=linspace(1,0,nc-zp+1);
+  b2r(zp:nc,2)=linspace(1,0,nc-zp+1);
+  colormap(b2r);
+  caxis([mincv maxcv]);
+  if n<4
+    set(gca,'XtickLabel','');
+  end
+  if n~=3 && n~=6 
+    set(gca, 'YtickLabel','');
+  
+  end
+  if n==6;
+    axpos=get(gca,'Position')
+    cb=colorbar
+    ylabel(cb,'salinity difference (psu)')
+    set(cb,'Fontsize',fs-5)
+    set(gca,'Position',axpos)
+  end
+end
+
+    
+
+

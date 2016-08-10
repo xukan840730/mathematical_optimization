@@ -1,0 +1,152 @@
+LoadFreshData=1;
+
+if LoadFreshData
+    clear all
+    LoadFreshData=1;
+    
+    RegenerateHypsometryData=0;
+    RegenerateMaskData=0;
+    
+end
+path('./bin',path);
+
+EvolveGlaciers=1;
+
+%% 1. Regenerate/load RGI and CESM data
+
+if LoadFreshData
+    
+    CESMInputDir='/Volumes/Bluefire/ptmp/SeaRise_TG_20thC_forcing_data';
+    CESMInputFile='modern_climatological_average.nc';
+    RGIInputOutputDir='/Users/fyke/Projects/Glacier_modelling/Gridded_RGI_data';
+    RGIInputOutputFile='RGI_gridded_to_CESM';
+    MaskInputDir='/Users/fyke/Projects/Glacier_modelling/CESM_SMB_analysis';
+    IceSheetMaskFile='IceSheetMask';
+    
+    %Calculate central latitudes and longitudes, and fill in where these values don't exist in land-centric database using linear nan-filling.
+    LonCenters = inpaint_nans ( nanmax( ncread(fullfile(CESMInputDir,CESMInputFile),'doml_lon')' ,[],1) ) ;
+    LatCenters = inpaint_nans ( nanmax( ncread(fullfile(CESMInputDir,CESMInputFile),'doml_lat')' ,[],2) ) ;
+    
+    [LonCenters,LatCenters]=meshgrid(LonCenters,LatCenters);
+    
+    if RegenerateHypsometryData
+        [GriddedGlacierCount,...
+            GriddedGlacierRegion,...
+            GriddedMeanElevation,...
+            GriddedHypsometry,...
+            GriddedElevationBins...
+            GriddedSTD...
+            GriddedCoverage...
+            GriddedMinElevation...
+            GriddedMaxElevation...
+            GriddedBahrELA] = sort_RGI_glaciers_onto_grid(LonCenters,LatCenters,false,false);
+        save(fullfile(RGIInputOutputDir,RGIInputOutputFile),'Gridded*')
+    else
+        disp('Loading RGI data')
+        load(fullfile(RGIInputOutputDir,RGIInputOutputFile),'Gridded*')
+    end
+    
+    iTopElev=10;
+    CESMSMB=zeros([size(LonCenters) iTopElev]);
+    CESMElevations=zeros([size(LonCenters) iTopElev]);
+    disp('Loading CESM SMB/elevation data')
+    for nlev=1:iTopElev
+        CESMElevations(:,:,nlev)=ncread(fullfile(CESMInputDir,CESMInputFile),sprintf('s2x_Ss_topo%2.2d',nlev))';
+        CESMSMB(:,:,nlev)=ncread(fullfile(CESMInputDir,CESMInputFile),sprintf('s2x_Fgss_qice%2.2d',nlev))';
+    end
+    
+    disp('Loading ice sheet mask data')
+    if RegenerateMaskData
+        File='../GLOBE_glacier_mask/output_merged/PCT_GLC_ICESHEET.nc';
+        VarName='PCT_GLC_ICESHEET';
+        FileInfo=ncinfo(File,VarName);
+        ArrSize=FileInfo.Size;
+        IceSheetMask=zeros(ArrSize(1),ArrSize(2));
+        for nlev=1:ArrSize(3)
+            nlev
+            IceSheetMask=IceSheetMask+ncrea66d(File,VarName,[1 1 nlev],[ArrSize(1) ArrSize(2) 1]);
+        end
+        IceSheetMask=permute(IceSheetMask,[2 1]);
+        IceSheetMask=[IceSheetMask(:,3601:7200) IceSheetMask(:,1:3600)];
+        [X,Y]=meshgrid( linspace(0,1,size(IceSheetMask,2)),linspace(0,1,size(IceSheetMask,1)) ) ;
+        [Xq,Yq]=meshgrid( linspace(0,1,288),linspace(0,1,192) ) ;
+        IceSheetMask=interp2( X , Y , IceSheetMask , Xq, Yq);
+        clear X Y Xq Yq
+        save(fullfile(MaskInputDir,IceSheetMaskFile),'IceSheetMask')
+    else
+        load(fullfile(MaskInputDir,IceSheetMaskFile),'IceSheetMask')
+    end
+    
+end
+
+%%
+close all
+sec2year=60.*60.*24.*365.;
+km22m2=1.e6;
+rhoice=0.913;
+kg2m3=1.e-3./rhoice;
+
+SMBZones=nan(size(LonCenters));
+SMBZones(min(CESMSMB,[],3)>=0. & ~isnan(GriddedMeanElevation))=1; %no ablation zone
+SMBZones(max(CESMSMB,[],3)<=0.& ~isnan(GriddedMeanElevation))=2; %no accumulation zone
+SMBZones(min(CESMSMB,[],3)<0. & max(CESMSMB,[],3)>0. & ~isnan(GriddedMeanElevation))=3; %both ablation and accumulation zones
+
+n=0;
+nt=1000;
+TotalVolume=zeros(nt,1)
+hold on
+for i=1:size(LonCenters,1)
+    disp(['% Done=' num2str(i./size(LonCenters,1))])
+    for j=1:size(LonCenters,2)
+        if GriddedGlacierRegion(i,j) == 8 && SMBZones(i,j) == 3 %if around GIS periphery and has both accumulation and ablation
+            %loop over all hypsometries in this grid cell
+            for glc=1:size(GriddedHypsometry,3)
+                if ~isempty(GriddedHypsometry{i,j,glc})
+                    n=n+1;
+                    hyps=[GriddedHypsometry{i,j,glc}].*km22m2;
+                    elev=[GriddedElevationBins{i,j,glc}]';
+                    %get vertical SMB profile by interpolating CESM SMB profile to glacier elevation
+                    smb=interp1(squeeze(CESMElevations(i,j,:)),squeeze(CESMSMB(i,j,:)),elev,'spline');
+                    %set smb to m ice thickness/m^2 per year
+                    smb=smb*kg2m3*sec2year;
+                    plot(elev,smb)
+                    %get total net SMB over glacier: multiply SMB at each level by area of glacier at that level.  Convert to kg/m^2/sec ice to kg
+                    smbtot=sum(smb.*hyps);
+                    plot(smbtot)
+                    area=sum(hyps);
+                    vol= 0.033 .* (area.^1.375);
+                    if EvolveGlaciers
+                        for t=1:nt
+                            if vol==0
+                                break
+                            end
+                            %calculate new volume after smb
+                            vol=vol+max(-vol,smbtot);
+                            TotalVolume(t)=TotalVolume(t)+vol;
+                            %calculate new area using volume-area scaling
+                            OldArea=area;
+                            area = ( vol ./ 0.033 ) .^ (1. ./ 1.375);
+                            TotalAreaChange=area-OldArea; %negative change in area for shrinking glacier
+                            for na=1:length(hyps)
+                                darea=max(TotalAreaChange,-hyps(na)); %negative number if area change is negative (shrinking glacier)
+                                hyps(na)=hyps(na)+darea;
+                                TotalAreaChange=TotalAreaChange-darea;
+                            end
+                            if sum(hyps)<1.e-3;
+                                break
+                            end
+                        end
+                    end
+                    clear hyps elev smb smbtot area vol Volume
+                end
+            end
+        end
+    end
+end
+hold off
+
+
+
+
+
+

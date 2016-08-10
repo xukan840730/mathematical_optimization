@@ -1,0 +1,70 @@
+close all
+clear all
+
+input_path='/Users/fyke/Cairn_Climate_Consulting/routines/climatewma_processing/processed_data';
+output_path='/Users/fyke/Cairn_Climate_Consulting/data/processed_1km_climate_data';
+InputFileName={'CCCMA_CGCM3_1_A2_2020full' 'CCCMA_CGCM3_1_A2_2050full' 'CCCMA_CGCM3_1_A2_2080full'};
+OutputDirName={'2020' '2050' '2080'};
+
+for f=1:length(InputFileName)
+    disp(['Processing period ' OutputDirName{f} '...'])    
+    %Open csv file derived from ClimateWNA processing
+    fid=fopen(fullfile(input_path,strcat(InputFileName{f},'.csv')));
+    %Load first line (header), which is the names of the variables
+    VariableName=fgetl(fid);
+    %remove double quotes, and replace any math characters in var names
+    VariableName=regexprep(VariableName,'"','');
+    VariableName=regexprep(VariableName,'<','lt');
+    VariableName=regexprep(VariableName,'>','gt');
+    %Get header values, minus first two which are redundant columns
+    VariableName=splitstring(VariableName,',');
+    VariableName=VariableName(3:end);
+
+    %for each variable, read in each value corresponding to lat/lon location
+    for nvars=1:length(VariableName);
+        disp(['   Reading variable ' VariableName{nvars} '...'])
+        data{1}=squeeze(zeros(2930400,1)); %zero the data field to the total length of the input data (HARDWIRED!)
+        if nvars==1;
+            text_formatter='%*s %*s %f32 %*[^\n]';
+            data=textscan(fid,text_formatter,'delimiter',',');
+        else
+            %rewind to start of file, advance over headers
+            frewind(fid)
+            junk=fgetl(fid);clear junk
+            cols_2_skip=repmat(' %*f',1,nvars-1);
+            text_formatter=strcat('%*s %*s ',cols_2_skip,' %f32 %*[^\n]');
+            data=textscan(fid,text_formatter,'delimiter',',');
+        end
+        
+        if nvars<=2
+            eval(strcat(VariableName{nvars},'vec=data{1};')); %save Longitude and Latitude vectors internally
+        else
+            if nvars==3 && f==1 %if on first input dataset, which is elevation, and at first non-lat/lon coordinate column of data, save gridded lat/lon and reference vector
+                disp(['   Generating latitude, longitude, and elevation grids, saving to metadata file...'])
+                [Longitude,refvec]=geoloc2grid(double(Latitudevec),double(Longitudevec),double(Longitudevec),1./60./2);
+                [Latitude,refvec] =geoloc2grid(double(Latitudevec),double(Longitudevec),double(Latitudevec),1./60./2);
+                [Elevation,refvec]=geoloc2grid(double(Latitudevec),double(Longitudevec),double(data{1}),1./60./2);
+
+                %Once Lat/Lon loaded for first time, save the common reference vector, Lat/Lon grids, and elevation to file
+                save(fullfile(output_path,'metadata.mat'),'refvec','Latitude','Longitude','Elevation') %save the reference vector
+            elseif nvars>3 %if past elevation data, save to regular files.
+                %if past reading longitude and latitude, then create a geolocated grid from input lat, lon and data vectors, for each variable
+                disp(['   Generating grid for variable ' VariableName{nvars} '...'])
+                eval(strcat('[',VariableName{nvars},',refvec]=geoloc2grid(double(Latitudevec),double(Longitudevec),double(data{1}),1./60./2);')); %put on geolocated grid
+                
+                %make single precision
+                eval(strcat(VariableName{nvars},'=single(',VariableName{nvars},');'));
+                
+                %if past Lat/Lon data, save geolocated data grid to individual file in appropriate time folder, and remove data vector
+                eval(sprintf('save %s %s',fullfile(output_path,OutputDirName{f},VariableName{nvars}),VariableName{nvars}));
+                
+                %clear data vector for the next round.
+                eval(sprintf('clear data %s',VariableName{nvars}));
+            end
+        end
+
+    end
+    %close input file
+    fclose(fid);
+    
+end

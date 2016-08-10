@@ -1,0 +1,51 @@
+%%
+close all
+clear all
+mounted_directory='/Volumes/Mare/playground/2.9.old3_equilib_and_historical_warming/';
+
+%load era40 2-m SAT and geopotential (using offsets, scales, and
+%conversion of geopotential to elevation)
+obs_yr_strt=1958;
+toffset=256.072882619393-273.15;
+tscale=0.00175574730583973;
+eoffset=23889.6700493175;
+escale=0.911981932490997;   
+geoadj=9.81287;
+obssat=rnc('era40.nc','t2m',tscale,toffset);
+obselev=interp2uvic(rot90(max(0,rnc('era40geopotential.nc','z',escale,eoffset)/geoadj)));
+%load preindustrial equilibrium SAT
+modsat1800=rnc(strcat(mounted_directory,'preind_monthly_output/tavg.01801.02.01.nc'),'A_sat')-273.15;
+%load modern transient uvic SAT and elevation
+mod_yr_strt=1952;
+modsat=rnc(strcat(mounted_directory,'1952_2_2012_transient/tavg.01952.02.01.nc'),'A_sat')-273.15;
+%load elevation
+modelev=rnc(strcat(mounted_directory,'data/elev.nc'),'elev')/100.;
+
+%% Calculate 1970-2001 monthly mean values for both observation and model
+%%datasets
+ystrt=1970;
+yend=2001;
+obsystrt=ystrt-obs_yr_strt
+obsyend=yend-obs_yr_strt
+modystrt=ystrt-mod_yr_strt
+modyend=yend-mod_yr_strt
+for mon=1:12;
+  ms=obsystrt*12+mon;
+  me=obsyend*12+mon;
+  monvec=ms:12:me;
+  obssatltm(:,:,mon)=interp2uvic(rot90(mean(obssat(:,:,monvec),3)));
+  ms=modystrt*12+mon;
+  me=modyend*12+mon;  
+  monvec=ms:12:me;
+  modsatltm(:,:,mon)=mean(modsat(:,:,monvec),3)';
+  %rotate 1800 sat
+  modsat1800(:,:,mon)=modsat1800(:,:,mon)';
+  %get observed 1800 sat
+  modsatdiff(:,:,mon)=modsatltm(:,:,mon)-modsat1800(:,:,mon);
+  obssat1800(:,:,mon)=obssatltm(:,:,mon)-modsatdiff(:,:,mon);
+  %rotate array back so when written to nc, is oriented correctly
+  obssat1800(:,:,mon)=obssat1800(:,:,mon)';
+end
+
+%% Write observed 1800 sat to file
+wnc(obssat1800,'obs1800sat.nc','sat','C')

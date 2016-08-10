@@ -1,0 +1,94 @@
+function [GriddedGlacierCount,...
+    GriddedMeanElevation,...
+    GriddedHypsometry,...
+    GriddedElevationBins...
+    GriddedSTD...
+    GriddedCoverage...
+    GriddedMinElevation...
+    GriddedMaxElevation...
+    GriddedBahrELA] = sort_RGI_glaciers_onto_nonregular_grid(LonCenters,LatCenters,TrimLon,TrimLat)
+
+LonCenters=wrapTo360(LonCenters);
+LatCenters=wrapTo360(LatCenters);
+MinGriddedLon=min(LonCenters(:));
+MinGriddedLat=min(LatCenters(:));
+MaxGriddedLon=max(LonCenters(:));
+MaxGriddedLat=max(LatCenters(:));
+
+kdtreeobj=KDTreeSearcher([LonCenters(:) LatCenters(:)]);
+
+AAREq=0.57;
+ArraySize=size(LonCenters);
+GriddedGlacierCount =zeros(ArraySize);
+GriddedMeanElevation=zeros(ArraySize);
+GriddedHypsometry   =cell(ArraySize(1),ArraySize(2),100);
+GriddedElevationBins=cell(ArraySize(1),ArraySize(2),100);
+GriddedSTD          =zeros(ArraySize);
+GriddedCoverage     =zeros(ArraySize);
+GriddedMinElevation =zeros(ArraySize);
+GriddedMinElevation(:,:) =1.e10;
+GriddedMaxElevation =zeros(ArraySize);
+GriddedBahrELA      =zeros(ArraySize);
+
+region=dir('RGI_data/*_RGI_outlines.mat');
+InputDir='RGI_topographies_masks_and_hypsometries2/';
+
+for r=1:19
+    NGlacierRejected=0;
+    txt=regexp(region(r).name,'_','split');
+    regionname=txt{1};
+    disp(['Gridding RGI region: ' regionname '.'])
+    nn=0;
+    nfile=1;
+    fname=strcat(InputDir,regionname,num2str(nfile),'.mat');
+    
+    while exist(fname,'file')
+        load(fname,'RGIDataStructure','Hypsometry','ElevationBins','VerticalBinResolution');
+        ElevationBins=ElevationBins(1:end-1)+VerticalBinResolution./2;%add 1/2 of vertical bin resolution to elevation bin elevations to make elevation represent middle of bin
+        
+        RGIDataStructure.CENLON=wrapTo360(RGIDataStructure.CENLON);
+        if ~isempty(ElevationBins)>0 &&...
+                range(ElevationBins) > 200. &&...
+                min(ElevationBins) > 200.
+            
+            [IDX]=knnsearch(kdtreeobj,[RGIDataStructure.CENLON RGIDataStructure.CENLAT]);
+            
+            [iLat iLon]=ind2sub(size(LonCenters),IDX);
+
+            if ( TrimLat && (iLat==1 || iLat==size(LonCenters,1)) ) || ( TrimLon && (iLon==1 || iLon==size(LonCenters,2)) )
+                break
+            else
+                
+                
+                GriddedGlacierCount(iLat,iLon)=GriddedGlacierCount(iLat,iLon)+1;
+                
+                GriddedMeanElevation(iLat,iLon)=GriddedMeanElevation(iLat,iLon)+wmean(ElevationBins,Hypsometry');
+                
+                GriddedMinElevation(iLat,iLon)=min(GriddedMinElevation(iLat,iLon),min(ElevationBins));
+                
+                GriddedMaxElevation(iLat,iLon)=max(GriddedMaxElevation(iLat,iLon),max(ElevationBins));
+                
+                GriddedHypsometry{iLat,iLon,GriddedGlacierCount(iLat,iLon)}=Hypsometry;
+                
+                i=find(cumsum(Hypsometry)./sum(Hypsometry) > 1.-AAREq,1,'first');
+                GriddedBahrELA(iLat,iLon)=GriddedBahrELA(iLat,iLon)+ElevationBins(i);
+                
+                GriddedElevationBins{iLat,iLon,GriddedGlacierCount(iLat,iLon)}=ElevationBins;
+                
+                GriddedSTD(iLat,iLon)=GriddedSTD(iLat,iLon)+sqrt(var(ElevationBins,Hypsometry));
+                
+                GriddedCoverage(iLat,iLon)=GriddedCoverage(iLat,iLon)+RGIDataStructure.AREA;
+            end
+        else
+            NGlacierRejected=NGlacierRejected+1;
+        end
+        
+        nfile=nfile+1;
+        fname=strcat(InputDir,regionname,num2str(nfile),'.mat');
+    end
+end
+
+GriddedMeanElevation    =GriddedMeanElevation./GriddedGlacierCount;
+GriddedSTD              =GriddedSTD./GriddedGlacierCount;
+GriddedBahrELA          =GriddedBahrELA./GriddedGlacierCount;
+

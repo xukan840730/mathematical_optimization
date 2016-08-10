@@ -1,0 +1,6 @@
+function[] = local_plot_function(vname,leg_lab,offset)
+
+axis tight
+axis_labels
+print(h,'-dpdf',vname)
+hold off

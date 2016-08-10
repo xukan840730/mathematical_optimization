@@ -1,0 +1,88 @@
+close all
+clear all
+
+load gis_5km.searise.balvels.mat
+load gis_5km.searise.geom.mat
+
+muvel=ncread('BG_spinup_ensemble_stage_3.cism_0081.h.9001-01-01-00000.nc','uvel');
+mvvel=ncread('BG_spinup_ensemble_stage_3.cism_0081.h.9001-01-01-00000.nc','vvel');
+ModelledThickness =ncread('BG_spinup_ensemble_stage_3.cism_0081.h.9001-01-01-00000.nc','thk');
+ModelledUpperSurface=ncread('BG_spinup_ensemble_stage_3.cism_0081.h.9001-01-01-00000.nc','usurf');
+
+%generate weights for getting vertically-averaged velocity
+siglevels=[0.00 0.15 0.30 0.45 0.60 0.75 0.83 0.90 0.95 0.98 1.00];
+wgt=diff(siglevels);
+wgt=wgt./sum(wgt);%already sums to one, but normalize anyways
+
+%get weighted sums of velocities for vertical average velocity
+for nlev=1:length(wgt);
+    vauvelaccum(:,:,nlev)=muvel(:,:,nlev).*wgt(nlev);
+    vavvelaccum(:,:,nlev)=mvvel(:,:,nlev).*wgt(nlev);
+end
+
+%generate vertically averaged velocities
+vauvel=squeeze(sum(vauvelaccum,3));
+vavvel=squeeze(sum(vavvelaccum,3));
+
+%trim thickness and upper surface elevation arrays to match velocity arrays
+ModelledThickness=ModelledThickness(2:end,2:end);
+ModelledUpperSurface=ModelledUpperSurface(2:end,2:end);
+
+%generate observed ice velocities
+ObservedVelocity = squeeze( sqrt( vx.^2 + vy.^2 ) );
+
+%generate modelled ice velocities from velocity components
+ModelledVelocity=squeeze( sqrt(vauvel.^2 + vavvel.^2) );
+
+%nan out ocean and set very thin ice velocities to 0 for plotting purposes
+ModelledVelocity( ModelledThickness<10 & ModelledUpperSurface>0 )=0;
+ModelledVelocity( ModelledThickness<10 & ModelledUpperSurface<=0 )=nan;
+
+% figure
+% 
+% subplot(1,2,1)
+% contourf( log10(ObservedVelocity+0.01), 30 ), shading flat
+% axis equal, axis tight,
+% set(gca,'Xtick',[],'Ytick',[])
+% h=colorbar; caxis( [ 0 3 ] );
+% ylabel(h,'Log_{10} balance vertically averaged velocity (m/yr)')
+% text(10,520,'a)','fontsize',30)
+% 
+% subplot(1,2,2)
+% contourf( log10(ModelledVelocity'+0.01), 30 ), shading flat
+% axis equal, axis tight,
+% set(gca,'Xtick',[],'Ytick',[])
+% h=colorbar; caxis( [ 0 3 ] );
+% ylabel(h,'Log_{10} SIA-modelled vertically averaged velocity (m/yr)')
+% text(10,520,'b)','fontsize',30)
+
+%plot velocity hypsometries
+MaxThickness=max(max([ModelledThickness(:) stagthck(:)]));
+ThicknessBins=0:100:MaxThickness;
+MaxSurfaceElevation=max(max([ModelledUpperSurface(:) stagusrf(:)]));
+SurfaceElevationBins=0:100:MaxSurfaceElevation;
+ObservedVelocity=zeros(length(ThicknessBins),1);
+ModelledVelocity=zeros(length(ThicknessBins),1);
+for t=1:length(ThicknessBins)-1
+for e=1:length(SurfaceElevationBins)-1
+    ObservedVelocity(t,e)=mean(ObservedVelocity( stagthck>ThicknessBins(t)        & stagthck <= ThicknessBins(t+1) ...
+                                               & stagusrf>SurfaceElevationBins(e) & stagusrf<=SurfaceElevationBins(e+1)));
+    ModelledVelocity(t,e)=mean(ModelledVelocity( ModelledThickness>ThicknessBins(t)        & ModelledThickness <= ThicknessBins(t+1) ...
+                                               & stagusrf>SurfaceElevationBins(e) & stagusrf<=SurfaceElevationBins(e+1)));
+    ModelledVelocity(t,e)=mean(ModelledVelocity(ModelledThickness>ThicknessBins(t) & ModelledThickness <= ThicknessBins(t+1)));
+end
+end
+
+figure
+
+hold on
+h(1)=plot(ObservedVelocity,ThicknessBins,'b')
+h(2)=plot(ModelledVelocity,ThicknessBins,'r')
+xlabel('Velocity (m/yr)')
+ylabel('Ice thickness (m)')
+legend(h,{'Observed' 'SIA model'})
+hold off
+
+
+
+

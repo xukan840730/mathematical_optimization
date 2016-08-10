@@ -1,0 +1,69 @@
+% simple energy balance model based on equation 3.13 and program 
+% in Sec. 3.4 of "A Climate Modeling Primer", 1st Edition, 1987,
+% by a. henderson-sellers and k. mcguffie.
+%
+% written by david holland, feb 2002
+
+%--------------------------------------------------------------------------
+close all
+clear all
+% global variables
+
+  global num_lat_zones lats lats_frac
+  global insolation albedo temp
+  
+%--------------------------------------------------------------------------
+
+% define geometry of earth as sequence of latitude bands
+
+  geometry_setup;
+  
+%--------------------------------------------------------------------------
+
+% (solar) insolation per latitude band 
+
+  insolation_setup;
+    
+%--------------------------------------------------------------------------
+for albedo_ice=0.3:0.1:0.8
+% initial guess for latitudinal temperature distribution (cold earth)
+   
+  for j = 1:num_lat_zones
+     temp(j) = 1.0;
+  end
+  
+% average planetary temperature for a range of warming solar multipliers
+  solar_start=60
+  solar_end=140
+  
+  for k = solar_start:solar_end
+     solar_mult(k) = k/100.0;
+     avg_temp(k) = solve_temp (solar_mult (k),albedo_ice);                             
+  end
+ 
+  figure
+  plot (solar_mult(solar_start:solar_end), avg_temp(solar_start:solar_end),'b');
+  title('Average Temperature versus Solar Multiplier');
+  xlabel('Solar Multiplier');
+  ylabel('Average Temperature');
+  axis([.60 1.60 -60. 60.]);
+  hold on
+  
+%--------------------------------------------------------------------------
+
+% average planetary temperature for a range of cooling solar multipliers
+
+  for k = solar_end:-1:solar_start
+     solar_mult(k) = k/100.0;
+     avg_temp(k) = solve_temp (solar_mult (k),albedo_ice);                              
+  end
+ 
+  plot (solar_mult(solar_start:solar_end), avg_temp(solar_start:solar_end),'r');
+  title('Average Temperature versus Solar Multiplier');
+  xlabel('Solar Multiplier');
+  ylabel('Average Temperature');
+  axis([.60 1.40 -60. 60.]);
+  hold off
+%--------------------------------------------------------------------------
+end
+% EOF

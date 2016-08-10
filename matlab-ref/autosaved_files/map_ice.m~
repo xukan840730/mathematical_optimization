@@ -1,0 +1,72 @@
+%%
+close all
+clear all
+%%
+% !ssh jer@mare.seos.uvic.ca sh "PhD_output/future_equilib/distscript"
+% !ssh jer@mare.seos.uvic.ca sh "PhD_output/GIS_incept/distscript"
+% !rm -r deglac_dist
+% !rm -r incept_dist
+% !scp -r jer@mare.seos.uvic.ca:PhD_output/future_equilib/dist ./deglac_dist
+% !scp -r jer@mare.seos.uvic.ca:PhD_output/GIS_incept/dist ./incept_dist
+
+
+%%
+for n=1:7;
+  deglaciate(n).hs=rnc(strcat('deglac_dist/',num2str(n),'.nc'),'hs',0,1);
+  incept(n).hs=rnc(strcat('incept_dist/',num2str(n),'.nc'),'hs',0,1);  
+end
+
+%%
+close all
+scnsize=get(0,'Screensize');
+fig1=figure;
+position = get(fig1,'Position');
+set(fig1,'Position',scnsize);
+Nh=2;
+Nw=6;
+gap=[0.01 0.01];
+marg_h=0.1;
+marg_w=[0.1 0.12];
+ha = tight_subplot(Nh, Nw, gap, marg_h, marg_w)
+labels={'a)','b)','c)','d)','e)','f)','g)','h)','i)','j)','k)','l)'};
+for n=1:6
+  if version == 7.8   
+    hs=flipud(rot90(deglaciate(n).hs));
+  else
+    hs=(deglaciate(n).hs);
+  end
+  i=find(hs==0);
+  hs(i)=nan;
+  axes(ha(n));contourf(hs);
+  caxis([0 3500]);
+  axis equal tight off
+  text(3,130,labels{n},'Fontsize',20)
+end
+for n=7:12
+  if version == 7.8   
+    hs=flipud(rot90(incept(n-6).hs));
+  else
+    hs=(incept(n-6).hs);
+  end 
+  i=find(hs==0);
+  hs(i)=nan;
+  axes(ha(n));contourf(hs);
+  caxis([0 3500]);
+  axis equal off
+  text(3,130,labels{n},'Fontsize',20)
+end
+orig_pos=get(ha(12),'Position')
+hcb=colorbar('EastOutside')
+hcbl=ylabel(hcb,'surface elevation (m)')
+set(hcbl,'Fontsize',15)
+set(hcb,'Fontsize',15)
+set(ha(12),'Position',orig_pos)
+%text(-310,295,'Figure 1: Final ice distribution for equilibrium simulations','Fontsize',20)
+% arrow([-315 145],[-5 165],'width',3,'length',30);
+h1=text(-398,150,'1x PAL CO_2','FontSize',30);
+h2=text(2,150,'6x PAL CO_2','FontSize',30);
+h3=text(-410,200,'Deglaciation','Fontsize',30,'Rotation',90);
+h3=text(-410,50,'Inception','Fontsize',30,'Rotation',90);
+
+set(gcf, 'PaperPositionMode', 'auto')
+print -depsc2 -cmyk equilib_dist.eps

@@ -1,0 +1,13 @@
+function [value,isterminal,direction] = equal_ff_re_price(t,~)
+
+global CTre Pre0
+
+%cost of fossil fuel according to Neil (???):
+%P_ff= 1e4 ./ V + 1000 ;
+
+%Define the stopping value as the point where the cost of fossil fuel
+%equals the time-dependent cost of renewables.
+P_re = Pre0 + CTre .*t ;
+value =  (P_re-1000.) ./ 1.4; %equate price of fossil fuel to price of renewable
+isterminal = 1; %stop integration if crossing is found
+direction = 0; %stop if crossing is hit in either direction

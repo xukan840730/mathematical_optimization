@@ -1,0 +1,22 @@
+clear all
+close all
+
+smb_old=ncread('old_IG_avg.nc','acab'); smb_old(smb_old==0.)=nan;
+smb_new=ncread('new_IG_avg.nc','acab'); smb_new(smb_new==0.)=nan;
+
+subplot(2,2,1)
+contourf(smb_old',20), shading flat, axis equal tight, caxis([-3 1.5]), colorbar
+title('High-CO_2 SMB field')
+
+subplot(2,2,2)
+contourf(smb_new',20), shading flat, axis equal tight, caxis([-3 1.5]), colorbar
+title('Low-CO_2 SMB field')
+
+subplot(2,2,3)
+pcolor(smb_new' - smb_old'), shading flat, axis equal tight, colorbar
+title('High-CO_2-Low-CO_2 SMB field difference')
+
+
+subplot(2,2,4)
+pcolor((smb_new' - smb_old')./smb_old' *100.), shading flat,axis equal tight,caxis([-100 100]), colorbar
+title()

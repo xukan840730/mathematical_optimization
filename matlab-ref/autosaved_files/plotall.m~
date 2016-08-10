@@ -1,0 +1,40 @@
+%% run all timeseries scripts in subdirectories
+clear all
+close all
+Editor = com.mathworks.mlservices.MLEditorServices;
+Editor.closeAll;
+
+version=getversion;
+if version == 7.8   
+  cd /Network/Servers/cl00.seos.uvic.ca/Volumes/Casa/Users2/jer/Dropbox/Manuscripts/GIS_future
+else
+  cd /Users/jer/Dropbox/Manuscripts/GIS_future
+end
+
+iequilib=1
+ihysteresis=2
+itransient=3
+iincept=4
+
+loa
+
+%%
+% cd equilib
+% equilib_timeseries
+% cd ../transient
+% transient_timeseries
+% cd ../hysteresis
+% hysteresis_timeseries
+% cd ../incept
+% incept_timeseries
+% cd ..
+
+cd equilib
+edit equilib_timeseries
+cd ../transient
+edit transient_timeseries
+cd ../hysteresis
+edit hysteresis_timeseries
+cd ../incept
+edit incept_timeseries
+cd ..

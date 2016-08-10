@@ -1,0 +1,102 @@
+function [GriddedGlacierCount,...
+    GriddedGlacierRegion,...
+    GriddedMeanElevation,...
+    GriddedHypsometry,...
+    GriddedElevationBins,...
+    GriddedSTD,...
+    GriddedGlacierArea,...
+    GriddedMinElevation,...
+    GriddedMaxElevation,...
+    GriddedBahrELA] = sort_RGI_glaciers_onto_grid(LonCenters,LatCenters,TrimLon,TrimLat)
+
+%inputs:
+%LonCenters: Central longitudes of grid cells (matrix)
+%LatCenters: Central latitudes of grid cells (matrix)
+%TrimLon, TrimLat: whether to trim data for non-global grids: 
+
+LonCenters=wrapTo360(LonCenters);
+%initialize nearest-neighbour search algorithm
+kdtreeobj=KDTreeSearcher([LonCenters(:) LatCenters(:)]);
+
+ArraySize=size(LonCenters);
+GriddedGlacierCount =zeros(ArraySize);
+GriddedGlacierRegion=zeros(ArraySize);
+GriddedMeanElevation=zeros(ArraySize);
+GriddedHypsometry   =cell(ArraySize(1),ArraySize(2),100);
+GriddedElevationBins=cell(ArraySize(1),ArraySize(2),100);
+GriddedSTD          =zeros(ArraySize);
+GriddedGlacierArea  =zeros(ArraySize);
+GriddedMinElevation =zeros(ArraySize);
+GriddedMinElevation(:,:) =1.e10;
+GriddedMaxElevation =zeros(ArraySize);
+GriddedBahrELA      =zeros(ArraySize);
+
+region=dir('data/RGI_data/*_RGI_outlines.mat');
+InputDir='data/RGI_topographies_masks_and_hypsometries2/';
+
+for r=1:19
+    txt=regexp(region(r).name,'_','split');
+    regionname=txt{1};
+    disp(['Gridding RGI region: ' regionname '.'])
+    nfile=1;
+    fname=strcat(InputDir,regionname,num2str(nfile),'.mat');
+    
+    %loop through glaciers in region
+    while exist(fname,'file')
+        %load data
+        load(fname,'RGIDataStructure','Hypsometry','ElevationBins','VerticalBinResolution');
+        %adjust bin elevations to refer to central elevations of elevation
+        %bins (and not bin edges)
+        ElevationBins=ElevationBins(1:end-1)+VerticalBinResolution./2;%add 1/2 of vertical bin resolution to elevation bin elevations to make elevation represent middle of bin
+        %ensure longitudes are on a [0 360] range.
+        RGIDataStructure.CENLON=wrapTo360(RGIDataStructure.CENLON);
+        %filter which glaciers to study:
+        if ~isempty(ElevationBins) &&...
+           range(ElevationBins) > 60. &&... %if the total elevation range is greater than some threshold
+           min(ElevationBins) > 0. %if the minimum elevation is above some threshold (i.e. to exclude tidewaters)
+            
+            %find nearest grid cell center to this glacier's central
+            %lon/lat
+            [IDX]=knnsearch(kdtreeobj,[RGIDataStructure.CENLON RGIDataStructure.CENLAT]);
+            [iLat iLon]=ind2sub(size(LonCenters),IDX);
+ 
+            %if we're working with a non-global grid, and the nearest
+            %grid cell to the glacier is right on grid edge, it is probably
+            %finding this point from somewhere offgrid.  Exclude in this
+            %case.  Otherwise, include glaciers.
+            if ~( ( TrimLat && (iLat==1 || iLat==size(LonCenters,1)) ) || ( TrimLon && (iLon==1 || iLon==size(LonCenters,2)) ) ) 
+                
+                GriddedGlacierCount(iLat,iLon)=GriddedGlacierCount(iLat,iLon)+1;
+                
+                GriddedGlacierRegion(iLat,iLon)=r;
+
+                GriddedMeanElevation(iLat,iLon)=GriddedMeanElevation(iLat,iLon)+wmean(ElevationBins,Hypsometry');
+                
+                GriddedMinElevation(iLat,iLon)=min(GriddedMinElevation(iLat,iLon),min(ElevationBins));
+                
+                GriddedMaxElevation(iLat,iLon)=max(GriddedMaxElevation(iLat,iLon),max(ElevationBins));
+                
+                GriddedHypsometry{iLat,iLon,GriddedGlacierCount(iLat,iLon)}=Hypsometry;
+                
+                AAREq=0.57;
+                i=find(cumsum(Hypsometry)./sum(Hypsometry) > 1.-AAREq,1,'first');
+                GriddedBahrELA(iLat,iLon)=GriddedBahrELA(iLat,iLon)+ElevationBins(i);
+                
+                GriddedElevationBins{iLat,iLon,GriddedGlacierCount(iLat,iLon)}=ElevationBins;
+                
+                GriddedSTD(iLat,iLon)=GriddedSTD(iLat,iLon)+sqrt(var(ElevationBins,Hypsometry));
+                
+                GriddedGlacierArea(iLat,iLon)=GriddedGlacierArea(iLat,iLon)+RGIDataStructure.AREA;
+                
+            end
+        end
+        nfile=nfile+1;
+        fname=strcat(InputDir,regionname,num2str(nfile),'.mat');
+    end
+end
+GriddedMinElevation(GriddedMinElevation>1.e9) = 0.;
+GriddedMeanElevation                          = GriddedMeanElevation./GriddedGlacierCount;
+GriddedSTD                                    = GriddedSTD./GriddedGlacierCount;
+GriddedBahrELA                                = GriddedBahrELA./GriddedGlacierCount;
+
+return

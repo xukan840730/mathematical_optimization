@@ -1,0 +1,16 @@
+clear all
+close all
+
+solar=linspace(1370*.6,1370,100);
+time=linspace(-4.5,0,100);
+f_p(1:100)=273.15;
+co_alb=0.65;
+s_b_const=5.67e-8;
+
+T=( (0.5.*solar.*co_alb) ./ s_b_const ).^0.25;
+hold on
+plot(time,T,'Linewidth',2)
+plot(time,f_p,'r--','Linewidth',2)
+set(gca,'Fontsize',20)
+axis tight
+print('-dpng','faint_sun.png')

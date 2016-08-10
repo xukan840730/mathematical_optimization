@@ -1,0 +1,48 @@
+close all
+clear all
+%% load data that was generated with Excel
+dep=XLSREAD('material_summary.xls','norm_hist_prod','B2:T202');
+el={'Al' 'Sb' 'Cd' 'Cr' 'Co' 'Cu' 'Au' 'C' 'In' 'Pb' 'Mn' 'Mo' 'Ni' 'Pt' 'Ag' 'Ta' 'Sn' 'W' 'Zn'};
+%strip off years
+years=dep(:,1);
+dep=dep(:,2:end);
+dep=1.-dep;
+dep_timeseries=zeros(length(years)/10,1);
+for els=1:length(el);
+   t=1;
+   while dep(t,els)>0.;
+       t=t+1;
+   end
+   dep(t+1:end,els)=nan;
+   dep_time(els)=t+1;
+   dep_timeseries(round(t/10))=dep_timeseries(round(t/10))+1;
+end
+[B,IX] = sort(dep_time)
+for els=1:length(el);
+    el_sort{els}=el{IX(els)}
+    dep_time(els)
+end
+
+fig1=figure;
+scnsize=get(0,'Monitorpositions');
+set(fig1,'Position',scnsize(1,:));
+cbar=zeros(3,max(dep_time)-min(dep_time)+1);
+cbar(2:3,:)=0;
+cbar(1,:)=linspace(1,0,max(dep_time)-min(dep_time)+1);
+colormap(cbar');
+hold on
+for els=1:length(el);
+    el{els}
+    plot(years(1:109),dep(1:109,els).*100.,'-','linewidth',2,'color',cbar(:,(dep_time(els)-min(dep_time)+1)))
+    plot(years(110:end),dep(110:end,els).*100.,'--','linewidth',2,'color',cbar(:,(dep_time(els)-min(dep_time)+1)))
+end
+axis tight;ax=axis;ax(2)=2150;axis(ax);
+set(gca,'Xtick',[1900 2000 2050 2100 215)
+set(gca,'Ytick',[])
+set(gca,'linewidth',2)
+% 
+% %title('Resource extinction by element','Fontsize',20)
+% %xlabel('Time (years)','Fontsize',20)
+% %ylabel('% Resource remaining (1900 reserves)','Fontsize',20)
+hold off
+

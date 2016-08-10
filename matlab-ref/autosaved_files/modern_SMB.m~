@@ -1,0 +1,93 @@
+clear all
+cd /Users/jer/School/Manuscripts/GMD_mod_dev/modern_SMB
+
+%% Get melt, accum and total SMB timeseries for both ice sheets, for raw
+%% and bias-corrected 0-2000 runs.
+
+%%
+isname={'AIS','GIS'};
+isnamelower={'ais','gis'};
+hname={'S','N'};
+numsheets=length(isname);
+mroot='jer@mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/sensitivity_runs/synch_transient/0_to_2000/';
+fname='tsi.00001.01.01.nc';
+getloc=strcat(mroot,fname);
+putloc=fname;
+exists=exist(putloc,'file');
+if (exists==0)
+  clear command
+  command=sprintf('scp %s %s',getloc,putloc)
+  system(command);
+end
+
+%%
+vname={'L_icesmb','L_accummass','L_meltmass','L_meltextent'};
+ismb=1;
+iaccum=2;
+imelt=3;
+imext=4;
+vdimsize=length(vname);
+
+is=1;
+in=2;
+for h=1:2
+  for v=1:vdimsize
+     ncload(fname,strcat(vname{v},hname{h}))
+  end
+end
+hemi(in).diag(ismb,:)=L_icesmbN/1.e12;
+hemi(in).diag(iaccum,:)=L_accummassN/1.e12;
+hemi(in).diag(imelt,:)=L_meltmassN/1.e12;
+hemi(in).diag(imext,:)=L_meltextentN;
+hemi(is).diag(ismb,:)=L_icesmbS/1.e12;
+hemi(is).diag(iaccum,:)=L_accummassS/1.e12;
+hemi(is).diag(imelt,:)=L_meltmassS/1.e12;
+hemi(is).diag(imext,:)=L_meltextentS;
+
+%% Get 2000-preind %change in SMB and linear least-squares fit to 1970-2000 SMB over both ice sheets
+plot_year_start=1800;
+trend_year_start=1970;
+trend_year_end=2000;
+year=linspace(1,2000,2000);
+order=1;
+P=zeros(numsheets,order+1);
+trend=zeros(numsheets,(trend_year_end-trend_year_start+1));
+for i=1:2
+  preindsmb=mean(hemi(i).diag(ismb,1:(plot_year_start-1)));
+  finalsmb=mean(hemi(i).diag(ismb,(end-5):end));  %final 5 values
+  percent_smb_change(i)=(finalsmb-preindsmb)/preindsmb*100.;
+  outputtext=sprintf('percent change for %s is %0.3g percent from original value of %0.3g GT',...
+    isname{i},percent_smb_change(i),preindsmb);
+  display(outputtext)
+  P(i,:)=polyfit(year(trend_year_start:trend_year_end),hemi(i).diag(ismb,(trend_year_start:trend_year_end)),1);
+  trend(i,:)=year(trend_year_start:trend_year_end)*P(i,1) +P(i,2);
+end
+%%
+
+color={'g','b','r'};
+close all
+for i=1:2
+  figure
+  hold on
+  for n=1:3
+    ltm(n)=mean(hemi(i).diag(n,1:(plot_year_start-1)));
+    hplot(n)=plot(year(plot_year_start:end), hemi(i).diag(n,plot_year_start:end)-ltm(n),color{n},'LineWidth',2);
+  end
+  htplot=plot(year(trend_year_start:trend_year_end),trend(i,:)-ltm(1),'k--','LineWidth',2);
+  trendtext=sprintf('1970-2000 rate of mass flux change: %0.2g Gt/yr^2',P(i,1));
+  hlegend=legend([[hplot] htplot],...
+    'SMB anomaly',...
+    'accumulation anomaly',...
+    'melt anomaly',...
+    trendtext,...
+    'location', 'Best');
+  hXLabel = xlabel('Year');
+  hYLabel = ylabel(sprintf('%s %s',isname{i},'mass flux anomaly (Gt/year)'));
+  hold off
+  print('-depsc',strcat('/Users/jer/Dropbox/Public/Manuscripts/GMD/figures/',...
+                                        isnamelower{i},'_SMBanom'));
+  figure
+  plot(hemi(i).diag(imext,:)/1.e6)
+  title(strcat(' melt extent'))
+end
+

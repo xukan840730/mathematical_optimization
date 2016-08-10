@@ -1,0 +1,59 @@
+% 1) Annual variables:
+% Directly calculated variables:
+% MAT...................................mean annual temperature (°C),
+% MWMT..................................mean warmest month temperature (°C),
+% MCMT..................................mean coldest month temperature (°C),
+% TD....................................temperature difference between MWMT and MCMT, or continentality (°C),
+% MAP...................................mean annual precipitation (mm),
+% MSP...................................mean summer (May to Sept.) precipitation (mm),
+% AH:M..................................annual heat:moisture index (MAT+10)/(MAP/1000))
+% SH:M..................................summer heat:moisture index ((MWMT)/(MSP/1000))
+
+% Derived variables:
+% DD<0 (DD_0)...........................degree-days below 0°C, chilling degree-days
+% DD>5 (DD5)............................degree-days above 5°C, growing degree-days
+% DD<18 (DD_18).........................degree-days below 18°C, heating degree-days
+% DD>18 (DD18)..........................degree-days above 18°C, cooling degree-days
+% NFFD..................................the number of frost-free days
+% FFP...................................frost-free period
+% bFFP..................................the Julian date on which FFP begins
+% eFFP..................................the Julian date on which FFP ends
+% PAS...................................precipitation as snow (mm). For an individual year, PAS is calculated for the period between August in previous year and July in current year
+% EMT...................................extreme minimum temperature over 30 years. For an individual year, the EMT is estimated for a 30-year normal period (one of the nine normal periods included in the package) where the individual year is nearest to the centre of the normal period.
+% EXT...................................extreme maximum temperature over 30 years. For an individual year, the EXT is estimated for a 30-year normal period where the individual year is nearest to the centre of the normal period.
+% Eref..................................Hargreaves reference evaporation.
+% CMD...................................Hargreaves climatic moisture deficit.
+
+% 2) Seasonal variables:
+% Tave_wt...............................winter (Dec. - Feb.) mean temperature (°C). For an individual year, Dec. of the previous year is used. This applies to all the winder variables below.
+% Tave_sp...............................spring (Mar. - May) mean temperature (°C)
+% Tave_sm...............................summer (Jun. - Aug.) mean temperature (°C)
+% Tave_at...............................autumn (Sep. - Nov.) mean temperature (°C)
+% Tmax_wt...............................winter mean maximum temperature (°C).
+% Tmax_sp...............................spring mean maximum temperature (°C)
+% Tmax_sm...............................summer mean maximum temperature (°C)
+% Tmax_at...............................autumn mean maximum temperature (°C)
+% Tmin_wt...............................winter mean minimum temperature (°C)
+% Tmin_sp...............................spring mean minimum temperature (°C)
+% Tmin_sm...............................summer mean minimum temperature (°C)
+% Tmin_at...............................autumn mean minimum temperature (°C)
+% PPT_wt................................winter precipitation (mm)
+% PPT_sp................................spring precipitation (mm)
+% PPT_sm................................summer precipitation (mm)
+% PPT_at................................autumn precipitation (mm)
+% Seasonal climate variables also include the following derived variables:
+% DD<0 (DD_0), DD>5 (DD5), DD<18 (DD_18), DD>18 (DD18), NFFD, PAS, Eref and CDM.
+
+% 3) Monthly variables
+% Tave01 ? Tave12.......................January - December mean temperatures (°C)
+% Tmax1 ? Tmax12........................January - December maximum mean temperatures (°C)
+% Tmin01 ? Tmin12.......................January - December minimum mean temperatures (°C)
+% PPT01 ? PPT12.........................January - December precipitation (mm)
+% DD_0_01 ? DD_0_12.....................January - December degree-days below 0°C
+% DD5_01 ? DD5_12.......................January - December degree-days above 5°C
+% DD_18_01 ? DD_18_12...................January - December degree-days below 18°C
+% DD18_01 ? DD18_12.....................January - December degree-days above 18°C
+% NFFD01 ? NFFD12.......................January - December number of frost-free days
+% PAS01 ? PAS12.........................January ? December precipitation as snow
+% Eref01 ? Eref12.......................January ? December Hargreaves reference evaporation
+% CMD01 ? CMD12.........................January ? December Hargreaves climatic moisture deficit

@@ -1,0 +1,125 @@
+close all
+clear all
+
+RMS_correlation_plot=       0;
+RMS_ranking=  1;
+
+%set limiting data index values
+iall=1;
+idatlim=2;
+idatlatlim=3;
+%set analysis type values
+iglobal=1;
+izonal=2;
+anal_name={'all','data_latitude_limited'};
+anal_name_long={'all data included','data limited'}
+lan=length(anal_name);
+
+%% Load data
+for na=1:lan
+    importfile(strcat(anal_name{na},'.dat'))
+    d(na,iglobal,:,:)=data(1:10,2:3);
+    d(na,izonal,:,:)=data(11:20,2:3);
+end
+ecs=data(:,1);
+ecs=squeeze(ecs);
+ecs(1)=3.60; %UVIC PA run
+for n=1:10
+    ll{n}=num2str(ecs(n));
+end
+
+clear data
+%% Plot relationship between cc and rms for all experiments
+if RMS_correlation_plot
+    
+    axrange={[1.5 3 0.35 0.6] [0.7 2.5 0.5 1]};
+    mt={'+' 'o' '*' '.' 'x' 's' 'd' '^' 'v' '>' '<' 'p' 'h'};
+    c={[1 0 0] [0 1 0] [0 0 1]}
+    t{1}='Global data (red=no limits, green=data limits, blue=data+lat limits)';
+    t{2}='Zonal data (red=no limits, green=data limits, blue=data+lat limits)';
+    
+    nplots=2;fig_format
+    
+    for na=1:2 %zonal vs. global
+        subplot(1,2,na)
+        hold on
+        for nlim=1:lan %for all limiting procedures
+            for necs=1:10; %for all sensitivities, on zonal plot
+                scatter(d(nlim,na,necs,2),d(nlim,na,necs,1),mt{necs},'Cdata',c{nlim},'SizeData',50);
+                text(d(nlim,na,necs,2),d(nlim,na,necs,1)-0.01,ll{necs},'HorizontalAlignment','center');
+            end
+        end
+        xlabel('RMS error');
+        ylabel('Correlation coefficient');
+        axis(axrange{na});
+        title(t{na});
+        hold off
+    end
+    print('-dpng','scatter_plot.png')
+    
+end
+%% Plot RMS ranks
+if RMS_ranking
+    nplots=4;fig_format;
+    ha=tight_subplot(2, 2, [0.005 0.02], 0.2, [0.1 0.15]); %redo tight subplot
+    for na=1:lan;
+        
+        %first, plot RMS (on bottom)
+        axes(ha(na));
+        hold on
+        [ranked_RMS,i]=sort(d(na,izonal,:,2));
+        ranked_RMS=squeeze(ranked_RMS);i=squeeze(i);
+        bar(ranked_RMS);
+        axis tight;
+        ax=[0 11 0.5 1.8];axis(ax);
+        set(gca,'xtick',[])
+        set(gca,'ytick',0.6:0.5:1.6,'yticklabel',0.6:0.5:1.6)
+        %xticklabel_rotate(1:10,90,label);
+        title(anal_name_long{na})
+        if na==1
+            ylabel('RMS error (^{\circ}C)')
+        else
+            set(gca,'Ytick',[])
+        end
+        colormap([0 0 0])
+        box on
+        hold off
+        freezeColors
+        %then plot sensitivity
+        for n=1:10;
+            ranked_ecs(n)=ecs(i(n));
+            label{n}=ll{i(n)};
+        end
+        axes(ha(na+2));
+        hold on
+        h=bar(ranked_ecs);
+        colormap(flipud(hot(10)));
+        ch = get(h,'Children');
+        fvd = get(ch,'Faces');
+        fvcd = get(ch,'FaceVertexCData');
+        [zs, izs] = sort(ranked_ecs);
+        for i = 1:length(izs)
+            row = izs(i);
+            fvcd(fvd(row,:)) = i;
+        end
+        set(ch,'FaceVertexCData',fvcd)
+
+        ax=[0 11 1.8 4];axis(ax);
+        set(gca,'ytick',2:4,'yticklabel',2:4)
+        set(gca,'ydir','reverse')
+        if na==1
+            ylabel('ECS (^{\circ}C)')
+        else
+            set(gca,'Yticklabel',[])
+        end
+        set(gca,'xtick',[])
+        box on
+        grid on
+        hold off
+    end
+    
+    print('-depsc','RMS_ranking.eps')
+
+    
+end
+

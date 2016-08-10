@@ -1,0 +1,27 @@
+close all
+clear all
+load restart.mat
+rl=200000./1000.; %kyr
+time=linspace(0,rl,length(vol))';
+T_sealev=linspace(10,5,length(vol))';
+milank_sin=linspace(1,200000.,length(vol))';
+milank_sin=2*sin(milank_sin/10000.*2.*pi);
+T_sealev=T_sealev+milank_sin;
+scnsize=get(0,'Screensize');
+fig1=figure;
+mnsz=min(scnsize(3:4));
+set(fig1,'Position',[1 1 mnsz*0.6 mnsz*0.5]);
+
+ha=tight_subplot(2,1,0.01,[.1 .1],[.1 .05]);
+axes(ha(1)); plot(time,vol,'k','Linewidth',2);
+axis tight
+set(ha(1),'xticklabel','');
+ylabel('Volume (m^3)','Fontsize',20);
+text()
+
+axes(ha(2)); plot(time,T_sealev,'k','Linewidth',2); 
+axis tight;
+ylabel('Sealevel temperature ({^\circ}C)','Fontsize',20);
+xlabel('time (kyr)','Fontsize',20)
+set(ha,'Fontsize',15)
+print -depsc2 1Dmodel.eps

@@ -1,0 +1,112 @@
+
+%% make regional masks on global CGCM3 land-ocean mask
+
+close all
+clear all
+%load global mask
+ncload('gcm3_landmask_128x64v5_orig.nc');
+%set inland water to land
+GC(GC==2)=-1;
+pcolor(GC),shading flat
+%save GC for check, set land positive, ocean negative
+GC_sav=GC;
+GC_sav(GC==-1)=1;
+GC_sav(GC==0)=-1;
+%make long-lat mesh
+[lat,lon]=meshgrid(lat,lon);
+lat=lat';
+lon=lon';
+
+%% Land
+%Europe
+%15W-45E
+%30N-75N
+GC(lon<15 & lon>=0 & lat>30 & lat<75 & GC==-1)=2;
+GC(lon<=360 & lon>(360-45) & lat>30 & lat<=75 & GC==-1)=2;
+%North America
+%60W-170W
+%40N-75N
+GC(lon<360-60 & lon>=360-170 & lat>40 & lat<=75 & GC==-1)=3;
+%South America
+%35W-85W
+%60S-10N
+GC(lon<360-35 & lon>=360-80 & lat>-60 & lat<=10 & GC==-1)=4;
+%South Asia
+%45E-145E
+%5N-45N
+GC(lon<145 & lon>=45 & lat>5 & lat<=45 & GC==-1)=5;
+%North Asia
+%45E-180E
+%45N-75N
+GC(lon<180 & lon>=45 & lat>45 & lat<=75 & GC==-1)=6;
+%Australia
+%110E-155E
+%45S-10S
+GC(lon<155 & lon>=110 & lat>-45 & lat<=-10 & GC==-1)=7;
+%Afrika
+%20W-55E
+%35S-30N
+GC(lon<360 & lon>=360-20 & lat>-35 & lat<=30 & GC==-1)=8;
+GC(lon<55 & lon>=0 & lat>-35 & lat<=30 & GC==-1)=8;
+%Antarctica
+%0W-0E
+%90S-60S
+GC(lon<360 & lon>=0 & lat>-90 & lat<=-60 & GC==-1)=9;
+
+%%Set remaining GC to 1
+GC(GC==-1)=1;
+
+%% Ocean
+
+%Arctic
+GC(lon<360 & lon>=0 & lat>65 & lat<=90 & GC==0)=-2;
+
+%North Atlantic
+GC(lon<360 & lon>=360-75 & lat>0 & lat<=65 & GC==0)=-3;
+GC(lon<45 & lon>=0 & lat>0 & lat<=65 & GC==0)=-3;
+%%Need to fill in Caribbean
+
+%South Atlantic
+GC(lon<360 & lon>=360-67 & lat>-60 & lat<=-0 & GC==0)=-4;
+GC(lon<28 & lon>=0 & lat>-60 & lat<=-0 & GC==0)=-4;
+%Indian
+GC(lon<120 & lon>=28 & lat>-60 & lat<=45 & GC==0)=-5;
+
+%North Pacific
+GC(lon<360-67 & lon>=120 & lat>0 & lat<=90 & GC==0)=-6;
+
+%South Pacific
+GC(lon<360-67 & lon>=120 & lat>-60 & lat<=-0 & GC==0)=-7;
+
+%Southern
+GC(lon<360 & lon>=0 & lat>-90 & lat<=-60 & GC==0)=-8;
+
+%Fix errors
+
+%Hudsons Bay to N Atlantic
+GC(52:55,101)=-3;
+GC(52:55,100)=-3;
+GC(53:55,97:99)=-3;
+GC(53:54,96)=-3;
+%Indonesia to N Pacific
+GC(33:41,43)=-6;
+GC(35:40,42)=-6;
+GC(34:40,41)=-6;
+GC(34:39,40)=-6;
+GC(34:36,38:39)=-6;
+GC(35:36,37)=-6;
+%Caribbean to N Atlantic
+GC(37:44,101)=-3;
+GC(37:41,100)=-3;
+GC(39:43,99)=-3;
+GC(39:43,98)=-3;
+GC(40:43,97)=-3;
+GC(40:43,96)=-3;
+GC(41:42,95)=-3;
+
+%% final check
+
+check_error=zeros(size(GC));
+check_error(GC>1 
+
+pcolor(GC)

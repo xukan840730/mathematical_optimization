@@ -1,0 +1,110 @@
+% 
+% !ssh mare.seos.uvic.ca 'ncks -O -d time,20 /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/tavg.24400.01.01.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_snap.nc'
+% !rm dynamic_snap.nc
+% !scp mare:/net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_snap.nc .
+% 
+% !ssh mare.seos.uvic.ca 'ncks -O -d time,20 /net/mare/home1/jer/PhD_output/blow_away_shelves2/control2/tavg.24400.01.01.nc /net/mare/home1/jer/PhD_output/blow_away_shelves2/control_snap.nc'
+% !rm control_snap.nc
+% !scp mare:/net/mare/home1/jer/PhD_output/blow_away_shelves2/control_snap.nc .
+!scp mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/blow_away_shelves2/dynamic_ice_gradual_shelf_loss2/data/kmt.nc .
+!scp mare.seos.uvic.ca:/net/mare/home1/jer/PhD_output/blow_away_shelves2/control2/tmsk.nc .
+
+%%
+close all 
+clear all
+
+kmt=rnc('kmt.nc','kmt')';
+tmsk=rnc('tmsk.nc','tmsk')';
+
+d_si_h=rnc('dynamic_snap.nc','O_icethk')';
+c_si_h=rnc('control_snap.nc','O_icethk')';
+%mask out artifact sea ice thicknesses
+c_si_h(tmsk==0)=0.;
+
+fs=25;
+
+%%
+close all
+scnsize=get(0,'Screensize')
+fig1=figure;
+mnsz=min(scnsize(3:4))
+set(fig1,'Position',[1 1 mnsz*0.5 mnsz*0.5]);
+clear dthk
+dthk=d_si_h-c_si_h;
+dthk(kmt==0)=100;
+lat_array=linspace(-90,90);lon_array=linspace(-1,359);
+[Plg,Plt]=meshgrid(lon_array,lat_array);
+m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 40);
+hold on
+
+m_pcolor(Plg,Plt,dthk);shading flat;
+axis off equal
+mincv=-1;
+maxcv=5;
+dval=maxcv-mincv;
+nc=640;
+zp=floor(abs(nc*(mincv/maxcv)))
+b2r(1:zp,1)=linspace(0,1,nc/abs(maxcv));
+b2r(1:nc/abs(maxcv),2)=linspace(0,1,nc/abs(maxcv));
+
+b2r(641,:)=[0 0 0];
+colormap(b2r)
+caxis([-mincv maxcv])
+ch=colorbar
+m_text(210,-70,'RP','FontSize',fs)
+ylabel(ch,'Ice thickness difference (m)','FontSize',fs)
+set(ch,'FontSize',fs-5)
+hold off
+
+%%
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 sea_ice_d_thk.eps
+%!open sea_ice_d_thk.eps
+
+%%
+d_si_f=rnc('dynamic_snap.nc','O_icefra')';
+c_si_f=rnc('control_snap.nc','O_icefra')';
+c_si_f(c_si_h==0)=0.;
+%%
+% figure
+% m_pcolor(Plg,Plt,d_si_f);shading flat;
+% max(max(d_si_f))
+% max(max(c_si_f))
+% figure
+% m_pcolor(Plg,Plt,c_si_f);shading flat;
+%  figure
+%  m_pcolor(Plg,Plt,d_si_h);shading flat;
+%  figure
+%  m_pcolor(Plg,Plt,c_si_h);shading flat;
+% tmsk=rnc('control_snap.nc','G_mskt');
+% m_pcolor(Plg,Plt,tmsk');shading flat;
+%%
+scnsize=get(0,'Screensize')
+fig1=figure;
+mnsz=min(scnsize(3:4))
+set(fig1,'Position',[1 1 mnsz*0.5 mnsz*0.5]);
+dfra=d_si_f-c_si_f;
+dfra(kmt==0)=100;
+lat_array=linspace(-90,90);lon_array=linspace(-1,359);
+[Plg,Plt]=meshgrid(lon_array,lat_array);
+m_proj('stereographic','longitude', 0,'latitude',-90,'radius', 40);
+
+m_pcolor(Plg,Plt,dfra);shading flat; 
+b2r=ones(642,3);
+b2r(1:642/3,1)=linspace(0,1,642/3);
+b2r(1:642/3,2)=linspace(0,1,642/3);
+b2r(642/3+1:642,3)=linspace(1,0,2*642/3);
+b2r(642/3+1:642,2)=linspace(1,0,2*642/3);
+b2r(643,:)=[0 0 0];
+colormap(b2r)
+caxis([-.5 1.005])
+ch=colorbar
+m_text(45,-60,'IO','FontSize',fs)
+ylabel(ch,'Ice coverage difference (%)','FontSize',fs)
+set(ch,'FontSize',fs-5)
+axis off
+
+%%
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 sea_ice_d_fra.eps
+%!open sea_ice_d_fra.eps

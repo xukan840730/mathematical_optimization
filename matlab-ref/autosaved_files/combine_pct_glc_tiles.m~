@@ -1,0 +1,13 @@
+close all
+clear all
+
+f=dir('Glacier_percent_data/*10g.mat')
+
+CESMpctglc=zeros()
+
+for t=1:4
+    
+    load(fullfile('Glacier_percent_data',f(t).name));
+    
+    
+end

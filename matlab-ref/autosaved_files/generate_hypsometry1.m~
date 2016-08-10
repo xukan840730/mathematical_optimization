@@ -1,0 +1,236 @@
+clear all
+close all
+
+SuccessfulRunCompletion = false;
+
+while ~SuccessfulRunCompletion
+    try
+        f=dir('RGI_data/*_RGI_outlines.mat');
+        
+        %%
+        
+        %% update topography dataset
+        
+        kmPerCell = 30. ./ 1000.; %Aster resolution (30m)
+        radiusInKM = 6378.137;
+        mincellsize = km2deg(kmPerCell, radiusInKM);
+        maxarraysize = 8192; % Matlab-specified max raster size
+        layers = wmsfind('nasa*elev','SearchField', 'serverurl');
+        disp('Attempting to update WMS server.')
+        layers= wmsupdate(layers,'TimeoutInSeconds',10);
+        %aster = layers.refine('EarthAsterElevations30m', 'SearchField', 'any');
+        aster = layers.refine('mergedAsterElevations', 'SearchField', 'LayerName');
+        %aster = layers.refine('aster_30m', 'SearchField', 'any');
+        rstrt=1;
+        rend=19;
+        for r=rstrt:rend
+            
+            txt=regexp(f(r).name,'_','split');
+            regionname=txt{1};
+            load(fullfile('RGI_data',strcat(regionname,'_RGI_outlines'))); %glacier complex outlines
+            
+            disp(['*******Generating hypsometry for ' regionname '.*******']);
+            
+            %% Remove any complexes with tiny or non-existent area
+            
+            %if the RGI region has area field named Area_km2, replace with AREA.
+            if isfield(glc,'Area_km2')
+                [glc.AREA]=glc.Area_km2;
+                glc=rmfield(glc,'Area_km2');
+            end
+            
+            l=length(glc);
+            
+            %method one: use AREA field to trim small glaciers
+            glc([glc.AREA]<1.e-2)=[]; %smaller than 10000 square meters (about equivalent to area of 9 aster pixels)
+            
+            %method two: use kitty-corner distance to remove small glaciers
+            %     tagged_for_removal=zeros(1,length(glc));
+            %
+            %     for c=1:length(glc)
+            %         xr=[min(glc(c).X) max(glc(c).X)];
+            %         yr=[min(glc(c).Y) max(glc(c).Y)];
+            %         [arclen,az] = distance(yr(1),xr(1),yr(2),xr(2));
+            %         cross_distance = deg2km(arclen);
+            %         if cross_distance < 0.25; %if less than 250 meters across...
+            %            tagged_for_removal(c) = 1;
+            %         end
+            %     end
+            %     glc(tagged_for_removal==1) = [];
+            
+            l=l-length(glc);
+            
+            disp([num2str(l) ' glaciers trimmed because they were too small.'])
+            
+            %%
+            
+            cmin = 1.;
+            cmax=length(glc); %Calculate length of trimmed glacier complex structure array
+            carray=cmin:cmax;
+            
+            %preallocations
+            MeanLongitude=zeros(length(carray),1);
+            MeanLatitude=zeros(length(carray),1);
+            Aspect=zeros(length(carray),1);
+            
+            %smoothing parameters
+            infill_smooth_max=20000;
+            final_smooth_max=1000;
+            niterations=4;
+            max_area=8.e3; %largest glacier in Iceland = used to tune smoothing.
+            
+            %%
+            c=0.;
+            %for c=carray
+            for c=carray;
+                %If saved topography exists, skip download and processing.
+                fname=strcat('RGI_topographies_and_hypsometries/',regionname,num2str(c),'.mat');
+                if ~exist(fname,'file')
+                    disp(['****Processing glacier complex ' num2str(c) ' of ' num2str(length(carray)) '.****'])
+                    %get average lat/lon of glacier complex
+                    [MeanLatitude,MeanLongitude]=meanm(glc(c).Y(~isnan(glc(c).Y)),glc(c).X(~isnan(glc(c).X)),wgs84Ellipsoid,'degrees');
+                    
+                    %disp(['Getting DEM....'])
+                    latlim =[ min([glc(c).Y])-mincellsize max([glc(c).Y])+mincellsize ]; %pad by two cellsizes, to avoid dying on very small g
+                    lonlim =[ min([glc(c).X])-mincellsize max([glc(c).X])+mincellsize ];
+                    dlat=latlim(2)-latlim(1);
+                    dlon=lonlim(2)-lonlim(1);
+                    cellsize = max([mincellsize dlat/maxarraysize dlon/maxarraysize]); %request highest resolution possible: either default ASTER resolution, or a resolution that doesn't go over Matlab limits on array size (see wmsread documentation)
+                    SuccessfulDownload=0;
+                    DownloadTries=0;
+                    ntries=10;
+                    while ~SuccessfulDownload && DownloadTries<ntries
+                        try
+                            % Get Aster elevation grid
+                            [ElevationGrid,GridReference] = wmsread(aster, 'Latlim', latlim,...
+                                'Lonlim', lonlim,...
+                                'CellSize', cellsize.*3,...
+                                'RelTolCellSize',1.);
+                            SuccessfulDownload=true;
+                        catch
+                            DownloadTries=DownloadTries+1;
+                            disp([num2str(DownloadTries) ' unsuccessful download attempt.'])
+                            pause(0.5)
+                            continue
+                        end
+                    end
+                    assert(DownloadTries<ntries, 'Tried to grab data without success.')
+                    
+                    ElevationGridUnprocessed=double(ElevationGrid); %save an unprocessed copy of the elevation
+                    ElevationGrid=double(ElevationGrid);
+                    
+                    %figure
+                    %subplot(121),geoshow(ae,er,'DisplayType','texturemap'),axis tight square,caxis([0 colmax]), colorbar, title('Unprocessed ASTER data')
+                    for n=1:niterations
+                        smoothval=min(infill_smooth_max,(max(0,glc(c).AREA./max_area.*infill_smooth_max))); %scale smoothing value with ice sheet area
+                        aediff=ElevationGrid-smoothn(ElevationGrid,smoothval);
+                        ElevationGrid(abs(aediff)>100)=nan;
+                    end
+                    ElevationGrid=inpaint_nans(ElevationGrid,4);
+                    smoothval=min(infill_smooth_max,(max(0,glc(c).AREA./max_area.*final_smooth_max)));
+                    ElevationGrid=smoothn(ElevationGrid,smoothval);
+                    %subplot(122),geoshow(ae,er,'DisplayType','texturemap'),axis tight square,caxis([0 colmax]), colorbar, title('Unprocessed ASTER data')
+                    
+                    try
+                        [aspect,slope,gradN,gradE]=gradientm(ElevationGrid,GridReference);
+                        Aspect=mean(aspect(:));
+                    catch
+                        disp('Warning: surface too small to calculate a surface slope: setting to nan.')
+                        Aspect=nan;
+                    end
+                    
+                    %disp(['Rasterizing glacier complex...'])
+                    [GlacierMask,gr] = vec2mtx(glc(c).Y,glc(c).X,zeros(size(ElevationGrid)),GridReference,'filled');
+                    
+                    %Get glacierized elevations
+                    GlacierElevation=nan(size(ElevationGrid));
+                    GlacierElevation(GlacierMask==0.)=ElevationGrid(GlacierMask==0.);
+                    % extract glacier elevation hypsometry
+                    bres=10.; %set vertical binning resolution
+                    %get range of bins encompassing glacier elevation
+                    emin=max(0.,floor(min(GlacierElevation(:))./bres).*bres);
+                    emax=ceil(max(GlacierElevation(:))./bres).*bres;
+                    ElevationBins=emin:bres:emax;
+                    Hypsometry=squeeze(zeros(length(ElevationBins)-1,1)); %area bins are bounded by elevation bin limits
+                    for e=1:length(Hypsometry);
+                        Hypsometry(e)=areamat( ((GlacierElevation<ElevationBins(e+1))&(GlacierElevation>=ElevationBins(e))) , GridReference , wgs84Ellipsoid('kilometers') );
+                    end
+                    
+                    %         %Get glacierized elevations for unprocessed data (for comparison)
+                    %         ge_unprocessed=nan(size(ElevationGridUnprocessed));
+                    %         ge_unprocessed(gg==0.)=ElevationGridUnprocessed(gg==0.);
+                    %         % extract glacier elevation hypsometry
+                    %         bres=10.; %set vertical binning resolution
+                    %         %get range of bins encompassing glacier elevation
+                    %         emin=max(0.,floor(min(ge_unprocessed(:))./bres).*bres);
+                    %         emax=ceil(max(ge_unprocessed(:))./bres).*bres;
+                    %         ebins_unprocessed{nc}=emin:bres:emax;
+                    %         a_unprocessed{nc}=squeeze(zeros(length(ebins_unprocessed{nc})-1,1)); %area bins are bounded by elevation bin limits
+                    %         for e=1:length(a_unprocessed{nc});
+                    %             a_unprocessed{nc}(e)=areamat( ((ge_unprocessed<ebins_unprocessed{nc}(e+1))&(ge_unprocessed>=ebins_unprocessed{nc}(e))) , er , wgs84Ellipsoid('kilometers') );
+                    %         end
+                    %         atot_unprocessed(c)=sum(a_unprocessed{nc});
+                    
+                    GridReference=single(GridReference);
+                    ElevationGridUnprocessed=single(ElevationGridUnprocessed);
+                    ElevationGrid=single(ElevationGrid);
+                    Hypsometry=single(Hypsometry);
+                    ElevationBins=single(ElevationBins);
+                    MeanLongitude=single(MeanLongitude);
+                    MeanLatitude=single(MeanLatitude);
+                    Aspect=single(Aspect);
+                    save(fname,'GridReference','ElevationGridUnprocessed','ElevationGrid','Hypsometry','ElevationBins','MeanLongitude','MeanLatitude','Aspect');
+                    
+                end
+            end 
+        end
+        
+        if r==rend && c==cmax
+            SuccessfulRunCompletion = true;
+        end
+        
+    catch ErrorMessage
+        disp('Pausing for a minute before trying again.')
+        pause(60)
+    end
+end
+    
+    %%
+    % figure
+    % fs=25;
+    % subplot(1,2,2)
+    % axesm gstereo
+    % plotm(glc(c).Y,glc(c).X,'k','Linewidth',3,'Color','w')
+    % geoshow(ae,er,'DisplayType','texturemap')
+    % zdatam(handlem('allline'),30000)
+    % axis tight
+    % caxis([0 1600]);
+    % h=colorbar
+    % set(h,'Fontsize',fs)
+    % title('Langjokull: smoothed ASTER','Fontsize',fs)
+    % subplot(1,2,1)
+    % axesm gstereo
+    % plotm(glc(c).Y,glc(c).X,'k','Linewidth',3,'Color','w')
+    % geoshow(ElevationGridUnprocessed,er,'DisplayType','texturemap')
+    % zdatam(handlem('allline'),30000)
+    % axis tight
+    % caxis([0 1600]);
+    % h=colorbar;
+    % set(h,'Fontsize',fs)
+    % title('Langjokull: raw ASTER','Fontsize',fs)
+    % print('-dpng','figs/ASTER_examp')
+    %
+    % figure
+    % hold on
+    % h(2)=plot(ebins{c}(2:end),a{c}');
+    % h(1)=plot(ebins_unprocessed{c}(2:end),a_unprocessed{c}','r');
+    % xlabel('Elevation (m)','Fontsize',fs+15);
+    % ylabel('Area (km)','Fontsize',fs+15)
+    % title('Area-elevation distribution','Fontsize',fs+15)
+    % set(gca,'Fontsize',fs+15)
+    % axis tight
+    % ax=axis;ax(1:2)=[400 1600];axis(ax)
+    % legend(h,{'Raw hypsometry' 'Smoothed hypsometry'});
+    % hold off
+    % print('-dpng','figs/ASTER_hyps_examp')
+    %%

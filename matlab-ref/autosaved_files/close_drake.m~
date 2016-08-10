@@ -1,0 +1,14 @@
+close all
+clear all
+
+!scp mare.seos.uvic.ca:/net/mare/home1/jer/playground/Drake/data/kmt.nc .
+
+kmt=rnc('kmt.nc','kmt',0,1)';
+kmt(16:18,84)=0.;
+kmt(18,83)=0.;
+kmt(19,81:83)=0.;
+kmt(20,81)=0.;
+kmt=kmt';
+pcolor(kmt),shading flat
+
+pnc(kmt,'kmt_closed.nc','kmt','kmt')

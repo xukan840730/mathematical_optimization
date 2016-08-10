@@ -1,0 +1,19 @@
+close all
+clear all
+
+load('GISP2d18O.txt')
+
+O=GISP2d18O(:,2);
+t=GISP2d18O(:,3);
+
+for n=1:length(O)
+  if O(n)>10000;
+      O(n)=O(n-1);
+  end
+end
+
+O_mod = mean(O(1:32))
+
+dT=(O-O_mod)./0.65;
+
+wnc(dT,'GISPdT.nc','')

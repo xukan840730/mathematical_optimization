@@ -1,0 +1,90 @@
+%% Extract final ice volumes from deglacial and inception runs, plot
+%% against run CO$_2$
+
+close all
+reload                          =0;
+
+
+if reload
+  clear all
+  reload=1;
+end
+
+co2min=1;
+co2max=6;
+
+%% Get latest ice volume tsi file from pertinent simulations
+if reload
+  md='/Volumes/Mare/PhD_output/';
+  for n=co2min:co2max
+    path=strcat(md,'future_equilib/',num2str(n),'/');
+    files=dir(strcat(path,'tsi.*'));
+    deglacial_array{n}=[];
+    for nfiles=1:length(files);
+      deglacial_array{n}=[deglacial_array{n} rnc(strcat(path,files(nfiles).name),'L_icevolN')'];
+    end
+    path=strcat(md,'GIS_incept/',num2str(n),'/'); 
+    files=dir(strcat(path,'tsi.*'));
+    incept_array{n}=[];
+    for nfiles=1:length(files);
+      incept_array{n}=[incept_array{n} rnc(strcat(path,files(nfiles).name),'L_icevolN')'];
+    end
+  end
+  %load LGM incept run
+  n=co2max+1
+  path=strcat(md,'GIS_incept/lgm/'); 
+  files=dir(strcat(path,'tsi.*'));
+  incept_array{n}=[];
+  for nfiles=1:length(files);
+    incept_array{n}=[incept_array{n} rnc(strcat(path,files(nfiles).name),'L_icevolN')'];
+  end  
+end
+
+%% Get latest ice volume from each timeseries, normalized against full
+%% most-recent volume and rate of change plots
+pv=deglacial_array{1}(end)/100;
+for n=co2min:co2max;
+ deglacial(n)=deglacial_array{n}(end)/pv;
+ ddeglacialdt(n)=(deglacial_array{n}(end)-deglacial_array{n}(end-1))/pv;
+ incept(n)=incept_array{n}(end)/pv;
+ dinceptdt(n)=(incept_array{n}(end)-incept_array{n}(end-1))/pv;
+end
+fig_format;
+hf=figure;
+hold on
+h(1)=plot(deglacial,'r');
+h(2)=plot(incept,'b');
+hold off
+axis tight
+XLabel('carbon dioxide concentration (PAL CO_2)','FontSize', 20);
+YLabel('% preindustrial volume','FontSize', 20);
+legend(h,{'deglaciation','inception'})
+hf=figure;
+hold on
+h(1)=plot(ddeglacialdt,'r');
+h(2)=plot(dinceptdt,'b');
+hold off
+axis tight
+XLabel('carbon dioxide concentration (PAL CO_2)','FontSize', 20);
+YLabel('dV/dt (% orig vol/year)','FontSize', 20);
+legend(h,{'deglaciation','inception'})
+%% timeseries evolution
+hf=figure;
+n=co2max-co2min+1
+cmap(1,:)=linspace(0,1,n);
+cmap(2,:)=0;
+cmap(3,:)=linspace(1,0,n);
+hold on
+for n=co2min:co2max;
+  h(n)plot(deglacial_array{n},'Color',cmap(:,n));
+  plot(incept_array{n},'Color',cmap(:,n));
+end
+%plot lgm
+plot(incept_array{7},'b--')
+hold off
+axis tight
+XLabel('t (years)','FontSize', 20);
+YLabel('ice volume (m^3)','FontSize', 20);
+legend(h,
+
+

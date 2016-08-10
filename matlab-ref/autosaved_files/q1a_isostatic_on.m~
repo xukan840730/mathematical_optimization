@@ -1,0 +1,77 @@
+%% 1-D mountain glacier flow model  
+clear all
+close all
+%% set time and space dimensions
+
+dlength=60000;                    %set total domain length (meters)
+dx=1000;                          %set model resolution (meters)     
+nx=floor(dlength/dx)+1;           %calculate number of grid cells needed
+run_length=4000;                  %set run length (years)
+dt=1./24.;                        %set timestep (years)    
+nt=floor(run_length/dt)+1;        %calculate max number of timesteps to take
+
+%% preallocate arrays
+smb=zeros(nx,1);       %net surface mass balance
+bed_elev=zeros(nx,1);%ice bed elevation (meters above sea level (ASL))
+thk=zeros(nx,1);         %ice thickness
+elev=zeros(nx,1);        %surface elevation (bed elevation + ice thickness)
+vol=zeros(nt,1);          %total ice volume (assuming unit glacier width of 1 m)
+
+%% Define the bed elevation at all points, in units of meters above
+%% sealevel (ASL).
+bed_elev=linspace(3000,0,nx)';
+%save bed elevation for isostatic model
+bed_elev_init=bed_elev;
+rhoice=912.;
+rhomant=3300.;
+tau_relax=2000;
+%set smb array
+figure
+hold on
+tt=1;
+while tt<nt;
+  tt=tt+1;  
+  %build a net mass balance array (m/yr ice)
+  smb=linspace(3,-10,nx)';
+  
+  %Run ice evolution timestep, return updated ice thickness and surface elevation fields, and total ice volume. 
+  [thk]=evolve_ice(thk,bed_elev,smb,nx,dx,dt);
+  
+  %%Newtonian damping
+  %%Calculate isostatic adjustment to bed elevation: assume initial ice
+  %%free state was in isostatic equilibrium.  An ice load will act to
+  %%eventually depress the bed elevation by the mantle-equivalent thickness of the
+  %%ice load, once fully equilibrated.  Calculate this equilibrium
+  %%adjustment here:
+  bed_elev_equilib=bed_elev_init-thk*(rhoice/rhomant);
+  %%Next, nudge the bed elevation towards this equilibrium bed elevation 
+  bed_elev=bed_elev-(bed_elev-bed_elev_equilib)/tau_relax*dt;  
+  %Calculate total ice volumethk
+  vol(tt)=sum(thk)*dx;
+  
+  %Test for equilibrium
+  vol(tt);
+  dvol=vol(tt)-vol(tt-1); % get change in volume since last time-step
+  crit=1.e-6*vol(tt); % criterion for equilibrium: 1/1000000 of total volume change
+  if  dvol < crit
+    display(strcat('Equilibrium at year',num2str(tt*dt)))
+    break
+  end
+  
+  %plot ice profile every 1000 timesteps
+  if mod(tt,1000)==0
+    plot(bed_elev); axis tight
+  end
+end
+xlabel('Glacier profile evolution')
+hold off
+
+%plot volume evolution
+figure
+plot(vol(1:tt)); axis tight
+xlabel('Time')
+ylabel('Glacier volume')
+
+
+
+
