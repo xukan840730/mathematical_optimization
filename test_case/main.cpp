@@ -11,6 +11,7 @@
 #include "../constr_opt/augmented_lagrangian.h"
 #include "../constr_opt/quad-prog.h"
 #include "../constr_opt/simplex.h"
+#include "../constr_opt/qpsub.h"
 
 #include <Eigen/Dense>
 //float func(float x1, float x2)
@@ -209,11 +210,8 @@ float sample5x[6] = {-1.f, 0.f, 1.f, 2.f, 3.f, 4.f};
 float sample5y[6] = {1.f, 0.f, -1.f, 1.f, 2.5f, 6.f};
 
 //------------------------------------------------------------------------------------//
-
-//------------------------------------------------------------------------------------//
-int main()
+void test1()
 {
-
 	{
 		LineSearchParams params;
 		params.fMin = -1.f;
@@ -1079,5 +1077,27 @@ int main()
 		EVector x0(2);
 		int res = SolveInitFeasible(&Aeq, &beq, &Ain, &bin, &x0);
 	}
+
+}
+
+void test2()
+{
+	{
+		EMatrix A(2, 3);
+		A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1;
+		A(1, 0) = 1; A(1, 1) = -1; A(1, 2) = -1;
+
+		EVector eqix(1); eqix(0) = 0;
+		int numVars = A.cols();
+
+		eqnsolv(A, eqix, numVars, 0.000001f);
+	}
+	
+}
+
+//------------------------------------------------------------------------------------//
+int main()
+{
+	test2();
 	return 0;
 }
