@@ -1085,12 +1085,15 @@ void test2()
 	{
 		EMatrix A(2, 3);
 		A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1;
-		A(1, 0) = 1; A(1, 1) = -1; A(1, 2) = -1;
+		A(1, 0) = 2; A(1, 1) = 2; A(1, 2) = 2;
 
-		EVector eqix(1); eqix(0) = 0;
+		EVector b(2); b(0) = 1; b(1) = -1;
+
+		EVector eqix(2); eqix(0) = 0; eqix(1) = 1;
 		int numVars = A.cols();
+		int neqcstr = 2;
 
-		eqnsolv(A, eqix, numVars, 0.000001f);
+		eqnsolv(A, b, eqix, numVars, neqcstr, 0.000001f);
 	}
 	
 }
