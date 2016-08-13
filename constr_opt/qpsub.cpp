@@ -190,12 +190,15 @@ static EVector vappend(const EVector& a, const EVector& b)
 //   messages are given. If the equalities are dependent but consistent, 
 //   the redundant constraints are removed and the corresponding variables 
 //   adjusted.
-void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVars, int& neqcstr, float eps)
+int eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
 {
+	int ret = 0;
+
 	// set tolerances
 	float tolDep = 100.f * numVars * eps;
 	float tolCons = 1e-10;
 
+	int numEcstr = eqix.rows();
 	EMatrix Aeq = MatrixFromRowIdx(A, eqix);
 	EVector beq = VectorFromIdx(b, eqix);
 
@@ -210,9 +213,9 @@ void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVar
 		depIdx = findZeroIdx(Rdiag, tolDep);
 	}
 
-	if (neqcstr > numVars)
+	if (numEcstr > numVars)
 	{
-		depIdx = vappend(depIdx, colon(numVars + 1, neqcstr));
+		depIdx = vappend(depIdx, colon(numVars, numEcstr - 1));
 	}
 
 	bool notConsist = false;
@@ -225,7 +228,7 @@ void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVar
 		if (notConsist)
 		{
 			// equality constraints are inconsistent
-			return;
+			return -1;
 		}
 		else
 		{
@@ -237,6 +240,9 @@ void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVar
 			//   (rows of A) move to the end
 			EMatrix Qat, Rat, Pat;
 			EigenQrDecomp(Aeq.transpose(), &Qat, &Rat, &Pat);
+
+			EMatrix lhs = Aeq.transpose() * Pat;
+			EMatrix rhs = Qat * Rat;
 			
 			EVector rmIdx;
 			{
@@ -246,9 +252,15 @@ void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVar
 			}
 			if (rmIdx.rows() > 0)
 			{
-				Aeq = MatrixRmvRowIdx(Aeq, rmIdx);
-				beq = VectorRmvIdx(beq, rmIdx);
+				numEcstr -= rmIdx.rows();
+				A = MatrixRmvRowIdx(Aeq, rmIdx);
+				b = VectorRmvIdx(beq, rmIdx);
+				eqix = colon(0, numEcstr - 1);
+				ASSERT(A.rows() == b.rows());
+				ASSERT(A.rows() == eqix.rows());
 			}
 		} // consistency check
 	} // dependency check
+
+	return ret;
 }

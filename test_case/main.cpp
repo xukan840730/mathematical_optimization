@@ -1083,17 +1083,19 @@ void test1()
 void test2()
 {
 	{
-		EMatrix A(2, 3);
+		EMatrix A(5, 3);
 		A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1;
 		A(1, 0) = 2; A(1, 1) = 2; A(1, 2) = 2;
+		A(2, 0) = 3; A(2, 1) = 3; A(2, 2) = 3;
+		A(3, 0) = 4; A(3, 1) = 4; A(3, 2) = 4;
+		A(4, 0) = 5; A(4, 1) = 5; A(4, 2) = 5;
 
-		EVector b(2); b(0) = 1; b(1) = 2;
+		EVector b(5); b(0) = 1; b(1) = 2; b(2) = 3; b(3) = 4; b(4) = 5;
 
-		EVector eqix(2); eqix(0) = 0; eqix(1) = 1;
+		EVector eqix(5); eqix(0) = 0; eqix(1) = 1; eqix(2) = 2; eqix(3) = 3; eqix(4) = 4;
 		int numVars = A.cols();
-		int neqcstr = 2;
 
-		eqnsolv(A, b, eqix, numVars, neqcstr, 0.000001f);
+		eqnsolv(A, b, eqix, numVars, 0.000001f);
 	}
 	
 }
