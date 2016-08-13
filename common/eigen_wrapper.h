@@ -13,7 +13,7 @@ void EigenValVec(const EMatrix& m,
 	EMatrix::EigenvaluesReturnType* eigenval, 
 	Eigen::EigenSolver<EMatrix>::EigenvectorsType* eigenvec);
 
-void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r);
+void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p = nullptr);
 
 EVector EigenColPivQrSolve(const EMatrix& A, const EVector& b);
 

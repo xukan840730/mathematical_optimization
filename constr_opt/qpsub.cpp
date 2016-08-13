@@ -158,5 +158,24 @@ void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVar
 		EMatrix t1 = MatrixFromColIdx(Qa, depInd);
 		EMatrix t2 = t1.transpose() * VectorFromIdx(b, eqix);
 		notConsist = anyNonzero(t2, tolDep);
+
+		if (notConsist)
+		{
+			// equality constraints are inconsistent
+			return;
+		}
+		else
+		{
+			// equality constraints are consistent
+			int numDepend = depInd.nonZeros();
+
+			// delete the redudant constraints:
+			// By QR factoring the transpose, we see which columns of A'
+			//   (rows of A) move to the end
+			// test!
+			EMatrix Qat, Rat, Pat;
+			EigenQrDecomp(Aeq.transpose(), &Qat, &Rat, &Pat);
+			int test = 0;
+		}
 	}
 }

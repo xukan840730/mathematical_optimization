@@ -1087,7 +1087,7 @@ void test2()
 		A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1;
 		A(1, 0) = 2; A(1, 1) = 2; A(1, 2) = 2;
 
-		EVector b(2); b(0) = 1; b(1) = -1;
+		EVector b(2); b(0) = 1; b(1) = 2;
 
 		EVector eqix(2); eqix(0) = 0; eqix(1) = 1;
 		int numVars = A.cols();

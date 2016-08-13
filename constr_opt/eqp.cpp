@@ -25,7 +25,7 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 	// QR decomposition to get null space.
 	EMatrix qOfAT;
 	EMatrix rOfAT;
-	EigenQrDecomp(AT, &qOfAT, &rOfAT);
+	EigenQrDecomp(AT, &qOfAT, &rOfAT, nullptr);
 
 	EMatrix qHat = qOfAT.block(0, 0, mm, nn);
 	EMatrix rHat = rOfAT.block(0, 0, nn, nn);

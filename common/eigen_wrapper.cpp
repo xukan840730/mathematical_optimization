@@ -58,11 +58,15 @@ void EigenValVec(const EMatrix& m,
 }
 
 
-void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r)
+void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p)
 {
-	Eigen::HouseholderQR<EMatrix> qrOfM(m);
-	*q = qrOfM.householderQ();
-	*r = qrOfM.matrixQR().triangularView<Eigen::Upper>();
+	Eigen::ColPivHouseholderQR<EMatrix> qrOfM(m);
+	if (q != nullptr)
+		*q = qrOfM.householderQ();
+	if (r != nullptr)
+		*r = qrOfM.matrixQR().triangularView<Eigen::Upper>();
+	if (p != nullptr)
+		*p = qrOfM.colsPermutation();
 }
 
 EVector EigenColPivQrSolve(const EMatrix& A, const EVector& b)
