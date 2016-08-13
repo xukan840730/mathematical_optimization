@@ -1,6 +1,5 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
-//#include "../common/bit_array.h"
 #include "../linear_algebra/scalar_matrix.h"
 
 
