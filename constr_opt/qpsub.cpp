@@ -1,5 +1,6 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
+#include "../common/bit_array.h"
 #include "../linear_algebra/scalar_matrix.h"
 
 static EMatrix MatrixFromRowIdx(const EMatrix& A, const EVector& rowArr)
@@ -38,6 +39,38 @@ static EMatrix MatrixFromColIdx(const EMatrix& A, const EVector& colArr)
 	return res;
 }
 
+// get row indices array after removing rows 
+static EVector RmRows(int numRows, const EVector& rmRow)
+{
+	static const int kMaxNumBits = 1024;
+	U64 blocks[16];
+	ASSERT(ExternalBitArray::DetermineNumBlocks(kMaxNumBits) == 16);
+
+	ASSERT(numRows <= kMaxNumBits);
+	ExternalBitArray indices(numRows, blocks, true);
+
+	// remove those rows
+	for (int ii = 0; ii < rmRow.rows(); ii++)
+		indices.ClearBit(rmRow(ii));
+
+	int numNRows = indices.CountSetBits();
+	
+	// remaining rows
+	EVector newRows(numNRows);
+	int idx = 0;
+	for (int ii = 0; ii < numRows; ii++)
+		if (indices.IsBitSet(ii))
+			newRows(idx++) = ii;
+	ASSERT(idx == numNRows);
+	return newRows;
+}
+
+static EMatrix MatrixRmvRowIdx(const EMatrix& A, const EVector& rmRow)
+{
+	EVector newIndices = RmRows(A.rows(), rmRow);
+	return MatrixFromRowIdx(A, newIndices);
+}
+
 static EVector VectorFromIdx(const EVector& a, const EVector& rowArr)
 {
 	int numNRows = rowArr.rows();
@@ -55,6 +88,12 @@ static EVector VectorFromIdx(const EVector& a, const EVector& rowArr)
 	return res;
 }
 
+static EVector VectorRmvIdx(const EVector& A, const EVector& rmIdx)
+{
+	EVector newIndices = RmRows(A.rows(), rmIdx);
+	return VectorFromIdx(A, newIndices);
+}
+
 static bool anyNonzero(const EMatrix& A, float eps)
 {
 	for (int ii = 0; ii < A.rows(); ii++)
@@ -62,6 +101,29 @@ static bool anyNonzero(const EMatrix& A, float eps)
 			if (fabs(A(ii, jj)) >= eps)
 				return true;
 	return false;
+}
+
+// find non zeros and store them in row and col index.
+static void findNonzeros(const EMatrix& m, EVector* rowIdx, EVector* colIdx)
+{
+	int numNnz = 0;
+	for (int ii = 0; ii < m.rows(); ii++)
+		for (int jj = 0; jj < m.cols(); jj++)
+			if (m(ii, jj) != 0)
+				numNnz++;
+
+	*rowIdx = EVector(numNnz);
+	*colIdx = EVector(numNnz);
+	int idx = 0;
+	for (int col = 0; col < m.cols(); col++)
+		for (int row = 0; row < m.rows(); row++)
+			if (m(row, col) != 0)
+			{
+				(*rowIdx)(idx) = row;
+				(*colIdx)(idx) = col;
+				idx++;
+			}
+	ASSERT(idx == numNnz);
 }
 
 static EVector findZeroIdx(const EVector& a, float eps)
@@ -135,27 +197,28 @@ void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVar
 	float tolCons = 1e-10;
 
 	EMatrix Aeq = MatrixFromRowIdx(A, eqix);
+	EVector beq = VectorFromIdx(b, eqix);
 
 	// See if the equalities from a consistent system:
 	//   QR factorization of A
 	EMatrix Qa, Ra;
 	EigenQrDecomp(Aeq, &Qa, &Ra);
 	// Now need to check which is dependent
-	EVector depInd;
+	EVector depIdx;
 	{
 		EVector Rdiag = Ra.diagonal();
-		depInd = findZeroIdx(Rdiag, tolDep);
+		depIdx = findZeroIdx(Rdiag, tolDep);
 	}
 
 	if (neqcstr > numVars)
 	{
-		depInd = vappend(depInd, colon(numVars + 1, neqcstr));
+		depIdx = vappend(depIdx, colon(numVars + 1, neqcstr));
 	}
 
 	bool notConsist = false;
-	if (depInd.rows() > 0)
+	if (depIdx.rows() > 0)
 	{
-		EMatrix t1 = MatrixFromColIdx(Qa, depInd);
+		EMatrix t1 = MatrixFromColIdx(Qa, depIdx);
 		EMatrix t2 = t1.transpose() * VectorFromIdx(b, eqix);
 		notConsist = anyNonzero(t2, tolDep);
 
@@ -167,15 +230,25 @@ void eqnsolv(const EMatrix& A, const EVector& b, const EVector& eqix, int numVar
 		else
 		{
 			// equality constraints are consistent
-			int numDepend = depInd.nonZeros();
+			int numDepend = depIdx.nonZeros();
 
 			// delete the redudant constraints:
 			// By QR factoring the transpose, we see which columns of A'
 			//   (rows of A) move to the end
-			// test!
 			EMatrix Qat, Rat, Pat;
 			EigenQrDecomp(Aeq.transpose(), &Qat, &Rat, &Pat);
-			int test = 0;
-		}
-	}
+			
+			EVector rmIdx;
+			{
+				EVector i, j;
+				findNonzeros(Pat, &i, &j);
+				rmIdx = VectorFromIdx(i, depIdx);
+			}
+			if (rmIdx.rows() > 0)
+			{
+				Aeq = MatrixRmvRowIdx(Aeq, rmIdx);
+				beq = VectorRmvIdx(beq, rmIdx);
+			}
+		} // consistency check
+	} // dependency check
 }
