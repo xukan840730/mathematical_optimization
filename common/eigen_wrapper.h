@@ -3,7 +3,6 @@
 #ifndef _EIGEN_WRAPPER_H_
 #define _EIGEN_WRAPPER_H_
 
-
 void ChangeEVector(EVector* inout, int numRows);
 void ChangeEMatrix(EMatrix* inout, int numRows);
 
@@ -27,9 +26,14 @@ EVector VecAppend(const EVector& a, const EVector& b);
 // eigen operation
 bool EigenLlt(const EMatrix& m, EMatrix* l);
 
+// TODO: to avoid brining Eigenvalue and Eigenvector types here.
+//void EigenValVec(const EMatrix& m, 
+//	EMatrix::EigenvaluesReturnType* eigenval, 
+//	Eigen::EigenSolver<EMatrix>::EigenvectorsType* eigenvec);
+
 void EigenValVec(const EMatrix& m, 
-	EMatrix::EigenvaluesReturnType* eigenval, 
-	Eigen::EigenSolver<EMatrix>::EigenvectorsType* eigenvec);
+	void* eigenval, 
+	void* eigenvec);
 
 void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p = nullptr);
 

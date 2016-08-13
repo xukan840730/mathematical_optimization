@@ -1,7 +1,7 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
-
+#include "eqnsolv.h"
 
 // EQNSOLV Helper function for QPSUB.
 //   Finds a feasible point with respect to the equality constraints.

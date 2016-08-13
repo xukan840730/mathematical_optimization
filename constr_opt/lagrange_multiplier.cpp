@@ -1,4 +1,5 @@
 #include "../common/common_shared.h"
+#include "../common/eigen_wrapper.h"
 #include "lagrange_multiplier.h"
 #include "../unconstr_opt/newtons_method.h"
 
@@ -96,39 +97,6 @@
 //	result->conservativeResize(numParams);
 //}
 
-//-----------------------------------------------------------------------------------------------------------//
-// helper function for eigen vectors.
-//-----------------------------------------------------------------------------------------------------------//
-static void ChangeEVector(EVector* inout, int numRows)
-{
-	int numORows = inout->rows();
-	if (numORows < numRows)
-	{
-		inout->conservativeResize(numRows);
-		(*inout).block(numORows, 0, numRows - numORows, 1).setZero();
-	}
-	else if (numORows > numRows)
-	{
-		inout->conservativeResize(numRows);
-	}
-}
-
-static void ChangeEMatrix(EMatrix* inout, int numRows)
-{
-	int numORows = inout->rows();
-	if (numORows < numRows)
-	{
-		inout->conservativeResize(numRows, numRows);
-
-		(*inout).block(numORows, 0, numRows - numORows, numRows - numORows).setZero();
-		(*inout).block(0, numORows, numRows - numORows, numRows - numORows).setZero();
-		(*inout).block(numORows, numORows, numRows - numORows, numRows - numORows).setZero();
-	}
-	else
-	{
-		inout->conservativeResize(numRows, numRows);
-	}
-}
 
 static EVector EVectorTimesLambda(const EVector& input, const EVector& lambdas)
 {
@@ -250,7 +218,8 @@ static void SQPFramework(const L2Func& LF, const EVector& x0, const EVector& lam
 		}
 
 		// solve A * delta = B;
-		EMatrix deltaM = A.fullPivLu().solve(B);
+		//EMatrix deltaM = A.fullPivLu().solve(B);
+		EMatrix deltaM = EigenColPivQrSolve(A, B);
 		ValidateEMatrix(deltaM);
 
 		xk += deltaM.block(0, 0, numOVars, 1);

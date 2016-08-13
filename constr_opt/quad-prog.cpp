@@ -5,6 +5,7 @@
 #include "../linear_algebra/scalar_matrix.h"
 #include "simplex.h"
 #include "quad-prog.h"
+#include <Eigen/Dense>
 
 static void PrintEVector(const EVector& v)
 {

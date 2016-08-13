@@ -11,9 +11,8 @@
 #include "../constr_opt/augmented_lagrangian.h"
 #include "../constr_opt/quad-prog.h"
 #include "../constr_opt/simplex.h"
-#include "../constr_opt/qpsub.h"
+#include "../constr_opt/eqnsolv.h"
 
-#include <Eigen/Dense>
 //float func(float x1, float x2)
 //{
 //	float A = (x2 - x1 * x1);

@@ -25,7 +25,7 @@ static inline bool IsFinite(float a)
 #include "memory.h"
 #include "math.h"
 
-#include <Eigen/Dense>
+#include <Eigen/Core>
 
 #define ND_MAX_EIGENSIZE 16 
 typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, 0, ND_MAX_EIGENSIZE, ND_MAX_EIGENSIZE> EMatrix;	// maximum 24 row, 32 cols

@@ -1,4 +1,5 @@
 #include "common_shared.h"
+#include <Eigen/Dense>
 #include "eigen_wrapper.h"
 #include "bit_array.h"
 
@@ -232,10 +233,12 @@ bool EigenLlt(const EMatrix& m, EMatrix* l)
 
 
 void EigenValVec(const EMatrix& m, 
-	EMatrix::EigenvaluesReturnType* eigenval, 
-	Eigen::EigenSolver<EMatrix>::EigenvectorsType* eigenvec)
+	void* _eigenval, 
+	void* _eigenvec)
 {
 	Eigen::EigenSolver<EMatrix> eh(m);
+	EMatrix::EigenvaluesReturnType* eigenval = (EMatrix::EigenvaluesReturnType*)_eigenval;
+	Eigen::EigenSolver<EMatrix>::EigenvectorsType* eigenvec = (Eigen::EigenSolver<EMatrix>::EigenvectorsType*)_eigenvec;
 	*eigenval = eh.eigenvalues();
 	*eigenvec = eh.eigenvectors();
 }
