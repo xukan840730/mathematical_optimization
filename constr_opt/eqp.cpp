@@ -2,7 +2,7 @@
 #include "../common/eigen_wrapper.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "quad-prog.h"
-#include <Eigen\Dense>
+#include <Eigen/Dense>
 
 //------------------------------------------------------------------------------------------------------//
 EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, const EVector& beq)

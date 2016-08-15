@@ -129,7 +129,7 @@ EVector VectorRmvIdx(const EVector& A, const EVector& rmIdx)
 	return VectorFromIdx(A, newIndices);
 }
 
-bool anyNonzero(const EMatrix& A, float eps)
+bool anyNnz(const EMatrix& A, float eps)
 {
 	for (int ii = 0; ii < A.rows(); ii++)
 		for (int jj = 0; jj < A.cols(); jj ++)
@@ -161,39 +161,69 @@ void findNonzeros(const EMatrix& m, EVector* rowIdx, EVector* colIdx)
 	ASSERT(idx == numNnz);
 }
 
-EVector findZeroIdx(const EVector& a, float eps)
+static bool isZero(float x, void* params)
 {
-	// figure out how many zeros first.
-	int numZeros = 0;
+	float eps = *(static_cast<float*>(params));
+	return fabs(x) < eps;
+}
+
+static bool isNnz(float x, void* params) { return !isZero(x, params); }
+
+EVector findZeroRows(const EVector& a, float eps)
+{
+	return findRows(a, isZero, &eps);
+}
+
+EVector findNnzRows(const EVector& a, float eps)
+{
+	return findRows(a, isNnz, &eps);
+}
+
+EVector findRows(const EVector& a, condf f, void* params)
+{
+	static const int kMaxNumBits = 1024;
+	U64 blocks[16];
+	ASSERT(ExternalBitArray::DetermineNumBlocks(kMaxNumBits) == 16);
+	ExternalBitArray indices(kMaxNumBits, blocks);
+
 	int numRows = a.rows();
 	for (int ii = 0; ii < numRows; ii++)
-		if (fabs(a(ii)) < eps) numZeros++;
+		if (f(a(ii), params))
+			indices.SetBit(ii);
 
-	EVector res(numZeros);
+	int numNRows = indices.CountSetBits();
 	int idx = 0;
+	EVector res(numNRows);
 	for (int ii = 0; ii < numRows; ii++)
-		if (fabs(a(ii)) < eps) res(idx++) = ii;
-
-	ASSERT(idx == numZeros);
+		if (indices.IsBitSet(ii))
+			res(idx++) = a(ii);
 	return res;
 }
 
-EVector findNnzIdx(const EVector& a, float eps)
+//-------------------------------------------------------------------------------//
+EVector VecCond(const EVector& a, condf t, void* params)
 {
-	// figure out how many nonzero first
-	int nnz = 0;
 	int numRows = a.rows();
-	for (int ii = 0; ii < numRows; ii++)
-		if (fabs(a(ii)) >= eps) nnz++;
+	EVector res(numRows);
 
-	EVector res(nnz);
-	int idx = 0;
 	for (int ii = 0; ii < numRows; ii++)
-		if (fabs(a(ii)) >= eps) res(idx++) = ii;
+		res(ii) = t(a(ii), params) ? 1 : 0;
 
 	return res;
 }
 
+static bool iseqf(float a, void* params)
+{
+	float b = *(static_cast<float*>(params));
+	return a == b;
+}
+
+EVector VecEq(const EVector& a, float t)
+{
+	return VecCond(a, iseqf, &t);
+}
+
+//-------------------------------------------------------------------------------//
 EVector colon(int j, int k)
 {
 	int numRows = abs(k - j) + 1;
@@ -216,6 +246,28 @@ EVector VecAppend(const EVector& a, const EVector& b)
 	EVector res(numNRows);
 	res.block(0, 0, numRowsA, 1) = a;
 	res.block(numRowsA, 0, numRowsB, 1) = b;
+	return res;
+}
+
+EMatrix MatRowAppend(const EMatrix& a, const EMatrix& b)
+{
+	ASSERT(a.cols() == b.cols());
+	int numNRows = a.rows() + b.rows();
+	int numCols = a.cols();
+	EMatrix res(numNRows, numCols);
+	res.block(0, 0, a.rows(), numCols) = a;
+	res.block(a.rows(), 0, b.rows(), numCols) = b;
+	return res;
+}
+
+EMatrix MatColAppend(const EMatrix& a, const EMatrix& b)
+{
+	ASSERT(a.rows() == b.rows());
+	int numRows = a.rows();
+	int numNCols = a.cols() + b.cols();
+	EMatrix res(numRows, numNCols);
+	res.block(0, 0, numRows, a.cols()) = a;
+	res.block(0, a.cols(), numRows, b.cols()) = b;
 	return res;
 }
 

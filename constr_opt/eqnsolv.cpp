@@ -29,7 +29,7 @@ int eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
 	EVector depIdx;
 	{
 		EVector Rdiag = Ra.diagonal();
-		depIdx = findZeroIdx(Rdiag, tolDep);
+		depIdx = findZeroRows(Rdiag, tolDep);
 	}
 
 	if (numEcstr > numVars)
@@ -42,7 +42,7 @@ int eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
 	{
 		EMatrix t1 = MatrixFromColIdx(Qa, depIdx);
 		EMatrix t2 = t1.transpose() * VectorFromIdx(b, eqix);
-		notConsist = anyNonzero(t2, tolDep);
+		notConsist = anyNnz(t2, tolDep);
 
 		if (notConsist)
 		{
