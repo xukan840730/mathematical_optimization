@@ -1,6 +1,7 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
 #include "qpsub.h"
+#include "eqnsolv.h"
 
 static bool validLb(float x, void* params)
 {
@@ -26,7 +27,7 @@ static EVector findUb(const EVector& ub)
 	return findRows(ub, validUb, &t);
 }
 
-void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector& lb, const EVector& ub, const EVector* x0, int numEqCstr, QpsubCaller caller) 
+void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector& lb, const EVector& ub, const EVector* x0, int numEqCstr, QpsubCaller caller, float eps) 
 {
 	ASSERT(_A.rows() == _b.rows());
 	if (x0 != nullptr) ASSERT(x0->rows() == H.cols());
@@ -89,4 +90,35 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 		}
 	}
 	numCstr = numCstr + arglb.rows() + argub.rows();
+	ASSERT(A.rows() == numCstr);
+
+	int maxIter = 200; // TODO:
+	// used for determining threshold for whether a direction will violate
+	EVector normA(numCstr); normA.setOnes();
+	if (normalize)
+	{
+		for (int ii = 0; ii < numCstr; ii++)
+		{
+			float rowNorm = A.row(ii).norm();
+			if (rowNorm > 0.f)
+			{
+				A.row(ii) /= rowNorm;
+				b(ii) /= rowNorm;
+				normA(ii) = rowNorm;
+			}
+		}
+	}
+	// some error number
+	float errNorm = 0.01f * sqrt(eps);
+	float tolDep = 100 * numVars * eps;
+	EVector lambda(numCstr); lambda.setZero();
+	EVector eqix = colon(0, numEqCstr - 1);
+	//EVector indepIdx = colon(0, numCstr - 1);  WTF???
+
+	if (numEqCstr > 0)
+	{
+		int exitFlag = eqnsolv(A, b, eqix, numVars, eps);
+	}
+	else
+	{}
 }
