@@ -75,8 +75,8 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 		if (arglb.rows() > 0)
 		{
 			EMatrix lbmat(numVars, numVars); lbmat.setIdentity(); lbmat *= -1; // lbmat = -I
-			A = MatRowAppend(A, MatrixFromRowIdx(lbmat, arglb));
-			b = VecAppend(b, VectorFromIdx(-lb, arglb));
+			A = MatRowAppend(A, MatFromRowIdx(lbmat, arglb));
+			b = VecAppend(b, VecFromIdx(-lb, arglb));
 		}
 	}
 	// upper bound
@@ -85,8 +85,8 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 		if (argub.rows() > 0)
 		{
 			EMatrix ubmat(numVars, numVars); ubmat.setIdentity(); // ubmat = I
-			A = MatRowAppend(A, MatrixFromRowIdx(ubmat, argub));
-			b = VecAppend(b, VectorFromIdx(ub, argub));
+			A = MatRowAppend(A, MatFromRowIdx(ubmat, argub));
+			b = VecAppend(b, VecFromIdx(ub, argub));
 		}
 	}
 	numCstr = numCstr + arglb.rows() + argub.rows();
@@ -113,11 +113,16 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 	float tolDep = 100 * numVars * eps;
 	EVector lambda(numCstr); lambda.setZero();
 	EVector eqix = colon(0, numEqCstr - 1);
-	//EVector indepIdx = colon(0, numCstr - 1);  WTF???
+	EVector indepIdx = colon(0, numCstr - 1); // independent constraint indices
 
 	if (numEqCstr > 0)
 	{
-		int exitFlag = eqnsolv(A, b, eqix, numVars, eps);
+		eqnres res = eqnsolv(A, b, eqix, numVars, eps); 
+		if (res.rmvIdx.rows() > 0)
+		{
+			indepIdx = VecRmvIdx(indepIdx, res.rmvIdx);
+			normA = VecFromIdx(normA, indepIdx);
+		}
 	}
 	else
 	{}

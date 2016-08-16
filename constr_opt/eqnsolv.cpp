@@ -9,17 +9,18 @@
 //   messages are given. If the equalities are dependent but consistent, 
 //   the redundant constraints are removed and the corresponding variables 
 //   adjusted.
-int eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
+eqnres eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
 {
-	int ret = 0;
+	eqnres ret;
+	ret.exitFlag = 0;
 
 	// set tolerances
 	float tolDep = 100.f * numVars * eps;
 	float tolCons = 1e-10;
 
 	int numEcstr = eqix.rows();
-	EMatrix Aeq = MatrixFromRowIdx(A, eqix);
-	EVector beq = VectorFromIdx(b, eqix);
+	EMatrix Aeq = MatFromRowIdx(A, eqix);
+	EVector beq = VecFromIdx(b, eqix);
 
 	// See if the equalities from a consistent system:
 	//   QR factorization of A
@@ -40,14 +41,15 @@ int eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
 	bool notConsist = false;
 	if (depIdx.rows() > 0)
 	{
-		EMatrix t1 = MatrixFromColIdx(Qa, depIdx);
-		EMatrix t2 = t1.transpose() * VectorFromIdx(b, eqix);
+		EMatrix t1 = MatFromColIdx(Qa, depIdx);
+		EMatrix t2 = t1.transpose() * VecFromIdx(b, eqix);
 		notConsist = anyNnz(t2, tolDep);
 
 		if (notConsist)
 		{
 			// equality constraints are inconsistent
-			return -1;
+			ret.exitFlag = -1;
+			return ret;
 		}
 		else
 		{
@@ -67,17 +69,19 @@ int eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
 			{
 				EVector i, j;
 				findNonzeros(Pat, &i, &j);
-				rmIdx = VectorFromIdx(i, depIdx);
+				rmIdx = VecFromIdx(i, depIdx);
 			}
 			if (rmIdx.rows() > 0)
 			{
+				// remove duplicated equality constraints.
 				numEcstr -= rmIdx.rows();
-				A = MatrixRmvRowIdx(Aeq, rmIdx);
-				b = VectorRmvIdx(beq, rmIdx);
+				A = MatRmvRowIdx(A, rmIdx);
+				b = VecRmvIdx(b, rmIdx);
 				eqix = colon(0, numEcstr - 1);
 				ASSERT(A.rows() == b.rows());
-				ASSERT(A.rows() == eqix.rows());
 			}
+			ret.rmvIdx = rmIdx;
+			ret.exitFlag = 1;
 		} // consistency check
 	} // dependency check
 

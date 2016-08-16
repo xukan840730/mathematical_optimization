@@ -6,14 +6,14 @@
 void ChangeEVector(EVector* inout, int numRows);
 void ChangeEMatrix(EMatrix* inout, int numRows);
 
-EMatrix MatrixFromRowIdx(const EMatrix& A, const EVector& rowArr);
-EMatrix MatrixFromColIdx(const EMatrix& A, const EVector& colArr);
+EMatrix MatFromRowIdx(const EMatrix& A, const EVector& rowArr);
+EMatrix MatFromColIdx(const EMatrix& A, const EVector& colArr);
 
 // get row indices array after removing rows 
 EVector RmRows(int numRows, const EVector& rmRow);
-EMatrix MatrixRmvRowIdx(const EMatrix& A, const EVector& rmRow);
-EVector VectorFromIdx(const EVector& a, const EVector& rowArr);
-EVector VectorRmvIdx(const EVector& A, const EVector& rmIdx);
+EMatrix MatRmvRowIdx(const EMatrix& A, const EVector& rmRow);
+EVector VecFromIdx(const EVector& a, const EVector& rowArr);
+EVector VecRmvIdx(const EVector& A, const EVector& rmIdx);
 
 bool anyNnz(const EMatrix& A, float eps);
 // find non zeros and store them in row and col index.

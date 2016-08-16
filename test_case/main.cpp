@@ -1082,23 +1082,6 @@ void test1()
 
 void test2()
 {
-	if (0)
-	{
-		EMatrix A(5, 3);
-		A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1;
-		A(1, 0) = 2; A(1, 1) = 2; A(1, 2) = 2;
-		A(2, 0) = 3; A(2, 1) = 3; A(2, 2) = 3;
-		A(3, 0) = 4; A(3, 1) = 4; A(3, 2) = 4;
-		A(4, 0) = 5; A(4, 1) = 5; A(4, 2) = 5;
-
-		EVector b(5); b(0) = 1; b(1) = 2; b(2) = 3; b(3) = 4; b(4) = 5;
-
-		EVector eqix(5); eqix(0) = 0; eqix(1) = 1; eqix(2) = 2; eqix(3) = 3; eqix(4) = 4;
-		int numVars = A.cols();
-
-		eqnsolv(A, b, eqix, numVars, 0.000001f);
-	}
-	
 	{
 		EMatrix H(2, 2);
 		H(0, 0) = 1; H(0, 1) = 0;
@@ -1106,13 +1089,19 @@ void test2()
 
 		EVector f(2); f(0) = 0; f(1) = 0;
 
-		EMatrix A(1, 2); A(0, 0) = 10; A(0, 1) = 15;
-		EVector b(1); b(0) = 0;
+		EMatrix A(5, 2);
+		A(0, 0) = 1; A(0, 1) = 1;
+		A(1, 0) = 2; A(1, 1) = 2;
+		A(2, 0) = 3; A(2, 1) = 3;
+		A(3, 0) = 4; A(3, 1) = 4;
+		A(4, 0) = 5; A(4, 1) = 5;
+
+		EVector b(5); b(0) = 1; b(1) = 2; b(2) = 3; b(3) = 4; b(4) = 5;
 
 		EVector lb(2); lb(0) = -NDI_FLT_MAX; lb(1) = 1.2f;
 		EVector ub(2); ub(0) = NDI_FLT_MAX; ub(1) = 5;
 
-		qpsub(H, f, A, b, lb, ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
+		qpsub(H, f, A, b, lb, ub, nullptr, 4, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
 	}
 }
 

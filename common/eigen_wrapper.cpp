@@ -38,7 +38,7 @@ void ChangeEMatrix(EMatrix* inout, int numRows)
 }
 
 //------------------------------------------------------------------------------------------------------------//
-EMatrix MatrixFromRowIdx(const EMatrix& A, const EVector& rowArr)
+EMatrix MatFromRowIdx(const EMatrix& A, const EVector& rowArr)
 {
 	int numNRows = rowArr.rows();
 	int numNCols = A.cols();
@@ -56,7 +56,7 @@ EMatrix MatrixFromRowIdx(const EMatrix& A, const EVector& rowArr)
 	return res;
 }
 
-EMatrix MatrixFromColIdx(const EMatrix& A, const EVector& colArr)
+EMatrix MatFromColIdx(const EMatrix& A, const EVector& colArr)
 {
 	int numNCols = colArr.rows();
 	int numNRows = A.rows();
@@ -100,13 +100,13 @@ EVector RmRows(int numRows, const EVector& rmRow)
 	return newRows;
 }
 
-EMatrix MatrixRmvRowIdx(const EMatrix& A, const EVector& rmRow)
+EMatrix MatRmvRowIdx(const EMatrix& A, const EVector& rmRow)
 {
 	EVector newIndices = RmRows(A.rows(), rmRow);
-	return MatrixFromRowIdx(A, newIndices);
+	return MatFromRowIdx(A, newIndices);
 }
 
-EVector VectorFromIdx(const EVector& a, const EVector& rowArr)
+EVector VecFromIdx(const EVector& a, const EVector& rowArr)
 {
 	int numNRows = rowArr.rows();
 	int numORows = a.rows();
@@ -123,10 +123,10 @@ EVector VectorFromIdx(const EVector& a, const EVector& rowArr)
 	return res;
 }
 
-EVector VectorRmvIdx(const EVector& A, const EVector& rmIdx)
+EVector VecRmvIdx(const EVector& A, const EVector& rmIdx)
 {
 	EVector newIndices = RmRows(A.rows(), rmIdx);
-	return VectorFromIdx(A, newIndices);
+	return VecFromIdx(A, newIndices);
 }
 
 bool anyNnz(const EMatrix& A, float eps)
