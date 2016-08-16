@@ -196,7 +196,7 @@ EVector findRows(const EVector& a, condf f, void* params)
 	EVector res(numNRows);
 	for (int ii = 0; ii < numRows; ii++)
 		if (indices.IsBitSet(ii))
-			res(idx++) = a(ii);
+			res(idx++) = ii;
 	return res;
 }
 

@@ -1082,6 +1082,7 @@ void test1()
 
 void test2()
 {
+	if (0)
 	{
 		EMatrix A(5, 3);
 		A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1;
@@ -1108,10 +1109,10 @@ void test2()
 		EMatrix A(1, 2); A(0, 0) = 1; A(0, 1) = 1;
 		EVector b(1); b(0) = 0;
 
-		EVector lb(2); lb(0) = -NDI_FLT_MAX; lb(1) = 0;
+		EVector lb(2); lb(0) = -NDI_FLT_MAX; lb(1) = 1.2f;
 		EVector ub(2); ub(0) = NDI_FLT_MAX; ub(1) = 5;
 
-		qpsub(H, f, A, b, lb, ub, nullptr, 1, 1, QpsubCaller::kDefault);
+		qpsub(H, f, A, b, lb, ub, nullptr, 1, QpsubCaller::kQpsub);
 	}
 }
 
