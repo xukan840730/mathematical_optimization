@@ -123,7 +123,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 	int actCnt = 0;
 	if (numEqCstr > 0)
 	{
-		eqnres res = eqnsolv(A, b, eqix, numVars, eps); 
+		eqnres res = eqnsolv(A, b, eqix, numVars, eps);
 		if (res.rmvIdx.rows() > 0)
 		{
 			indepIdx = VecRmvIdx(indepIdx, res.rmvIdx);
@@ -141,14 +141,55 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 		numEqCstr = eqix.rows();
 		numCstr = A.rows();
 
+		const EMatrix Aeq = MatFromRowIdx(A, eqix);
+		const EVector beq = VecFromIdx(b, eqix);
+		// is this necessary?
 		{
 			// find a feasible point for equality constraints
-			const EMatrix Aeq = MatFromRowIdx(A, eqix);
-			const EVector beq = VecFromIdx(b, eqix);
 			EVector diff = Aeq * X0 - beq;
 			if (VecAbs(diff).maxCoeff() > tolCons)
 				X0 = EigenColPivQrSolve(Aeq, beq);
 		}
+
+		// is this necessary?
+		if (numEqCstr > numVars)
+		{
+			EVector diff = Aeq * X0 - beq;
+			float err = VecAbs(diff).maxCoeff();
+			if (err > 1e-8) // equalities not met
+			{
+				// exiting: the equality constraints are overly stringent
+				// there's no feasible solution
+				exitFlag = -1;
+				return exitFlag;
+			}
+			else
+			{
+				// check inequalities
+				EVector diff2 = A * X0 - b;
+				if (diff2.maxCoeff() > 1e-8)
+				{
+					// exiting: the constraints or bounds are overly stringent
+					// there's no feasible solution
+					// equality constraints have been met
+					exitFlag = -1;
+				}
+			}
+		}
+
+		EMatrix Q, R;
+		EigenQrDecomp(Aeq, &Q, &R, nullptr);
+
+		EVector actLambda;
+		if (isqp)
+			actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H*X0 + f));
+		else if (lls)
+			actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H.transpose() * (H*X0 - f)));
+		else
+			actLambda = EigenColPivQrSolve(-R, Q.transpose() * f);
+		
+		lambda(indepInd(eqix)) = normf * (actLambda ./ normA(eqix));
+		return exitFlag;
 	}
 	else
 	{}
