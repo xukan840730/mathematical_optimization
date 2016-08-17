@@ -175,21 +175,20 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 					exitFlag = -1;
 				}
 			}
+			EMatrix Q, R;
+			EigenQrDecomp(Aeq.transpose(), &Q, &R, nullptr);
+
+			EVector actLambda;
+			if (isqp)
+				actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H*X0 + f));
+			else if (lls)
+				actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H.transpose() * (H*X0 - f)));
+			else
+				actLambda = EigenColPivQrSolve(-R, Q.transpose() * f);
+			const EVector normedActLambda = normf * VecDivVec(actLambda, VecFromIdx(normA, eqix));
+			VecChangeRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
+			return exitFlag;
 		}
-
-		EMatrix Q, R;
-		EigenQrDecomp(Aeq, &Q, &R, nullptr);
-
-		EVector actLambda;
-		if (isqp)
-			actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H*X0 + f));
-		else if (lls)
-			actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H.transpose() * (H*X0 - f)));
-		else
-			actLambda = EigenColPivQrSolve(-R, Q.transpose() * f);
-		
-		lambda(indepInd(eqix)) = normf * (actLambda ./ normA(eqix));
-		return exitFlag;
 	}
 	else
 	{}

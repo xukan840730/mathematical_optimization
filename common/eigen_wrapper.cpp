@@ -129,6 +129,16 @@ EVector VecRmvIdx(const EVector& A, const EVector& rmIdx)
 	return VecFromIdx(A, newIndices);
 }
 
+void VecChangeRows(EVector& a, const EVector& b, const EVector& rowIdx)
+{
+	ASSERT(b.rows() == rowIdx.rows());
+	for (int ii = 0; ii < rowIdx.rows(); ii++)
+	{
+		int idx = rowIdx(ii);
+		a(idx) = b(ii);
+	}
+}
+
 bool anyNnz(const EMatrix& A, float eps)
 {
 	for (int ii = 0; ii < A.rows(); ii++)
@@ -231,6 +241,16 @@ EVector VecAbs(const EVector& a)
 	for (int ii = 0; ii < numRows; ii++)
 		res(ii) = a(ii) < 0.f ? -a(ii) : a(ii);
 
+	return res;
+}
+
+EVector VecDivVec(const EVector& a, const EVector& b)
+{
+	ASSERT(a.rows() == b.rows());
+	int numRows = a.rows();
+	EVector res(numRows);
+	for (int ii = 0; ii < numRows; ii++)
+		res(ii) = a(ii) / b(ii);
 	return res;
 }
 

@@ -14,6 +14,7 @@ EVector RmRows(int numRows, const EVector& rmRow);
 EMatrix MatRmvRowIdx(const EMatrix& A, const EVector& rmRow);
 EVector VecFromIdx(const EVector& a, const EVector& rowArr);
 EVector VecRmvIdx(const EVector& A, const EVector& rmIdx);
+void VecChangeRows(EVector& a, const EVector& b, const EVector& rowIdx);
 
 bool anyNnz(const EMatrix& A, float eps);
 // find non zeros and store them in row and col index.
@@ -27,6 +28,7 @@ EVector findNnzRows(const EVector& a, float eps);
 EVector VecCond(const EVector& a, condf t, void* params);  // i don't know a better name for this func
 EVector VecEq(const EVector& a, float f);
 EVector VecAbs(const EVector& a);
+EVector VecDivVec(const EVector& a, const EVector& b);
 
 EVector colon(int j, int k); // matlab : operator
 EVector VecAppend(const EVector& a, const EVector& b);
