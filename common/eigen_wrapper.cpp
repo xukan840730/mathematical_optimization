@@ -223,6 +223,17 @@ EVector VecEq(const EVector& a, float t)
 	return VecCond(a, iseqf, &t);
 }
 
+EVector VecAbs(const EVector& a)
+{
+	int numRows = a.rows();
+	EVector res(numRows);
+
+	for (int ii = 0; ii < numRows; ii++)
+		res(ii) = a(ii) < 0.f ? -a(ii) : a(ii);
+
+	return res;
+}
+
 //-------------------------------------------------------------------------------//
 EVector colon(int j, int k)
 {

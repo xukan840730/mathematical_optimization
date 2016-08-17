@@ -26,6 +26,7 @@ EVector findNnzRows(const EVector& a, float eps);
 
 EVector VecCond(const EVector& a, condf t, void* params);  // i don't know a better name for this func
 EVector VecEq(const EVector& a, float f);
+EVector VecAbs(const EVector& a);
 
 EVector colon(int j, int k); // matlab : operator
 EVector VecAppend(const EVector& a, const EVector& b);

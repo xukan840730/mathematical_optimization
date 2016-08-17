@@ -16,7 +16,6 @@ eqnres eqnsolv(EMatrix& A, EVector& b, EVector& eqix, int numVars, float eps)
 
 	// set tolerances
 	float tolDep = 100.f * numVars * eps;
-	float tolCons = 1e-10;
 
 	int numEcstr = eqix.rows();
 	EMatrix Aeq = MatFromRowIdx(A, eqix);

@@ -27,10 +27,10 @@ static EVector findUb(const EVector& ub)
 	return findRows(ub, validUb, &t);
 }
 
-void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector& lb, const EVector& ub, const EVector* x0, int numEqCstr, QpsubCaller caller, float eps) 
+int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector& lb, const EVector& ub, const EVector* _x0, int numEqCstr, QpsubCaller caller, float eps) 
 {
 	ASSERT(_A.rows() == _b.rows());
-	if (x0 != nullptr) ASSERT(x0->rows() == H.cols());
+	if (_x0 != nullptr) ASSERT(_x0->rows() == H.cols());
 	int exitFlag = 1;
 	int iteration = 0;
 
@@ -43,7 +43,7 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 	
 	bool lls = false;
 	bool normalize = false;
-	int numVars = x0 != nullptr ? x0->rows() : H.cols();
+	int numVars = _x0 != nullptr ? _x0->rows() : H.cols();
 	int simplexIter = 0;
 
 	bool isqp = H.squaredNorm() > 0.f;
@@ -92,7 +92,7 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 	numCstr = numCstr + arglb.rows() + argub.rows();
 	ASSERT(A.rows() == numCstr);
 
-	int maxIter = 200; // TODO:
+	int maxIter = 200; // TODO: pass in as a parameter
 	// used for determining threshold for whether a direction will violate
 	EVector normA(numCstr); normA.setOnes();
 	if (normalize)
@@ -109,12 +109,18 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 		}
 	}
 	// some error number
-	float errNorm = 0.01f * sqrt(eps);
-	float tolDep = 100 * numVars * eps;
+	const float errNorm = 0.01f * sqrt(eps);
+	const float tolDep = 100 * numVars * eps;
+	const float tolCons = 1e-10;
 	EVector lambda(numCstr); lambda.setZero();
 	EVector eqix = colon(0, numEqCstr - 1);
 	EVector indepIdx = colon(0, numCstr - 1); // independent constraint indices
 
+	EVector X0;
+	if (_x0 != nullptr) { X0 = *_x0; }
+	else { X0 = EVector(numVars); X0.setZero(); }
+
+	int actCnt = 0;
 	if (numEqCstr > 0)
 	{
 		eqnres res = eqnsolv(A, b, eqix, numVars, eps); 
@@ -123,7 +129,29 @@ void qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector
 			indepIdx = VecRmvIdx(indepIdx, res.rmvIdx);
 			normA = VecFromIdx(normA, indepIdx);
 		}
+
+		if (res.exitFlag == -1)
+		{
+			// equalities are inconsistent, so x and lamabda have no valid values
+			// return original x and zero for lambda
+			return res.exitFlag;
+		}
+
+		// update flags.
+		numEqCstr = eqix.rows();
+		numCstr = A.rows();
+
+		{
+			// find a feasible point for equality constraints
+			const EMatrix Aeq = MatFromRowIdx(A, eqix);
+			const EVector beq = VecFromIdx(b, eqix);
+			EVector diff = Aeq * X0 - beq;
+			if (VecAbs(diff).maxCoeff() > tolCons)
+				X0 = EigenColPivQrSolve(Aeq, beq);
+		}
 	}
 	else
 	{}
+
+	return 0;
 }
