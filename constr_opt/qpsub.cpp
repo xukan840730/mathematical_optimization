@@ -129,9 +129,9 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 	EVector eqix = colon(0, numEqCstr - 1);
 	EVector indepIdx = colon(0, numCstr - 1); // independent constraint indices
 
-	EVector X0;
-	if (_x0 != nullptr) { X0 = *_x0; }
-	else { X0 = EVector(numVars); X0.setZero(); }
+	EVector X;
+	if (_x0 != nullptr) { X = *_x0; }
+	else { X = EVector(numVars); X.setZero(); }
 
 	EMatrix Z; // null space.
 	
@@ -167,15 +167,15 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 		// is this necessary?
 		{
 			// find a feasible point for equality constraints
-			EVector diff = Aeq * X0 - beq;
+			EVector diff = Aeq * X - beq;
 			if (VecAbs(diff).maxCoeff() > tolCons)
-				X0 = EigenColPivQrSolve(Aeq, beq);
+				X = EigenColPivQrSolve(Aeq, beq);
 		}
 
 		// is this necessary?
 		if (numEqCstr > numVars)
 		{
-			EVector diff = Aeq * X0 - beq;
+			EVector diff = Aeq * X - beq;
 			float err = VecAbs(diff).maxCoeff();
 			if (err > 1e-8) // equalities not met
 			{
@@ -187,7 +187,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 			else
 			{
 				// check inequalities
-				EVector diff2 = A * X0 - b;
+				EVector diff2 = A * X - b;
 				if (diff2.maxCoeff() > 1e-8)
 				{
 					// exiting: the constraints or bounds are overly stringent
@@ -197,7 +197,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 				}
 			}
 
-			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X0, eqix, indepIdx, normf, normA, lambda);
+			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X, eqix, indepIdx, normf, normA, lambda);
 			return exitFlag;
 		}
 
@@ -206,8 +206,8 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 			// Aeq's null space is null, there's no space for X to move.
 			// and also X is infeasible.
 			exitFlag = res.exitFlag;
-			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X0, eqix, indepIdx, normf, normA, lambda);
-			EVector diff2 = A * X0  - b;
+			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X, eqix, indepIdx, normf, normA, lambda);
+			EVector diff2 = A * X  - b;
 			if (diff2.maxCoeff() > 1e-8)
 			{
 				// exiting: the constraints or bounds are overly stringent
@@ -226,6 +226,15 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 	else
 	{
 		Z = EMatrix(1, 1); Z(0, 0) = 1;
+	}
+
+	// find initial feasible solution
+	if (numCstr > 0 && numEqCstr < numCstr)
+	{
+		EVector cstr = A * X - b;
+		float mc = VecFromIdx(cstr, colon(numEqCstr, numCstr - 1)).maxCoeff();
+		if (mc > eps)
+		{}
 	}
 
 	return 0;
