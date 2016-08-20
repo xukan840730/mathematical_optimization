@@ -27,6 +27,19 @@ static EVector findUb(const EVector& ub)
 	return findRows(ub, validUb, &t);
 }
 
+static void CalcInfeasibleLambda(bool isqp, bool lls, const EMatrix& Q, const EMatrix& R, const EMatrix& H, const EVector& f, const EVector& X, const EVector& eqix, const EVector& indepIdx, float normf, const EVector& normA, EVector& lambda)
+{
+	EVector actLambda;
+	if (isqp)
+		actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H*X + f));
+	else if (lls)
+		actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H.transpose() * (H*X - f)));
+	else
+		actLambda = EigenColPivQrSolve(-R, Q.transpose() * f);
+	const EVector normedActLambda = normf * VecDivVec(actLambda, VecFromIdx(normA, eqix));
+	VecChangeRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
+}
+
 int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector& lb, const EVector& ub, const EVector* _x0, int numEqCstr, QpsubCaller caller, float eps) 
 {
 	ASSERT(_A.rows() == _b.rows());
@@ -120,6 +133,8 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 	if (_x0 != nullptr) { X0 = *_x0; }
 	else { X0 = EVector(numVars); X0.setZero(); }
 
+	EMatrix Z; // null space.
+	
 	int actCnt = 0;
 	if (numEqCstr > 0)
 	{
@@ -143,6 +158,12 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 
 		const EMatrix Aeq = MatFromRowIdx(A, eqix);
 		const EVector beq = VecFromIdx(b, eqix);
+
+		EMatrix Q, R;
+		EigenQrDecomp(Aeq.transpose(), &Q, &R, nullptr);
+		if (numEqCstr < numVars)
+			Z = MatFromColIdx(Q, colon(numEqCstr, numVars - 1)); 
+
 		// is this necessary?
 		{
 			// find a feasible point for equality constraints
@@ -175,23 +196,37 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 					exitFlag = -1;
 				}
 			}
-			EMatrix Q, R;
-			EigenQrDecomp(Aeq.transpose(), &Q, &R, nullptr);
 
-			EVector actLambda;
-			if (isqp)
-				actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H*X0 + f));
-			else if (lls)
-				actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H.transpose() * (H*X0 - f)));
-			else
-				actLambda = EigenColPivQrSolve(-R, Q.transpose() * f);
-			const EVector normedActLambda = normf * VecDivVec(actLambda, VecFromIdx(normA, eqix));
-			VecChangeRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
+			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X0, eqix, indepIdx, normf, normA, lambda);
 			return exitFlag;
 		}
+
+		if (Z.cols() == 0)
+		{
+			// Aeq's null space is null, there's no space for X to move.
+			// and also X is infeasible.
+			exitFlag = res.exitFlag;
+			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X0, eqix, indepIdx, normf, normA, lambda);
+			EVector diff2 = A * X0  - b;
+			if (diff2.maxCoeff() > 1e-8)
+			{
+				// exiting: the constraints or bounds are overly stringent
+				// there's no feasible solution
+				// equality constraints have been met
+				exitFlag = -1;
+			}
+
+			return exitFlag;
+		}
+
+		// check whether in Phase 1 of feasiblity point finding.
+		// this part is removed.
+		// if (verbosity == -2) ...
 	}
 	else
-	{}
+	{
+		Z = EMatrix(1, 1); Z(0, 0) = 1;
+	}
 
 	return 0;
 }

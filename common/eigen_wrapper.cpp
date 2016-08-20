@@ -257,16 +257,21 @@ EVector VecDivVec(const EVector& a, const EVector& b)
 //-------------------------------------------------------------------------------//
 EVector colon(int j, int k)
 {
-	int numRows = abs(k - j) + 1;
-	EVector res(numRows);
-	int inc = k >= j ? 1 : -1;
-	int cur = j;
-	for (int ii = 0; ii < numRows; ii++)
+	if (j <= k)
 	{
-		res(ii) = cur;
-		cur += inc;
+		int numRows = abs(k - j) + 1;
+		EVector res(numRows);
+		int inc = k >= j ? 1 : -1;
+		int cur = j;
+		for (int ii = 0; ii < numRows; ii++)
+		{
+			res(ii) = cur;
+			cur += inc;
+		}
+		return res;
 	}
-	return res;
+
+	return EVector();
 }
 
 EVector VecAppend(const EVector& a, const EVector& b)
