@@ -1089,19 +1089,15 @@ void test2()
 
 		EVector f(2); f(0) = 0; f(1) = 0;
 
-		EMatrix A(5, 2);
+		EMatrix A(1, 2);
 		A(0, 0) = 1; A(0, 1) = 1;
-		A(1, 0) = 2; A(1, 1) = 2;
-		A(2, 0) = 3; A(2, 1) = 3;
-		A(3, 0) = 4; A(3, 1) = 4;
-		A(4, 0) = 5; A(4, 1) = 5;
 
-		EVector b(5); b(0) = 1; b(1) = 2; b(2) = 3; b(3) = 4; b(4) = 5;
+		EVector b(1); b(0) = 4;
 
-		EVector lb(2); lb(0) = -NDI_FLT_MAX; lb(1) = 1.2f;
+		EVector lb(2); lb(0) = 5.32f; lb(1) = -NDI_FLT_MAX;
 		EVector ub(2); ub(0) = NDI_FLT_MAX; ub(1) = 5;
 
-		qpsub(H, f, A, b, &lb, &ub, nullptr, 4, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
+		qpsub(H, f, A, b, &lb, &ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
 	}
 }
 

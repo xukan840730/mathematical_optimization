@@ -52,6 +52,8 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 	EMatrix A = _A;
 	EVector b = _b;
 
+	ASSERT(numEqCstr <= A.rows());
+
 	int numCstr = A.rows();
 	
 	bool lls = false;
@@ -267,6 +269,20 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 				kQpsub, eps);
 		}
 	}
+
+	if (isqp)
+	{
+		printf("isqp\n");
+	}
+	else if (lls)
+	{
+		printf("lls\n");
+	}
+	else // lp
+	{
+		printf("lp\n");
+	}
+
 
 	return 0;
 }
