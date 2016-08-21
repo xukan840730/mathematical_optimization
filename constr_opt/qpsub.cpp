@@ -40,10 +40,10 @@ static void CalcInfeasibleLambda(bool isqp, bool lls, const EMatrix& Q, const EM
 	VecChangeRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
 }
 
-int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector& lb, const EVector& ub, const EVector* _x0, int numEqCstr, QpsubCaller caller, float eps) 
+int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector* _lb, const EVector* _ub, const EVector* _x0, int numEqCstr, QpsubCaller caller, float eps) 
 {
 	ASSERT(_A.rows() == _b.rows());
-	if (_x0 != nullptr) ASSERT(_x0->rows() == H.cols());
+	if (_x0 != nullptr) ASSERT(_x0->rows() == H.cols() || H.cols() == 0);
 	int exitFlag = 1;
 	int iteration = 0;
 
@@ -80,11 +80,13 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 	}
 
 	// Handle bounds as linear constraints
-	ASSERT(lb.rows() == numVars);
-	ASSERT(ub.rows() == numVars);
-	// lower bound
- 	const EVector arglb = findLb(lb);
+ 	EVector arglb;
+	if (_lb != nullptr)
 	{
+		// lower bound
+		const EVector& lb = *_lb;
+		ASSERT(lb.rows() == numVars);
+		arglb = findLb(lb);
 		if (arglb.rows() > 0)
 		{
 			EMatrix lbmat(numVars, numVars); lbmat.setIdentity(); lbmat *= -1; // lbmat = -I
@@ -92,9 +94,14 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 			b = VecAppend(b, VecFromIdx(-lb, arglb));
 		}
 	}
-	// upper bound
-	const EVector argub = findUb(ub);
+
+	EVector argub;
+	if (_ub != nullptr)
 	{
+		// upper bound
+		const EVector& ub = *_ub;
+		ASSERT(ub.rows() == numVars);
+		argub = findUb(ub);
 		if (argub.rows() > 0)
 		{
 			EMatrix ubmat(numVars, numVars); ubmat.setIdentity(); // ubmat = I
@@ -235,6 +242,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 		float mc = VecFromIdx(cstr, colon(numEqCstr, numCstr - 1)).maxCoeff();
 		if (mc > eps)
 		{
+			// add one slack variable and solve a linear system to get init feasible solution.
 			int rowsA = A.rows();
 			int colsA = A.cols();
 			EMatrix A2(rowsA + 1, colsA + 1);
@@ -244,6 +252,19 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 			A2.block(numEqCstr, colsA, numCstr - numEqCstr + 1, 1).setOnes();
 			A2.block(numEqCstr, colsA, numCstr - numEqCstr + 1, 1) *= -1.f;
 			int quiet = -2;
+
+			EMatrix feasM;
+			EVector feasF(numVars); feasF.setZero();
+			EVector vt(1); vt(0) = 1e-5;
+			EVector b2 = VecAppend(b, vt);
+			EVector vmc(1); vmc(0) = mc+ 1;
+			EVector feasX = VecAppend(X, vmc);
+
+			qpsub(feasM, feasF, // obj func
+				A2, b2,  // constrs
+				nullptr, nullptr, // lb & ub
+				&feasX, numEqCstr, 
+				kQpsub, eps);
 		}
 	}
 
