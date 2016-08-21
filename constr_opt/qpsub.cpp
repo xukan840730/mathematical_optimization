@@ -234,7 +234,17 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 		EVector cstr = A * X - b;
 		float mc = VecFromIdx(cstr, colon(numEqCstr, numCstr - 1)).maxCoeff();
 		if (mc > eps)
-		{}
+		{
+			int rowsA = A.rows();
+			int colsA = A.cols();
+			EMatrix A2(rowsA + 1, colsA + 1);
+			A2.block(0, 0, rowsA, colsA) = A;
+			A2.block(rowsA, 0, 1, colsA).setZero();
+			A2.block(0, colsA, numEqCstr, 1).setZero();
+			A2.block(numEqCstr, colsA, numCstr - numEqCstr + 1, 1).setOnes();
+			A2.block(numEqCstr, colsA, numCstr - numEqCstr + 1, 1) *= -1.f;
+			int quiet = -2;
+		}
 	}
 
 	return 0;
