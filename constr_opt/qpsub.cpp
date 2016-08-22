@@ -40,7 +40,7 @@ static void CalcInfeasibleLambda(bool isqp, bool lls, const EMatrix& Q, const EM
 	VecChangeRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
 }
 
-int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector* _lb, const EVector* _ub, const EVector* _x0, int numEqCstr, QpsubCaller caller, float eps) 
+qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector* _lb, const EVector* _ub, const EVector* _x0, int numEqCstr, QpsubCaller caller, float eps) 
 {
 	ASSERT(_A.rows() == _b.rows());
 	if (_x0 != nullptr) ASSERT(_x0->rows() == H.cols() || H.cols() == 0);
@@ -158,7 +158,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 		{
 			// equalities are inconsistent, so x and lamabda have no valid values
 			// return original x and zero for lambda
-			return res.exitFlag;
+			return qpsubres(res.exitFlag, X, lambda);
 		}
 
 		// update flags.
@@ -191,7 +191,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 				// exiting: the equality constraints are overly stringent
 				// there's no feasible solution
 				exitFlag = -1;
-				return exitFlag;
+				return qpsubres(exitFlag, X, lambda);
 			}
 			else
 			{
@@ -207,7 +207,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 			}
 
 			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X, eqix, indepIdx, normf, normA, lambda);
-			return exitFlag;
+			return qpsubres(exitFlag, X, lambda);
 		}
 
 		if (Z.cols() == 0)
@@ -225,7 +225,7 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 				exitFlag = -1;
 			}
 
-			return exitFlag;
+			return qpsubres(exitFlag, X, lambda);
 		}
 
 		// check whether in Phase 1 of feasiblity point finding.
@@ -283,6 +283,5 @@ int qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector&
 		printf("lp\n");
 	}
 
-
-	return 0;
+	return qpsubres(0, X, lambda);
 }

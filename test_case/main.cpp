@@ -1097,7 +1097,7 @@ void test2()
 		EVector lb(2); lb(0) = 5.32f; lb(1) = -NDI_FLT_MAX;
 		EVector ub(2); ub(0) = NDI_FLT_MAX; ub(1) = 5;
 
-		qpsub(H, f, A, b, &lb, &ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
+		qpsubres res = qpsub(H, f, A, b, &lb, &ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
 	}
 }
 
