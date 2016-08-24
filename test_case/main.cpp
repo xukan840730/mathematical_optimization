@@ -3,6 +3,7 @@
 #include "math.h"
 
 #include "../common/common_shared.h"
+#include "../common/eigen_wrapper.h"
 #include "../common/lin-equation.h"
 #include "../linear_algebra/scalar_matrix.h"
 #include "../line_search/line_search_subp.h"
@@ -13,6 +14,7 @@
 #include "../constr_opt/simplex.h"
 #include "../constr_opt/eqnsolv.h"
 #include "../constr_opt/qpsub.h"
+#include "../constr_opt/compdir.h"
 
 //float func(float x1, float x2)
 //{
@@ -1097,13 +1099,56 @@ void test2()
 		EVector lb(2); lb(0) = 5.32f; lb(1) = -NDI_FLT_MAX;
 		EVector ub(2); ub(0) = NDI_FLT_MAX; ub(1) = 5;
 
-		qpsubres res = qpsub(H, f, A, b, &lb, &ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
+		qpsub(H, f, A, b, &lb, &ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
 	}
+}
+
+/*
+CompDirRes CompDir(const EMatrix& Z, const EMatrix& H, const EVector& gf, int numVars, const EVector& f)
+{
+	SearchDir dirType;
+	// SD=-Z*((Z'*H*Z)\(Z'*gf));
+	// compute the projected newton direction if possible
+	EMatrix projH = Z.transpose() * H * Z;
+
+	EMatrix R;
+	bool valid = EigenLlt(projH, &R);
+	if (valid)
+	{
+		// positive definite: use Newton direction
+		Z.transpose() * gf;
+		dirType = SearchDir::kNewton;
+	}
+
+	CompDirRes res;
+	return res;
+}
+*/
+
+
+void test3()
+{
+	EMatrix A(1, 3); A(0, 0) = 1; A(0, 1) = 1; A(0, 2) = 1;
+	EMatrix Q, R;
+	EigenQrDecomp(A.transpose(), &Q, &R);
+	
+	EMatrix H(3, 3); 
+	H(0, 0) = 1; H(0, 1) = 0; H(0, 2) = 0;
+	H(1, 0) = 0; H(1, 1) = 1; H(1, 2) = 0;
+	H(2, 0) = 0; H(2, 1) = 0; H(2, 2) = 1;
+	EVector f(3); f(0) = 0; f(1) = 0; f(2) = 0;
+
+	EVector X(3); X(0) = -1; X(1) = 2; X(2) = 3;
+	EVector gf = H * X + f;
+	
+	int numVars = X.rows();
+	EMatrix Z = MatFromColIdx(Q, colon(1, numVars - 1));
+	CompDir(Z, H, gf, numVars, f);
 }
 
 //------------------------------------------------------------------------------------//
 int main()
 {
-	test2();
+	test3();
 	return 0;
 }

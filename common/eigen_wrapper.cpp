@@ -129,7 +129,7 @@ EVector VecRmvIdx(const EVector& A, const EVector& rmIdx)
 	return VecFromIdx(A, newIndices);
 }
 
-void VecChangeRows(EVector& a, const EVector& b, const EVector& rowIdx)
+void VecReplaceRows(EVector& a, const EVector& b, const EVector& rowIdx)
 {
 	ASSERT(b.rows() == rowIdx.rows());
 	for (int ii = 0; ii < rowIdx.rows(); ii++)

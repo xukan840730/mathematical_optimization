@@ -14,7 +14,7 @@ EVector RmRows(int numRows, const EVector& rmRow);
 EMatrix MatRmvRowIdx(const EMatrix& A, const EVector& rmRow);
 EVector VecFromIdx(const EVector& a, const EVector& rowArr);
 EVector VecRmvIdx(const EVector& A, const EVector& rmIdx);
-void VecChangeRows(EVector& a, const EVector& b, const EVector& rowIdx);
+void VecReplaceRows(EVector& a, const EVector& b, const EVector& rowIdx);
 
 bool anyNnz(const EMatrix& A, float eps);
 // find non zeros and store them in row and col index.
@@ -34,6 +34,9 @@ EVector colon(int j, int k); // matlab : operator
 EVector VecAppend(const EVector& a, const EVector& b);
 EMatrix MatRowAppend(const EMatrix& a, const EMatrix& b);
 EMatrix MatColAppend(const EMatrix& a, const EMatrix& b);
+
+EMatrix MatAddScalar(const EMatrix& m, float s);
+EMatrix MatRand(int row, int col);
 
 // eigen operation
 bool EigenLlt(const EMatrix& m, EMatrix* l);

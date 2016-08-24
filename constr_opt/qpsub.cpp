@@ -2,6 +2,7 @@
 #include "../common/eigen_wrapper.h"
 #include "qpsub.h"
 #include "eqnsolv.h"
+#include "compdir.h"
 
 static bool validLb(float x, void* params)
 {
@@ -37,7 +38,7 @@ static void CalcInfeasibleLambda(bool isqp, bool lls, const EMatrix& Q, const EM
 	else
 		actLambda = EigenColPivQrSolve(-R, Q.transpose() * f);
 	const EVector normedActLambda = normf * VecDivVec(actLambda, VecFromIdx(normA, eqix));
-	VecChangeRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
+	VecReplaceRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
 }
 
 qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVector& _b, const EVector* _lb, const EVector* _ub, const EVector* _x0, int numEqCstr, QpsubCaller caller, float eps) 
@@ -262,17 +263,35 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 			EVector vmc(1); vmc(0) = mc+ 1;
 			EVector feasX = VecAppend(X, vmc);
 
-			qpsub(feasM, feasF, // obj func
+			qpsubres res2 = qpsub(feasM, feasF, // obj func
 				A2, b2,  // constrs
 				nullptr, nullptr, // lb & ub
 				&feasX, numEqCstr, 
 				kQpsub, eps);
+
+			X = res2.X.block(0, 0, numVars, 1);
+			cstr = A * X - b;
+			float slackVar = res2.X(numVars);
+			if (slackVar > eps)
+			{
+				exitFlag = -1;
+				// exiting: the constraints are olvery stringent
+				//lambda 
+				const EVector lambdaS = res2.lambda.block(0, 0, numCstr, 1);
+				const EVector t2 = normf * VecDivVec(lambdaS, normA);
+				VecReplaceRows(lambda, t2, indepIdx);
+				return qpsubres(exitFlag, X, lambda);
+			}
 		}
 	}
 
+	EVector gf;
 	if (isqp)
 	{
 		printf("isqp\n");
+		gf = H * X + f;	
+		// SD=-Z*((Z'*H*Z)\(Z'*gf));
+		//CompDir(Z, H, gf, numVars, f);
 	}
 	else if (lls)
 	{

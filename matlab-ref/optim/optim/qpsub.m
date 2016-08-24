@@ -1,4 +1,4 @@
-function [X,lambda,exitflag,output,how]=qpsub(H,f,A,B,lb,ub,X,neqcstr,verbosity,caller,ncstr,numberOfVariables,options)
+Replacefunction [X,lambda,exitflag,output,how]=qpsub(H,f,A,B,lb,ub,X,neqcstr,verbosity,caller,ncstr,numberOfVariables,options)
 %QP Quadratic programming subproblem. Handles qp and constrained
 %   linear least-squares as well as subproblems generated from NLCONST.
 %

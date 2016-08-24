@@ -14,10 +14,10 @@ struct qpsubres
 	EVector X;
 	EVector lambda;
 
-	qpsubres(int _exitFlag, const EVector& _X, const EVector& _lambda)
+	qpsubres(int _exitFlag, const EVector& inX, const EVector& inLambda)
 		: exitFlag(_exitFlag)
-		, X(_X)
-		, lambda(_lambda)
+		, X(inX)
+		, lambda(inLambda)
 	{}
 };
 
