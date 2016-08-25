@@ -1143,12 +1143,12 @@ void test3()
 	
 	int numVars = X.rows();
 	EMatrix Z = MatFromColIdx(Q, colon(1, numVars - 1));
-	CompDir(Z, H, gf, numVars, f);
+	CompDir(&Z, &H, &gf, numVars, &f, NDI_FLT_EPSILON);
 }
 
 //------------------------------------------------------------------------------------//
 int main()
 {
-	test3();
+	test4();
 	return 0;
 }

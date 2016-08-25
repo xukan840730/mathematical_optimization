@@ -2,7 +2,7 @@
 #include "../common/eigen_wrapper.h"
 #include "compdir.h"
 
-CompDirRes CompDir(const EMatrix& Z, const EMatrix& H, const EVector& gf, int numVars, const EVector& f, float eps)
+CompDirRes CompDir(const EMatrix* _Z, const EMatrix* _H, const EVector* _gf, int numVars, const EVector* _f, float eps)
 {
 	// CompDir computes a search direction in a subspace defined by Z.
 	// return Newton direction if possible
@@ -11,6 +11,11 @@ CompDirRes CompDir(const EMatrix& Z, const EMatrix& H, const EVector& gf, int nu
 	// If the steepest descent direction is small it computes a negative
 	// curvature direction based on the most negative eigenvalue.
 	// For singular matrices, returns steepest descent even if small.
+	const EMatrix& Z = *_Z;
+	const EMatrix& H = *_H;
+	const EVector& gf = *_gf;
+	const EVector& f= *_f;
+
 	EVector SD;
 	SearchDir dirType;
 	// SD=-Z*((Z'*H*Z)\(Z'*gf));
@@ -50,3 +55,4 @@ CompDirRes CompDir(const EMatrix& Z, const EMatrix& H, const EVector& gf, int nu
 }
 
 
+void test4() {}

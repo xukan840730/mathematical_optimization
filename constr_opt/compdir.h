@@ -15,6 +15,7 @@ struct CompDirRes
 	int dirType;
 };
 
-CompDirRes CompDir(const EMatrix& Z, const EMatrix& H, const EVector& gf, int numVars, const EVector& f);
+CompDirRes CompDir(const EMatrix* Z, const EMatrix* H, const EVector* gf, int numVars, const EVector* f, float eps);
+void test4();
 
 #endif
