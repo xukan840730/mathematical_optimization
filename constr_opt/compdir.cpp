@@ -50,4 +50,3 @@ CompDirRes CompDir(const EMatrix& Z, const EMatrix& H, const EVector& gf, int nu
 }
 
 
-

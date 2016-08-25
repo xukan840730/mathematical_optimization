@@ -306,6 +306,24 @@ EMatrix MatColAppend(const EMatrix& a, const EMatrix& b)
 	res.block(0, a.cols(), numRows, b.cols()) = b;
 	return res;
 }
+//------------------------------------------------------------------------------------------------------------//
+EMatrix MatAddScalar(const EMatrix& m, float s)
+{
+	EMatrix res = m;
+	for (int ii = 0; ii < m.rows(); ii++)
+		for (int jj = 0; jj < m.cols(); jj++)
+			res(ii, jj) += s;
+	return res;
+}
+
+EMatrix MatRand(int row, int col)
+{
+	EMatrix res(row, col);
+	for (int ii = 0; ii < row; ii++)
+		for (int jj = 0; jj < col; jj ++)
+			res(ii, jj) = (float)rand() / RAND_MAX;
+	return res;
+}
 
 //------------------------------------------------------------------------------------------------------------//
 bool EigenLlt(const EMatrix& m, EMatrix* l)
