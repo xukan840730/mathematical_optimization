@@ -349,6 +349,26 @@ void EigenValVec(const EMatrix& m,
 	*eigenvec = eh.eigenvectors();
 }
 
+int FindMinEigenValIdx(void* eigenval, float* outMinEigenVal)
+{
+	EMatrix::EigenvaluesReturnType eigenvalP = *(static_cast<EMatrix::EigenvaluesReturnType*>(eigenval));
+
+	// find minimun eigenvec column.
+	int indminR = 0;
+	int nn = eigenvalP.rows();
+	float smallestVal = eigenvalP(0).real();
+	for (int ii = 1; ii < nn; ii++)
+	{
+		if (eigenvalP(ii).real() < smallestVal)
+		{
+			smallestVal = eigenvalP(ii).real();
+			indminR = ii;
+		}
+	}
+	if (outMinEigenVal)
+		*outMinEigenVal = smallestVal;
+	return indminR;
+}
 
 void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p)
 {

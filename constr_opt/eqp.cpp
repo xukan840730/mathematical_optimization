@@ -78,19 +78,7 @@ EQuadProgRes EQuadProg(const EMatrix& H, const EVector& q, const EMatrix& Aeq, c
 		EigenValVec(P, &eigenvalP, &eigenvecP);
 
 		// find minimun eigenvec column.
-		int indminR = 0;
-		{
-			ASSERT(nn == eigenvalP.rows());
-			float smallestVal = eigenvalP(0).real();
-			for (int ii = 1; ii < nn; ii++)
-			{
-				if (eigenvalP(ii).real() < smallestVal)
-				{
-					smallestVal = eigenvalP(ii).real();
-					indminR = ii;
-				}
-			}
-		}
+		int indminR = FindMinEigenValIdx(&eigenvalP, nullptr);
 
 		EVector eVrH = eigenvecP.col(indminR).real();
 		ASSERT(eVrH.rows() == qN.cols());

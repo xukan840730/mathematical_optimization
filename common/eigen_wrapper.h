@@ -49,6 +49,7 @@ bool EigenLlt(const EMatrix& m, EMatrix* l);
 void EigenValVec(const EMatrix& m, 
 	void* eigenval, 
 	void* eigenvec);
+int FindMinEigenValIdx(void* eigenval, float* outMinEigenVal);
 
 void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p = nullptr);
 

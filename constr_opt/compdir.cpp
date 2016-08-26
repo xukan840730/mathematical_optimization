@@ -1,6 +1,7 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
 #include "compdir.h"
+#include <Eigen/Dense>
 
 CompDirRes CompDir(const EMatrix* _Z, const EMatrix* _H, const EVector* _gf, int numVars, const EVector* _f, float eps)
 {
@@ -46,6 +47,69 @@ CompDirRes CompDir(const EMatrix* _Z, const EMatrix* _H, const EVector* _gf, int
 			SD = -Z * Z.transpose() * MatAddScalar(MatRand(numVars, 1), - 0.5f);
 			dirType = SearchDir::kRandom;
 		}
+		else 
+		{
+			// steepest descent
+			const EVector stpDesc = -Z * (Z.transpose() * gf);
+			// check if ||SD|| is close to zero
+			if (stpDesc.norm() > sqrt(eps))
+			{
+				SD = stpDesc;
+				dirType = SearchDir::kStpDesc;
+			}
+			else
+			{
+				// look for a negative curvature direction
+				// some attempt at efficiency: usually it's
+				// faster to use EIG unless many variables.
+				EVector ev;
+				if (numVars < 400)
+				{
+					// Matrix P is unbound in null-space of constraint matrix A.
+					EMatrix::EigenvaluesReturnType eigvalP;
+					Eigen::EigenSolver<EMatrix>::EigenvectorsType eigvecP;
+					EigenValVec(projH, &eigvalP, &eigvecP);
+
+					float minEigVal;
+					int indminR = FindMinEigenValIdx(&eigvalP, &minEigVal);
+
+					if (minEigVal < 0)
+					{
+						// check the sign of SD and the magnitude
+						float SDtol = 100 * eps* gf.norm(); // we know gf.norm() > sqrt(eps)
+						EVector Zev = Z * ev;
+						float dotProd = Zev.dot(gf);
+						if (dotProd > SDtol)
+						{
+							SD = -Zev;
+							dirType = SearchDir::kEigenvec;
+						}
+						else if (dotProd < SDtol)
+						{
+							SD = Zev;
+							dirType = SearchDir::kEigenvec;
+						}
+						else
+						{
+							SD = stpDesc;
+							dirType = SearchDir::kStpDesc;
+						}
+					}
+					else
+					{
+						// the projected hessian is singular
+						// will propagate through the algorithm
+						SD = stpDesc;
+						dirType = SearchDir::kStpDesc;
+					}
+				}
+				else
+				{
+					 //TODO: for complex or unsymmetric problem only.
+					 ASSERT(false);
+				}
+			}
+		}
 	}
 
 	CompDirRes res;
@@ -54,5 +118,3 @@ CompDirRes CompDir(const EMatrix* _Z, const EMatrix* _H, const EVector* _gf, int
 	return res;
 }
 
-
-void test4() {}
