@@ -13,11 +13,13 @@ struct qpsubres
 	int exitFlag;
 	EVector X;
 	EVector lambda;
+	int numIters;
 
-	qpsubres(int _exitFlag, const EVector& inX, const EVector& inLambda)
+	qpsubres(int _exitFlag, const EVector& inX, const EVector& inLambda, float inNumIters)
 		: exitFlag(_exitFlag)
 		, X(inX)
 		, lambda(inLambda)
+		, numIters(inNumIters)
 	{}
 };
 

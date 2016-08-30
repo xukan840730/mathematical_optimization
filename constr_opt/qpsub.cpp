@@ -46,7 +46,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	ASSERT(_A.rows() == _b.rows());
 	if (_x0 != nullptr) ASSERT(_x0->rows() == H.cols() || H.cols() == 0);
 	int exitFlag = 1;
-	int iteration = 0;
+	int numIters = 0;
 
 	// copy original matrix and vector.
 	EVector f = _f;
@@ -138,12 +138,16 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	EVector lambda(numCstr); lambda.setZero();
 	EVector eqix = colon(0, numEqCstr - 1);
 	EVector indepIdx = colon(0, numCstr - 1); // independent constraint indices
+	
+	EMatrix Q(numVars, numVars); Q.setZero();
+	EMatrix R;
 
 	EVector X;
 	if (_x0 != nullptr) { X = *_x0; }
 	else { X = EVector(numVars); X.setZero(); }
 
 	EMatrix Z; // null space.
+
 	
 	int actCnt = 0;
 	if (numEqCstr > 0)
@@ -159,7 +163,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		{
 			// equalities are inconsistent, so x and lamabda have no valid values
 			// return original x and zero for lambda
-			return qpsubres(res.exitFlag, X, lambda);
+			return qpsubres(res.exitFlag, X, lambda, numIters);
 		}
 
 		// update flags.
@@ -169,7 +173,6 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		const EMatrix Aeq = MatFromRowIdx(A, eqix);
 		const EVector beq = VecFromIdx(b, eqix);
 
-		EMatrix Q, R;
 		EigenQrDecomp(Aeq.transpose(), &Q, &R, nullptr);
 		if (numEqCstr < numVars)
 			Z = MatFromColIdx(Q, colon(numEqCstr, numVars - 1)); 
@@ -192,7 +195,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 				// exiting: the equality constraints are overly stringent
 				// there's no feasible solution
 				exitFlag = -1;
-				return qpsubres(exitFlag, X, lambda);
+				return qpsubres(exitFlag, X, lambda, numIters);
 			}
 			else
 			{
@@ -208,7 +211,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 			}
 
 			CalcInfeasibleLambda(isqp, lls, Q, R, H, f, X, eqix, indepIdx, normf, normA, lambda);
-			return qpsubres(exitFlag, X, lambda);
+			return qpsubres(exitFlag, X, lambda, numIters);
 		}
 
 		if (Z.cols() == 0)
@@ -226,7 +229,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 				exitFlag = -1;
 			}
 
-			return qpsubres(exitFlag, X, lambda);
+			return qpsubres(exitFlag, X, lambda, numIters);
 		}
 
 		// check whether in Phase 1 of feasiblity point finding.
@@ -280,27 +283,57 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 				const EVector lambdaS = res2.lambda.block(0, 0, numCstr, 1);
 				const EVector t2 = normf * VecDivVec(lambdaS, normA);
 				VecReplaceRows(lambda, t2, indepIdx);
-				return qpsubres(exitFlag, X, lambda);
+				return qpsubres(exitFlag, X, lambda, numIters);
 			}
 		}
 	}
 
-	EVector gf;
+	EVector SD;
+	SearchDir dirType;
 	if (isqp)
 	{
 		printf("isqp\n");
-		gf = H * X + f;	
+		EVector gf = H * X + f;	
 		// SD=-Z*((Z'*H*Z)\(Z'*gf));
-		//CompDir(Z, H, gf, numVars, f);
+		CompDirRes res2 = CompDir(&Z, &H, &gf, numVars, &f, eps);
+		SD = res2.SD;
+		dirType = res2.dirType;
 	}
 	else if (lls)
 	{
 		printf("lls\n");
+		ASSERT(false); // TODO:
 	}
 	else // lp
 	{
-		printf("lp\n");
+		EVector gf = f;
+		SD = -Z * Z.transpose() * gf;
+		dirType = SearchDir::kStpDesc;
+		if (SD.norm() < 1e10 && numEqCstr > 0)
+		{
+			// this happens when equality constraint is perpendicular 
+			// to objective function
+			EVector actLambda = EigenColPivQrSolve(-R, Q.transpose() * gf);
+			const EVector t2 = normf * VecDivVec(actLambda, VecFromIdx(normA, eqix));
+			VecReplaceRows(lambda, t2, indepIdx);
+			return qpsubres(exitFlag, X, lambda, numIters);
+		}
 	}
 
-	return qpsubres(0, X, lambda);
+	// the maximum number of iterations for a simplex type method is when ncstr >= n:
+	// maxiters = prod(1:ncstr)/(prod(1:numberOfVariables)*prod(1:max(1,ncstr-numberOfVariables)));
+
+	// ------------------ main routine ----------------------------
+	while (numIters <= maxIter)
+	{
+		numIters++;
+		
+		// find distance we can move in search direction SD before a constraint is violated.
+		// gradient with respect to search direction.
+		EVector GSD = A * SD;
+		
+		// note
+	}
+
+	return qpsubres(0, X, lambda, numIters);
 }

@@ -98,4 +98,15 @@ struct OptResult
 	int numIter;		// number of iteration used.
 };
 
+//------------------------------------------------------------------------//
+// Search Direction: defines which types of search direction
+//------------------------------------------------------------------------//
+enum SearchDir
+{
+	kNewton,
+	kRandom,
+	kEigenvec,
+	kStpDesc,
+};
+
 #endif
