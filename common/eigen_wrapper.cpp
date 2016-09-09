@@ -174,7 +174,7 @@ void findNonzeros(const EMatrix& m, EVector* rowIdx, EVector* colIdx)
 static bool isZero(float x, void* params)
 {
 	float eps = *(static_cast<float*>(params));
-	return fabs(x) < eps;
+	return fabs(x) <= eps;
 }
 
 static bool isNnz(float x, void* params) { return !isZero(x, params); }
@@ -228,9 +228,31 @@ static bool iseqf(float a, void* params)
 	return a == b;
 }
 
+static bool isgreaterthan(float a, void* params)
+{
+	float b = *(static_cast<float*>(params));
+	return a > b;
+}
+
+static bool issmallerthan(float a, void* params)
+{
+	float b = *(static_cast<float*>(params));
+	return a < b;
+}
+
 EVector VecEq(const EVector& a, float t)
 {
 	return VecCond(a, iseqf, &t);
+}
+
+EVector VecGt(const EVector& a, float t)
+{
+	return VecCond(a, isgreaterthan, &t);
+}
+
+EVector VecSt(const EVector& a, float t)
+{
+	return VecCond(a, issmallerthan, &t);
 }
 
 EVector VecAbs(const EVector& a)
@@ -251,6 +273,42 @@ EVector VecDivVec(const EVector& a, const EVector& b)
 	EVector res(numRows);
 	for (int ii = 0; ii < numRows; ii++)
 		res(ii) = a(ii) / b(ii);
+	return res;
+}
+
+//-------------------------------------------------------------------------------//
+EVector VecAnd(const EVector& a, const EVector& b)
+{
+	ASSERT(a.rows() == b.rows());
+	int numRows = a.rows();
+	EVector res(numRows);
+
+	for (int ii = 0; ii < numRows; ii++)
+		res(ii) = (a(ii) != 0.f) && (b(ii) != 0.f);
+
+	return res;
+}
+
+EVector VecOr(const EVector& a, const EVector& b)
+{
+	ASSERT(a.rows() == b.rows());
+	int numRows = a.rows();
+	EVector res(numRows);
+
+	for (int ii = 0; ii < numRows; ii++)
+		res(ii) = (a(ii) != 0.f) || (b(ii) != 0.f);
+
+	return res;
+}
+
+EVector VecNot(const EVector& a)
+{
+	int numRows = a.rows();
+	EVector res(numRows);
+
+	for (int ii = 0; ii < numRows; ii++)
+		res(ii) = (a(ii) == 0.f);
+
 	return res;
 }
 

@@ -136,6 +136,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	const float tolDep = 100 * numVars * eps;
 	const float tolCons = 1e-10;
 	EVector lambda(numCstr); lambda.setZero();
+	EVector aix = lambda;
 	EVector eqix = colon(0, numEqCstr - 1);
 	EVector indepIdx = colon(0, numCstr - 1); // independent constraint indices
 	
@@ -170,6 +171,11 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		numEqCstr = eqix.rows();
 		numCstr = A.rows();
 
+		{
+			EVector a(numEqCstr); a.setOnes();
+			EVector b(numCstr - numEqCstr); b.setZero();
+			aix = VecAppend(a, b);
+		}
 		const EMatrix Aeq = MatFromRowIdx(A, eqix);
 		const EVector beq = VecFromIdx(b, eqix);
 
@@ -260,7 +266,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 			int quiet = -2;
 
 			EMatrix feasM;
-			EVector feasF(numVars); feasF.setZero();
+			EVector feasF(numVars + 1); feasF.setZero(); feasF(numVars) = 1;
 			EVector vt(1); vt(0) = 1e-5;
 			EVector b2 = VecAppend(b, vt);
 			EVector vmc(1); vmc(0) = mc+ 1;
@@ -309,16 +315,18 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		EVector gf = f;
 		SD = -Z * Z.transpose() * gf;
 		dirType = SearchDir::kStpDesc;
-		if (SD.norm() < 1e10 && numEqCstr > 0)
+		if (SD.norm() < 1e-10 && numEqCstr > 0)
 		{
 			// this happens when equality constraint is perpendicular 
 			// to objective function
 			EVector actLambda = EigenColPivQrSolve(-R, Q.transpose() * gf);
 			const EVector t2 = normf * VecDivVec(actLambda, VecFromIdx(normA, eqix));
-			VecReplaceRows(lambda, t2, indepIdx);
+			const EVector rowIdx = VecFromIdx(indepIdx, eqix);
+			VecReplaceRows(lambda, t2, rowIdx);
 			return qpsubres(exitFlag, X, lambda, numIters);
 		}
 	}
+
 
 	// the maximum number of iterations for a simplex type method is when ncstr >= n:
 	// maxiters = prod(1:ncstr)/(prod(1:numberOfVariables)*prod(1:max(1,ncstr-numberOfVariables)));
@@ -332,7 +340,19 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		// gradient with respect to search direction.
 		EVector GSD = A * SD;
 		
-		// note
+		// note: we consider only constraints whose gradients are greater
+		// than some threshold. If we considered all gradients greater than 
+		// zero then it might be possible to add a constraint which would lead to
+		// a singular (rank deficient) working set. The gradient (GSD) of such
+		// a constraint in the direction of search would be very close to zero.
+
+		EVector indf;
+		{
+			const EVector t2 = VecNot(aix);
+			const EVector t3 = VecGt(GSD, errNorm * SD.norm());
+			const EVector t4 = VecAnd(t3, t2);
+			indf = findNnzRows(t4, 0);
+		}
 	}
 
 	return qpsubres(0, X, lambda, numIters);

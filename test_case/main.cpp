@@ -1103,28 +1103,6 @@ void test2()
 	}
 }
 
-/*
-CompDirRes CompDir(const EMatrix& Z, const EMatrix& H, const EVector& gf, int numVars, const EVector& f)
-{
-	SearchDir dirType;
-	// SD=-Z*((Z'*H*Z)\(Z'*gf));
-	// compute the projected newton direction if possible
-	EMatrix projH = Z.transpose() * H * Z;
-
-	EMatrix R;
-	bool valid = EigenLlt(projH, &R);
-	if (valid)
-	{
-		// positive definite: use Newton direction
-		Z.transpose() * gf;
-		dirType = SearchDir::kNewton;
-	}
-
-	CompDirRes res;
-	return res;
-}
-*/
-
 
 void test3()
 {
@@ -1149,6 +1127,6 @@ void test3()
 //------------------------------------------------------------------------------------//
 int main()
 {
-	test3();
+	test2();
 	return 0;
 }
