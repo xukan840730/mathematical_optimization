@@ -37,6 +37,9 @@ EVector VecAnd(const EVector& a, const EVector& b);
 EVector VecOr(const EVector& a, const EVector& b);
 EVector VecNot(const EVector& a);
 
+float VecMin(const EVector& a);
+float VecMin2(const EVector& a, EVector& indices);
+
 EVector colon(int j, int k); // matlab : operator
 EVector VecAppend(const EVector& a, const EVector& b);
 EMatrix MatRowAppend(const EMatrix& a, const EMatrix& b);

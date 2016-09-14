@@ -248,9 +248,9 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	}
 
 	// find initial feasible solution
+	EVector cstr = A * X - b;
 	if (numCstr > 0 && numEqCstr < numCstr)
 	{
-		EVector cstr = A * X - b;
 		float mc = VecFromIdx(cstr, colon(numEqCstr, numCstr - 1)).maxCoeff();
 		if (mc > eps)
 		{
@@ -347,11 +347,76 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		// a constraint in the direction of search would be very close to zero.
 
 		EVector indf;
+		EVector dist, ind2, ind;
+		float stepmin;
 		{
 			const EVector t2 = VecNot(aix);
 			const EVector t3 = VecGt(GSD, errNorm * SD.norm());
 			const EVector t4 = VecAnd(t3, t2);
 			indf = findNnzRows(t4, 0);
+		}
+		if (indf.rows() == 0)
+		{
+			// no constraints to hit
+			stepmin = 1e16;
+		}
+		else
+		{
+			// find distance to the nearest constraint
+			const EVector t2 = VecFromIdx(cstr, indf);
+			const EVector t3 = VecFromIdx(GSD, indf);
+			dist = VecAbs(VecDivVec(t2, t3));
+			{
+				stepmin = VecMin2(dist, ind2);
+				int minRowIdx = VecMin(ind2);
+				EVector t4(1); t4(0) = minRowIdx;
+				ind = VecFromIdx(indf, t4);
+			}
+		}
+		// ---------- Update X ----------------
+		
+		// assume we do not delete a constraint
+		bool delCstr = false;
+
+		if (indf.rows() > 0 && ind2.rows() > 0)	// hit a constraint
+		{
+			if (dirType == SearchDir::kNewton) // newton step and hit a constraint
+			{
+				if (stepmin > 1) // overstepped minimum. reset stepmin
+				{
+					stepmin = 1;
+					delCstr = true;
+				}
+				X = X + stepmin * SD;
+			}
+			else
+			{
+				// not a newton step and hit a constraint: is_qp or LLS or maybe lp
+				X = X + stepmin * SD;
+			}
+		}
+		else
+		{
+			// did not hit a constraint
+			if (dirType == SearchDir::kNewton)  // newton step and no constraint hit: lls or maybe is_qp 
+			{
+				stepmin = 1; // exact distance to the solution. now delete constr.
+				X = X + SD;
+				delCstr = 1;
+			}
+			else // not a newton step: is_qp or lp or LLS
+			{
+				if (isqp)
+				{
+					EMatrix ZHZ = Z.transpose() * H * Z;
+					if (numVars < 400)
+					{}
+					else
+					{
+						ASSERT(false);
+					}
+				}
+			}
 		}
 	}
 

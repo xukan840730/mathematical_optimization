@@ -312,6 +312,47 @@ EVector VecNot(const EVector& a)
 	return res;
 }
 
+float VecMin(const EVector& a)
+{
+	if (a.rows() == 0)
+		return 0.f;
+
+	float minV = a(0);
+
+	for (int ii = 0; ii < a.rows(); ii++)
+		if (a(ii) < minV)
+			minV = a(ii);
+	return minV;
+}
+
+float VecMin2(const EVector& a, EVector& indices)
+{
+	if (a.rows() == 0)
+		return 0.f;
+	
+	float minV = a(0);
+
+	for (int ii = 1; ii < a.rows(); ii++)
+		if (a(ii) < minV)
+		{
+			minV = a(ii);
+		}
+
+	int count = 0;
+	for (int ii = 0; ii < a.rows(); ii++)
+		if (a(ii) == minV)
+			count++;
+
+	int ind = 0;
+	indices = EVector(count);
+	for (int ii = 0; ii < a.rows(); ii++) 
+		if (a(ii) == minV)
+			indices(ind++) = ii;
+	ASSERT(ind == count);
+
+	return minV;
+}
+
 //-------------------------------------------------------------------------------//
 EVector colon(int j, int k)
 {
