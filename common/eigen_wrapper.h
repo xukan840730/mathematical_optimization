@@ -60,6 +60,7 @@ void EigenValVec(const EMatrix& m,
 	void* eigenval, 
 	void* eigenvec);
 int FindMinEigenValIdx(void* eigenval, float* outMinEigenVal);
+float FindMinEigenVal(const EMatrix& m);
 
 void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p = nullptr);
 

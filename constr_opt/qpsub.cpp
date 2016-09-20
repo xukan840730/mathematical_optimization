@@ -53,6 +53,8 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	EMatrix A = _A;
 	EVector b = _b;
 
+	bool verbosity = false;
+
 	ASSERT(numEqCstr <= A.rows());
 
 	int numCstr = A.rows();
@@ -406,18 +408,73 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 			}
 			else // not a newton step: is_qp or lp or LLS
 			{
+				float smallRealEig = 0.f;
 				if (isqp)
 				{
 					EMatrix ZHZ = Z.transpose() * H * Z;
 					if (numVars < 400)
-					{}
+					{
+						// if this is qp, i can reuse the small eigen value from compdir.
+						smallRealEig = FindMinEigenVal(ZHZ); 
+					}
 					else
 					{
 						ASSERT(false);
 					}
 				}
-			}
-		}
+				else
+				{
+					smallRealEig = 0;					
+				}
+
+				if ((!isqp && !lls) || (smallRealEig < -100*eps)) // LP or neg def: not LLS
+				{
+					// neg def -- unbounded
+					if (SD.norm() > errNorm)
+					{
+						if (!normalize)
+							stepmin = abs((X(numVars - 1) + 1e-5) / (SD(numVars - 1)+eps));
+						else
+							stepmin = 1e16;
+						X = X + stepmin * SD;
+						// how = 'unbounded'
+						exitFlag = -1;
+					}
+					else // norm(SD) <= errNorm
+					{
+						// how = 'ill posed'
+						exitFlag = -1;
+					}
+
+					if (verbosity)
+					{
+						if (SD.norm() > errNorm)
+						{
+							printf("Exiting: The solution is unbounded and at infinity;\n");
+							printf("	 the constraints are not restrictive enough.\n");
+						}
+						else
+						{
+							printf("Exiting: The Search Direction is close to zero; \n");
+							printf("	 the problem is ill-posed\n");
+							printf("	 The gradient of the objective function may be zero\n");
+							printf("	    or the problem may be badly conditioned.\n");
+						}
+					}
+					return qpsubres(exitFlag, X, lambda, numIters);
+				}
+				else // singular: solve compatible system for a solution: isqp or lls
+				{
+					EMatrix projH;
+					if (isqp)
+					{
+						projH = Z.transpose() * H * Z;
+						//zgf = Z.transpose() * gf;
+						//projSD = p
+					}
+				} // if ((!isqp && !lls) || (smallRealEig < -100*eps))
+			} // if (dirType == SearchDir::kNewton)
+		} // if (indf.rows() > 0 && ind2.rows() > 0)
 	}
 
 	return qpsubres(0, X, lambda, numIters);

@@ -469,6 +469,23 @@ int FindMinEigenValIdx(void* eigenval, float* outMinEigenVal)
 	return indminR;
 }
 
+float FindMinEigenVal(const EMatrix& m)
+{
+	Eigen::EigenSolver<EMatrix> eh(m);
+	EMatrix::EigenvaluesReturnType eigenvalP = eh.eigenvalues();
+
+	int nn = eigenvalP.rows();
+	float smallEigVal = eigenvalP(0).real();
+	for (int ii = 1; ii < nn; ii++)
+	{
+		if (eigenvalP(ii).real() < smallEigVal)
+		{
+			smallEigVal = eigenvalP(ii).real();
+		}
+	}
+	return smallEigVal;
+}
+
 void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p)
 {
 	Eigen::ColPivHouseholderQR<EMatrix> qrOfM(m);
