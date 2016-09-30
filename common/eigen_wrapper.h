@@ -66,4 +66,6 @@ void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p = nullpt
 
 EVector EigenColPivQrSolve(const EMatrix& A, const EVector& b);
 
+EMatrix PseInv(const EMatrix& e, float toler);
+
 #endif

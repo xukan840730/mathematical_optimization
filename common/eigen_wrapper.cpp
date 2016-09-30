@@ -1,5 +1,6 @@
 #include "common_shared.h"
 #include <Eigen/Dense>
+
 #include "eigen_wrapper.h"
 #include "bit_array.h"
 
@@ -486,6 +487,8 @@ float FindMinEigenVal(const EMatrix& m)
 	return smallEigVal;
 }
 
+//-----------------------------------------------------------------------------------------------------------------------------//
+
 void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p)
 {
 	Eigen::ColPivHouseholderQR<EMatrix> qrOfM(m);
@@ -497,10 +500,37 @@ void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p)
 		*p = qrOfM.colsPermutation();
 }
 
+//-----------------------------------------------------------------------------------------------------------------------------//
+
 EVector EigenColPivQrSolve(const EMatrix& A, const EVector& b)
 {
 	// solve A.x = b
 	ASSERT(A.rows() == b.rows());
 	EVector x = A.colPivHouseholderQr().solve(b);
 	return x;
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------//
+EMatrix PseInv(const EMatrix& m, float toler)
+{
+	Eigen::JacobiSVD<EMatrix> svd(m, Eigen::ComputeThinU|Eigen::ComputeThinV);
+	EMatrix s = svd.singularValues();
+	EMatrix u = svd.matrixU();
+	EMatrix v = svd.matrixV();
+
+	ASSERT(s.cols() == 1);
+	EMatrix sinv(s.rows(), s.cols());
+	for (int ii = 0; ii < s.rows(); ii++)
+	{
+		for (int jj = 0; jj < s.cols(); jj++)
+		{
+			if (s(ii, jj) > toler)
+				sinv(ii, jj) = 1.f / s(ii);
+			else
+				sinv(ii, jj) = 0.f;
+		}
+	}
+	
+	EMatrix res = v * sinv.asDiagonal() * u.transpose();
+	return res;
 }
