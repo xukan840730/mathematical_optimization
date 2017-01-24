@@ -1082,27 +1082,24 @@ void test1()
 
 }
 
-void test2()
+void testQpsub()
 {
-	{
-		EMatrix H(2, 2);
-		H(0, 0) = 1; H(0, 1) = 0;
-		H(1, 0) = 0; H(1, 1) = 1;
+	EMatrix H(2, 2);
+	H(0, 0) = 1; H(0, 1) = 0;
+	H(1, 0) = 0; H(1, 1) = 1;
 
-		EVector f(2); f(0) = 0; f(1) = 0;
+	EVector f(2); f(0) = 0; f(1) = 0;
 
-		EMatrix A(1, 2);
-		A(0, 0) = 1; A(0, 1) = 1;
+	EMatrix A(1, 2);
+	A(0, 0) = 1; A(0, 1) = 1;
 
-		EVector b(1); b(0) = 4;
+	EVector b(1); b(0) = 4;
 
-		EVector lb(2); lb(0) = 5.32f; lb(1) = -NDI_FLT_MAX;
-		EVector ub(2); ub(0) = NDI_FLT_MAX; ub(1) = 5;
+	EVector lb(2); lb(0) = 5.32f; lb(1) = -NDI_FLT_MAX;
+	EVector ub(2); ub(0) = NDI_FLT_MAX; ub(1) = 5;
 
-		qpsub(H, f, A, b, &lb, &ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
-	}
+	qpsub(H, f, A, b, &lb, &ub, nullptr, 1, QpsubCaller::kQpsub, NDI_FLT_EPSILON);
 }
-
 
 void test3()
 {
@@ -1139,7 +1136,9 @@ void testPinv()
 //------------------------------------------------------------------------------------//
 int main()
 {
-	//test2();
 	testPinv();
+
+	testQpsub();
+
 	return 0;
 }

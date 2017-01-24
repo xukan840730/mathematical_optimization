@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="CRect1">
+    <DisplayString>{{top={top} bottom={bottom} left={left} right={right}}}</DisplayString>
+    <Expand>
+      <Item Name="Width">right - left</Item>
+      <Item Name="Height">bottom - top</Item>
+    </Expand>
+  </Type>
+  <Type Name="Eigen::DenseStorage&lt;*,*,*,*,*&gt;">
+    <DisplayString>{{rows={m_rows} cols={m_cols}}}</DisplayString>
+    <Expand>
+      <Item Name="[rows]">m_rows</Item>
+      <Item Name="[cols]">m_cols</Item>
+      <ArrayItems>
+        <Size>m_rows*m_cols</Size>
+        <ValuePointer>m_data.array</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  <Type Name="Eigen::DenseStorage&lt;*,*,*,*&gt;">
+    <DisplayString>{{rows={m_rows}}}</DisplayString>
+    <Expand>
+      <Item Name="[rows]">m_rows</Item>
+      <ArrayItems>
+        <Size>m_rows*1</Size>
+        <ValuePointer>m_data.array</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>

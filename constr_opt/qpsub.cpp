@@ -298,6 +298,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 
 	EVector SD;
 	SearchDir dirType;
+	EVector gf;
 	if (isqp)
 	{
 		printf("isqp\n");
@@ -314,7 +315,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	}
 	else // lp
 	{
-		EVector gf = f;
+		gf = f;
 		SD = -Z * Z.transpose() * gf;
 		dirType = SearchDir::kStpDesc;
 		if (SD.norm() < 1e-10 && numEqCstr > 0)
@@ -469,8 +470,12 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 					if (isqp)
 					{
 						projH = Z.transpose() * H * Z;
-						//zgf = Z.transpose() * gf;
-						//projSD = p
+						EMatrix Zgf = Z.transpose() * gf;
+						EMatrix projSD = PseInv(projH, 1e-6) * (-Zgf);
+					}
+					else // LLS
+					{ 
+						ASSERT(false); // TODO:
 					}
 				} // if ((!isqp && !lls) || (smallRealEig < -100*eps))
 			} // if (dirType == SearchDir::kNewton)
