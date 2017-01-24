@@ -1124,20 +1124,22 @@ void test3()
 	CompDir(&Z, &H, &gf, numVars, &f, NDI_FLT_EPSILON);
 }
 
-void test4()
+void testPinv()
 {
 	EMatrix H(3, 2);
 	H(0, 0) = 1; H(0, 1) = 2;
 	H(1, 0) = 3; H(1, 1) = 4;
 	H(2, 0) = 5; H(2, 1) = 6;
 
-	EMatrix h = PseInv(H, 1e-6);	
+	EMatrix invH = PseInv(H, 1e-6);
+	EMatrix test = H * invH;
+	printf("testPinv done!\n");
 }
 
 //------------------------------------------------------------------------------------//
 int main()
 {
 	//test2();
-	test4();
+	testPinv();
 	return 0;
 }

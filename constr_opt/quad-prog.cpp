@@ -183,7 +183,7 @@ int IsConstrAlwaysSatisfied(const EVector& x0, const EVector& p, const EMatrix& 
 	return res;
 }
 
-static EVector SolveLambda(const EMatrix& H, const EVector& q, const EVector xk, const EMatrix& Ak)
+static EVector SolveLambda(const EMatrix& H, const EVector& q, const EVector& xk, const EMatrix& Ak)
 {
 	// gF(x) + lambdaK * gC(x) = 0
 	// => Hx + q + lambdaK * A^t = 0

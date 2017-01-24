@@ -1224,7 +1224,7 @@ struct ExternalBitArrayStorage
 		#endif
 	}
 
-	void Init(U64 maxBits, U64* aBlock)
+	void Init(size_t maxBits, U64* aBlock)
 	{
 		BIT_ARRAY_ASSERT(maxBits > 0);
 		BIT_ARRAY_ASSERT(aBlock != NULL);
@@ -1247,12 +1247,12 @@ struct ExternalBitArrayStorage
 
 	size_t GetNumBlocks() const { return m_numBlocks; }
 
-	void Fill(U64 value) { memset(m_block, value, sizeof(U64)*m_numBlocks); } 
+	void Fill(U32 value) { memset(m_block, value, sizeof(U64)*m_numBlocks); } 
 
 	U64*	m_block;			// U64 m_block[m_numBlocks];
 	U32		m_numBlocks;
-	U64		m_maxBits;
-	U64		m_allocatedBits;
+	size_t	m_maxBits;
+	size_t	m_allocatedBits;
 
 #if BIT_ARRAY_DEBUG
 	U32		m_watchIndex;
@@ -1283,20 +1283,20 @@ public:
 		//AssignAllBits(false); // no need -- we have zero bits until Init() is called
 	}
 
-	ExternalBitArray(U64 maxBits, U64* aBlock, bool flag = false)
+	ExternalBitArray(size_t maxBits, U64* aBlock, bool flag = false)
 	{
 		m_storage.Init(maxBits, aBlock);
 		AssignAllBits(flag);
 	}
 
-	void Init(U64 maxBits, U64* aBlock, bool flag = false)
+	void Init(size_t maxBits, U64* aBlock, bool flag = false)
 	{
 		m_storage.Init(maxBits, aBlock);
 		AssignAllBits(flag);
 	}
 
 	// used when copy bit-array, can't set/clear all bits.
-	void InitNoAssign(U64 maxBits, U64* aBlock)
+	void InitNoAssign(size_t maxBits, U64* aBlock)
 	{
 		m_storage.Init(maxBits, aBlock);
 	}
