@@ -15,7 +15,7 @@ struct qpsubres
 	EVector lambda;
 	int numIters;
 
-	qpsubres(int _exitFlag, const EVector& inX, const EVector& inLambda, float inNumIters)
+	qpsubres(int _exitFlag, const EVector& inX, const EVector& inLambda, int inNumIters)
 		: exitFlag(_exitFlag)
 		, X(inX)
 		, lambda(inLambda)

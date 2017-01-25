@@ -119,10 +119,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="assert.h" />
     <ClInclude Include="bit_array.h" />
     <ClInclude Include="common_shared.h" />
     <ClInclude Include="eigen_wrapper.h" />
     <ClInclude Include="lin-equation.h" />
+    <ClInclude Include="maybe.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="eigen_wrapper.cpp" />

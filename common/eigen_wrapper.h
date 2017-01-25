@@ -11,7 +11,9 @@ EMatrix MatFromColIdx(const EMatrix& A, const EVector& colArr);
 
 // get row indices array after removing rows 
 EVector RmRows(int numRows, const EVector& rmRow);
+EVector RmCols(int numCols, const EVector& rmCol);
 EMatrix MatRmvRowIdx(const EMatrix& A, const EVector& rmRow);
+EMatrix MatRmvColIdx(const EMatrix& A, const EVector& rmCol);
 EVector VecFromIdx(const EVector& a, const EVector& rowArr);
 EVector VecRmvIdx(const EVector& A, const EVector& rmIdx);
 void VecReplaceRows(EVector& a, const EVector& b, const EVector& rowIdx);
@@ -24,6 +26,8 @@ EVector findRows(const EVector& a, condf t, void* params);  // find all rows sat
 void findNonzeros(const EMatrix& m, EVector* rowIdx, EVector* colIdx);
 EVector findZeroRows(const EVector& a, float eps);
 EVector findNnzRows(const EVector& a, float eps);
+EVector findLtRows(const EVector& a, float b);
+EVector findGtRows(const EVector& a, float b);
 
 EVector VecCond(const EVector& a, condf t, void* params);  // i don't know a better name for this func
 EVector VecEq(const EVector& a, float f);
@@ -39,6 +43,7 @@ EVector VecNot(const EVector& a);
 
 float VecMin(const EVector& a);
 float VecMin2(const EVector& a, EVector& indices);
+int VecMin3(const EVector& a, const EVector& rowIdx);
 
 EVector colon(int j, int k); // matlab : operator
 EVector VecAppend(const EVector& a, const EVector& b);
@@ -63,9 +68,10 @@ int FindMinEigenValIdx(void* eigenval, float* outMinEigenVal);
 float FindMinEigenVal(const EMatrix& m);
 
 void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p = nullptr);
+void EigenQrDelete(EMatrix& q, EMatrix& r, const EVector& rmCols);
 
 EVector EigenColPivQrSolve(const EMatrix& A, const EVector& b);
 
-EMatrix PseInv(const EMatrix& e, float toler);
+EMatrix PseInv(const EMatrix& e, float toler = 1e-6);
 
 #endif

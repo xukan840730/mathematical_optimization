@@ -3,6 +3,7 @@
 #include "math.h"
 
 #include "../common/common_shared.h"
+#include "../common/maybe.h"
 #include "../common/eigen_wrapper.h"
 #include "../common/lin-equation.h"
 #include "../linear_algebra/scalar_matrix.h"
@@ -1139,6 +1140,9 @@ int main()
 	testPinv();
 
 	testQpsub();
+
+	Maybe<int> test1 = 2;
+	int test2 = test1.get();
 
 	return 0;
 }

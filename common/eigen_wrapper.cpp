@@ -101,10 +101,41 @@ EVector RmRows(int numRows, const EVector& rmRow)
 	return newRows;
 }
 
+EVector RmCols(int numCols, const EVector& rmCol)
+{
+	static const int kMaxNumBits = 1024;
+	U64 blocks[16];
+	ASSERT(ExternalBitArray::DetermineNumBlocks(kMaxNumBits) == 16);
+
+	ASSERT(numCols <= kMaxNumBits);
+	ExternalBitArray indices(numCols, blocks, true);
+
+	// remove those rows
+	for (int ii = 0; ii < rmCol.rows(); ii++)
+		indices.ClearBit(rmCol(ii));
+
+	int numNCols = indices.CountSetBits();
+
+	// remaining rows
+	EVector newCols(numNCols);
+	int idx = 0;
+	for (int ii = 0; ii < numCols; ii++)
+		if (indices.IsBitSet(ii))
+			newCols(idx++) = ii;
+	ASSERT(idx == numNCols);
+	return newCols;
+}
+
 EMatrix MatRmvRowIdx(const EMatrix& A, const EVector& rmRow)
 {
 	EVector newIndices = RmRows(A.rows(), rmRow);
 	return MatFromRowIdx(A, newIndices);
+}
+
+EMatrix MatRmvColIdx(const EMatrix& A, const EVector& rmCol)
+{
+	EVector newIndices = RmCols(A.cols(), rmCol);
+	return MatFromColIdx(A, newIndices);
 }
 
 EVector VecFromIdx(const EVector& a, const EVector& rowArr)
@@ -179,6 +210,16 @@ static bool isZero(float x, void* params)
 }
 
 static bool isNnz(float x, void* params) { return !isZero(x, params); }
+static bool isLessThan(float x, void* params)
+{
+	float b = *((float*)params);
+	return x < b;
+}
+static bool isGreaterThan(float x, void* params)
+{
+	float b = *((float*)params);
+	return x > b;
+}
 
 EVector findZeroRows(const EVector& a, float eps)
 {
@@ -188,6 +229,16 @@ EVector findZeroRows(const EVector& a, float eps)
 EVector findNnzRows(const EVector& a, float eps)
 {
 	return findRows(a, isNnz, &eps);
+}
+
+EVector findLtRows(const EVector& a, float b)
+{
+	return findRows(a, isLessThan, &b);
+}
+
+EVector findGLtRows(const EVector& a, float b)
+{
+	return findRows(a, isGreaterThan, &b);
 }
 
 EVector findRows(const EVector& a, condf f, void* params)
@@ -335,9 +386,7 @@ float VecMin2(const EVector& a, EVector& indices)
 
 	for (int ii = 1; ii < a.rows(); ii++)
 		if (a(ii) < minV)
-		{
 			minV = a(ii);
-		}
 
 	int count = 0;
 	for (int ii = 0; ii < a.rows(); ii++)
@@ -352,6 +401,28 @@ float VecMin2(const EVector& a, EVector& indices)
 	ASSERT(ind == count);
 
 	return minV;
+}
+
+int VecMin3(const EVector& a, const EVector& rowIdx)
+{
+	if (a.rows() == 0 || rowIdx.rows() == 0)
+		return -1;
+
+	float minV = NDI_FLT_MAX;
+	int minIdx = -1;
+
+	for (int ii = 0; ii < rowIdx.rows(); ii++)
+	{
+		int index = rowIdx(ii);
+		ASSERT(index < a.rows());
+		if (a(index) < minV)
+		{
+			minV = a(index);
+			minIdx = index;
+		}
+	}
+
+	return minIdx;
 }
 
 //-------------------------------------------------------------------------------//
@@ -498,6 +569,14 @@ void EigenQrDecomp(const EMatrix& m, EMatrix* q, EMatrix* r, EMatrix* p)
 		*r = qrOfM.matrixQR().triangularView<Eigen::Upper>();
 	if (p != nullptr)
 		*p = qrOfM.colsPermutation();
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------//
+void EigenQrDelete(EMatrix& q, EMatrix& r, const EVector& rmCols)
+{
+	EMatrix A = q * r;
+	EMatrix m = MatRmvColIdx(A, rmCols);
+	EigenQrDecomp(m, &q, &r);
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------//

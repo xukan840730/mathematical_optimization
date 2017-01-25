@@ -1,5 +1,6 @@
 #include "../common/common_shared.h"
 #include "../common/eigen_wrapper.h"
+#include "../common/maybe.h"
 #include "qpsub.h"
 #include "eqnsolv.h"
 #include "compdir.h"
@@ -28,7 +29,7 @@ static EVector findUb(const EVector& ub)
 	return findRows(ub, validUb, &t);
 }
 
-static void CalcInfeasibleLambda(bool isqp, bool lls, const EMatrix& Q, const EMatrix& R, const EMatrix& H, const EVector& f, const EVector& X, const EVector& eqix, const EVector& indepIdx, float normf, const EVector& normA, EVector& lambda)
+static EVector CalcLambda1(bool isqp, bool lls, const EMatrix& Q, const EMatrix& R, const EMatrix& H, const EVector& f, const EVector& X)
 {
 	EVector actLambda;
 	if (isqp)
@@ -37,6 +38,13 @@ static void CalcInfeasibleLambda(bool isqp, bool lls, const EMatrix& Q, const EM
 		actLambda = EigenColPivQrSolve(-R, Q.transpose()*(H.transpose() * (H*X - f)));
 	else
 		actLambda = EigenColPivQrSolve(-R, Q.transpose() * f);
+	return actLambda;
+}
+
+static void CalcInfeasibleLambda(bool isqp, bool lls, const EMatrix& Q, const EMatrix& R, const EMatrix& H, const EVector& f, const EVector& X, const EVector& eqix, const EVector& indepIdx, 
+	float normf, const EVector& normA, EVector& lambda)
+{
+	EVector actLambda = CalcLambda1(isqp, lls, Q, R, H, f, X);
 	const EVector normedActLambda = normf * VecDivVec(actLambda, VecFromIdx(normA, eqix));
 	VecReplaceRows(lambda, normedActLambda, VecFromIdx(indepIdx, eqix));
 }
@@ -136,7 +144,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	// some error number
 	const float errNorm = 0.01f * sqrt(eps);
 	const float tolDep = 100 * numVars * eps;
-	const float tolCons = 1e-10;
+	const float tolCons = 1e-10f;
 	EVector lambda(numCstr); lambda.setZero();
 	EVector aix = lambda;
 	EVector eqix = colon(0, numEqCstr - 1);
@@ -150,9 +158,11 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	else { X = EVector(numVars); X.setZero(); }
 
 	EMatrix Z; // null space.
-
 	
-	int actCnt = 0;
+	EVector actSet;
+	EVector actInd;
+	int actCnt = 0;	
+
 	if (numEqCstr > 0)
 	{
 		eqnres res = eqnsolv(A, b, eqix, numVars, eps);
@@ -161,6 +171,9 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 			indepIdx = VecRmvIdx(indepIdx, res.rmvIdx);
 			normA = VecFromIdx(normA, indepIdx);
 		}
+		actSet = MatFromRowIdx(A, eqix);
+		actInd = eqix;
+		actCnt = eqix.rows();
 
 		if (res.exitFlag == -1)
 		{
@@ -269,7 +282,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 
 			EMatrix feasM;
 			EVector feasF(numVars + 1); feasF.setZero(); feasF(numVars) = 1;
-			EVector vt(1); vt(0) = 1e-5;
+			EVector vt(1); vt(0) = 1e-5f;
 			EVector b2 = VecAppend(b, vt);
 			EVector vmc(1); vmc(0) = mc+ 1;
 			EVector feasX = VecAppend(X, vmc);
@@ -302,7 +315,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 	if (isqp)
 	{
 		printf("isqp\n");
-		EVector gf = H * X + f;	
+		gf = H * X + f;	
 		// SD=-Z*((Z'*H*Z)\(Z'*gf));
 		CompDirRes res2 = CompDir(&Z, &H, &gf, numVars, &f, eps);
 		SD = res2.SD;
@@ -350,7 +363,8 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		// a constraint in the direction of search would be very close to zero.
 
 		EVector indf;
-		EVector dist, ind2, ind;
+		EVector dist, ind2;
+		int ind;
 		float stepmin;
 		{
 			const EVector t2 = VecNot(aix);
@@ -361,7 +375,7 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 		if (indf.rows() == 0)
 		{
 			// no constraints to hit
-			stepmin = 1e16;
+			stepmin = 1e16f;
 		}
 		else
 		{
@@ -371,9 +385,8 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 			dist = VecAbs(VecDivVec(t2, t3));
 			{
 				stepmin = VecMin2(dist, ind2);
-				int minRowIdx = VecMin(ind2);
-				EVector t4(1); t4(0) = minRowIdx;
-				ind = VecFromIdx(indf, t4);
+				float minRowIdx = VecMin(ind2);
+				ind = indf(minRowIdx);
 			}
 		}
 		// ---------- Update X ----------------
@@ -434,9 +447,9 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 					if (SD.norm() > errNorm)
 					{
 						if (!normalize)
-							stepmin = abs((X(numVars - 1) + 1e-5) / (SD(numVars - 1)+eps));
+							stepmin = abs((X(numVars - 1) + 1e-5f) / (SD(numVars - 1)+eps));
 						else
-							stepmin = 1e16;
+							stepmin = 1e16f;
 						X = X + stepmin * SD;
 						// how = 'unbounded'
 						exitFlag = -1;
@@ -467,20 +480,161 @@ qpsubres qpsub(const EMatrix& H, const EVector& _f, const EMatrix& _A, const EVe
 				else // singular: solve compatible system for a solution: isqp or lls
 				{
 					EMatrix projH;
+					EMatrix projSD;
+					EMatrix Zgf;
 					if (isqp)
 					{
 						projH = Z.transpose() * H * Z;
-						EMatrix Zgf = Z.transpose() * gf;
-						EMatrix projSD = PseInv(projH, 1e-6) * (-Zgf);
+						Zgf = Z.transpose() * gf;
+						projSD = PseInv(projH) * (-Zgf);
 					}
 					else // LLS
 					{ 
 						ASSERT(false); // TODO:
 					}
+
+					// check if compatible
+					if ((projH*projSD+Zgf).norm() > 10*eps*(projH.norm() + Zgf.norm()))
+					{
+						// system is incompatible --> it's a "chute": use SD from compdir
+						// unbounded in SD direction
+						if (SD.norm() > errNorm)
+						{
+							if (!normalize)
+								stepmin = abs((X(numVars - 1) + 1e-5f) / (SD(numVars - 1) + eps));
+							else
+								stepmin = 1e16f;
+							X = X + stepmin * SD;
+							// how = 'unbounded'
+							exitFlag = -1;
+						}
+						else // norm(SD) <= errNorm
+						{
+							// how = 'ill posed'
+							exitFlag = -1;
+						}
+
+						if (verbosity)
+						{
+							if (SD.norm() > errNorm)
+							{
+								printf("Exiting: The solution is unbounded and at infinity;\n");
+								printf("	 the constraints are not restrictive enough.\n");
+							}
+							else
+							{
+								printf("Exiting: The Search Direction is close to zero; \n");
+								printf("	 the problem is ill-posed\n");
+								printf("	 The gradient of the objective function may be zero\n");
+								printf("	    or the problem may be badly conditioned.\n");
+							}
+						}
+						return qpsubres(exitFlag, X, lambda, numIters);
+					}
+					else // convex -- move to minimum (compatible system)
+					{
+						SD = Z * projSD;
+						dirType = SearchDir::kSingular;
+						// first check if constraint is violated
+						GSD = A * SD;
+						{
+							const EVector t2 = VecNot(aix);
+							const EVector t3 = VecGt(GSD, errNorm * SD.norm());
+							const EVector t4 = VecAnd(t3, t2);
+							indf = findNnzRows(t4, 0);
+						}
+
+						if (indf.rows() == 0)
+						{
+							// no constraints to hit
+							stepmin = 1;
+							delCstr = true;
+						}
+						else
+						{
+							// find distance to the nearest constraint
+							const EVector t2 = VecFromIdx(cstr, indf);
+							const EVector t3 = VecFromIdx(GSD, indf);
+							dist = VecAbs(VecDivVec(t2, t3));
+							{
+								stepmin = VecMin2(dist, ind2);
+								float minRowIdx = VecMin(ind2);
+								ind = indf(minRowIdx);
+							}
+						}
+						if (stepmin > 1) // overstepped minimu; reset stepmin
+						{
+							stepmin = 1;
+							delCstr = true;
+						}
+						X = X + stepmin * SD;
+					}
 				} // if ((!isqp && !lls) || (smallRealEig < -100*eps))
 			} // if (dirType == SearchDir::kNewton)
 		} // if (indf.rows() > 0 && ind2.rows() > 0)
-	}
+
+		if (delCstr)
+		{
+			// note: only reach here if a minimum in the current subspace found
+			if (actCnt > 0)
+			{ 
+				if (actCnt >= numVars - 1)
+				{
+					// avoid case when cind is greater than actCnt
+					//if (cind <= actCnt)
+					//{
+					//	actSet = VecRmvIdx(actSet, cind);
+					//	actInd = VecRmvIdx(actInd, cind);
+					//}
+				}
+				EVector indLam;
+				EVector rlambda;
+				if (isqp)
+				{
+					rlambda = CalcLambda1(isqp, lls, Q, R, H, f, X);
+					EVector actLambda = rlambda;
+					VecReplaceRows(actLambda, VecAbs(VecFromIdx(rlambda, eqix)), eqix);
+					
+					indLam = findLtRows(actLambda, 0);
+				}
+				if (indLam.rows() == 0)
+				{
+					//lambda(indepInd(ACTIND)) = normf * (rlambda. / normA(ACTIND));
+					const EVector normedRLambda = normf * VecDivVec(rlambda, VecFromIdx(normA, actInd));
+					VecReplaceRows(lambda, normedRLambda, VecFromIdx(indepIdx, actInd));
+					return qpsubres(exitFlag, X, lambda, numIters);
+				}
+				// remove constraint
+				int lindn = VecMin3(actInd, indLam);
+				EVector lind(1); lind(0) = lindn;
+				VecRmvIdx(actSet, lind);
+				aix(actInd(lindn)) = 0;
+				EigenQrDelete(Q, R, lind);
+				VecRmvIdx(actInd, lind);
+				actCnt -= 2;
+				simplexIter = false;
+				ind = 0;
+			}
+			else // actCnt == 0
+			{
+				return qpsubres(exitFlag, X, lambda, numIters);
+			}
+
+			delCstr = false;
+		} // end of if (delCstr)
+
+		// calculate gradient w.r.t objective at this point
+		if (isqp)
+		{
+			gf = H * X + f;
+		}
+		else if (lls)
+		{
+			gf = H.transpose()*(H * X - f);
+			// else gf=f still true
+		}
+
+	} // end of while (numIters <= maxIter)
 
 	return qpsubres(0, X, lambda, numIters);
 }

@@ -27,6 +27,12 @@
     <ClInclude Include="lin-equation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="maybe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="assert.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="eigen_wrapper.cpp">
