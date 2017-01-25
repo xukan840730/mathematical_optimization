@@ -7,8 +7,11 @@
 #include "assert.h"
 
 #define NDI_FLT_EPSILON		(1.19209290e-07F)
-//#define NDI_FLT_MAX			(3.40282347e+38f)
-#define NDI_FLT_MAX			(FLT_MAX)
+#ifdef _MSC_VER
+  #define NDI_FLT_MAX			(FLT_MAX)
+#else
+  #define NDI_FLT_MAX			(3.40282347e+38f)
+#endif
 #define NDI_FLT_MIN			(1.17549435e-38F)
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof(*(a)))
