@@ -1,2 +1,3 @@
 Probabilistic Systems Analysis and applied probability:
-   * lesson 21: Bayesian statistical inference I:
+   * lesson 21: Bayesian statistical inference I: need some examples to
+      understand better, and read previous chapters.
